@@ -46,6 +46,10 @@ userRouter.post('/checkout', requireAuth, async (c) => {
     return c.json({ error: 'Stripe price not configured. Set STRIPE_PRO_PRICE_ID in wrangler.toml or dashboard vars.' }, 503)
   }
 
+  const userId = c.get('userId')
+  const user = await c.env.DB.prepare('SELECT email, stripe_customer_id FROM users WHERE id = ?')
+    .bind(userId).first<{ email: string; stripe_customer_id: string | null }>()
+
   const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
@@ -53,8 +57,29 @@ userRouter.post('/checkout', requireAuth, async (c) => {
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: 'https://osmosis.app/success',
     cancel_url: 'https://osmosis.app/cancel',
-    client_reference_id: c.get('userId'),
+    client_reference_id: userId,
+    customer_email: user?.email,
+    ...(user?.stripe_customer_id ? { customer: user.stripe_customer_id } : {}),
   })
-  console.log(`[user/checkout] created checkout session for user ${c.get('userId')}`)
+  console.log(`[user/checkout] created checkout session for user ${userId}`)
+  return c.json({ url: session.url })
+})
+
+userRouter.post('/portal', requireAuth, async (c) => {
+  const userId = c.get('userId')
+  const user = await c.env.DB.prepare('SELECT stripe_customer_id FROM users WHERE id = ?')
+    .bind(userId).first<{ stripe_customer_id: string | null }>()
+
+  if (!user?.stripe_customer_id) {
+    console.warn(`[user/portal] no stripe_customer_id for user ${userId}`)
+    return c.json({ error: 'No active subscription found' }, 404)
+  }
+
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+  const session = await stripe.billingPortal.sessions.create({
+    customer: user.stripe_customer_id,
+    return_url: 'https://osmosis.app',
+  })
+  console.log(`[user/portal] created portal session for user ${userId}`)
   return c.json({ url: session.url })
 })

@@ -51,21 +51,81 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
     upgradeBtn.style.cssText =
       'background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:8px;padding:10px;width:100%;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;'
     upgradeBtn.textContent = '✦ Upgrade to Pro — Unlimited'
+
+    const upgradeError = document.createElement('div')
+    upgradeError.style.cssText = 'color:#ef4444;font-size:11px;text-align:center;margin-top:4px;display:none;'
+
     upgradeBtn.addEventListener('click', async () => {
-      const token = await getToken()
-      if (!token) return
-      const res = await fetch(`${API_BASE_URL}/user/checkout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) {
-        console.warn('[osmosis:popup] checkout failed', res.status)
-        return
+      upgradeBtn.disabled = true
+      upgradeBtn.textContent = 'Opening checkout…'
+      upgradeError.style.display = 'none'
+
+      try {
+        const token = await getToken()
+        if (!token) throw new Error('Not signed in')
+
+        const res = await fetch(`${API_BASE_URL}/user/checkout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({})) as { error?: string }
+          throw new Error(body.error ?? `Server error (${res.status})`)
+        }
+        const { url } = (await res.json()) as { url: string }
+        await chrome.tabs.create({ url })
+      } catch (err) {
+        console.warn('[osmosis:popup] checkout failed', err)
+        upgradeError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
+        upgradeError.style.display = 'block'
+      } finally {
+        upgradeBtn.disabled = false
+        upgradeBtn.textContent = '✦ Upgrade to Pro — Unlimited'
       }
-      const { url } = (await res.json()) as { url: string }
-      await chrome.tabs.create({ url })
     })
-    body.append(upgradeBtn, divider())
+
+    body.append(upgradeBtn, upgradeError, divider())
+  }
+
+  if (user.plan === 'pro') {
+    const manageBtn = document.createElement('button')
+    manageBtn.style.cssText =
+      'background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:8px;padding:10px;width:100%;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;'
+    manageBtn.textContent = 'Manage Subscription'
+
+    const manageError = document.createElement('div')
+    manageError.style.cssText = 'color:#ef4444;font-size:11px;text-align:center;margin-top:4px;display:none;'
+
+    manageBtn.addEventListener('click', async () => {
+      manageBtn.disabled = true
+      manageBtn.textContent = 'Opening portal…'
+      manageError.style.display = 'none'
+
+      try {
+        const token = await getToken()
+        if (!token) throw new Error('Not signed in')
+
+        const res = await fetch(`${API_BASE_URL}/user/portal`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({})) as { error?: string }
+          throw new Error(body.error ?? `Server error (${res.status})`)
+        }
+        const { url } = (await res.json()) as { url: string }
+        await chrome.tabs.create({ url })
+      } catch (err) {
+        console.warn('[osmosis:popup] portal failed', err)
+        manageError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
+        manageError.style.display = 'block'
+      } finally {
+        manageBtn.disabled = false
+        manageBtn.textContent = 'Manage Subscription'
+      }
+    })
+
+    body.append(manageBtn, manageError, divider())
   }
 
   const signOutRow = document.createElement('div')

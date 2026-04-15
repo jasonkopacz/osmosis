@@ -14,7 +14,7 @@ id = "5379e31e3a9a48aaa528409924084738"
 [vars]
 AZURE_TRANSLATOR_REGION = "eastus"
 # Stripe Dashboard → Product → Price ID (price_...). Required for POST /user/checkout.
-STRIPE_PRO_PRICE_ID = ""
+STRIPE_PRO_PRICE_ID = "price_1TMYjoBKftQqNeWyG6Lzeq5d"
 # Optional override for tests (default 50000). Example: "5" to simulate hitting limit quickly.
 # FREE_TIER_CHAR_LIMIT = "50000"
 # Google OAuth (Chrome extension: add redirect https://<EXTENSION_ID>.chromiumapp.org/ in Cloud Console)

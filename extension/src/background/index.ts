@@ -52,16 +52,19 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'GET_USER') {
     const token = await getToken()
-    return { user: token ? await fetchUser(token) : null }
+    return token ? await fetchUser(token) : null
   }
 
   if (msg.type === 'GOOGLE_LOGIN') {
+    await chrome.storage.local.remove('osmosis_auth_error')
     try {
       const token = await loginWithGoogle()
       await setToken(token)
       return { token }
     } catch (err) {
-      return { error: String(err).replace('Error: ', '') }
+      const errMsg = String(err).replace('Error: ', '')
+      await chrome.storage.local.set({ osmosis_auth_error: errMsg })
+      return { error: errMsg }
     }
   }
 

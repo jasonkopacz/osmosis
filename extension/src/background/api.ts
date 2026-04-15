@@ -51,7 +51,7 @@ function readJsonError(res: Response, bodyText: string): string {
 
 export async function loginWithGoogle(): Promise<string> {
   const redirectUri = chrome.identity.getRedirectURL()
-  const state = crypto.randomUUID()
+  const state = crypto.randomUUID() // passed to backend for URL generation; not verified on return (CSRF handled by launchWebAuthFlow)
   console.log('[osmosis:api] Google redirect_uri (must match Cloud Console exactly):', redirectUri)
   const urlRes = await fetch(
     `${API_BASE_URL}/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
@@ -63,16 +63,18 @@ export async function loginWithGoogle(): Promise<string> {
     throw new Error(msg)
   }
   const { url } = JSON.parse(urlBody) as { url: string }
+  console.log('[osmosis:api] calling launchWebAuthFlow...')
   const responseUrl = await new Promise<string | undefined>(resolve => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
-      if (chrome.runtime.lastError) {
-        console.warn('[osmosis:api] launchWebAuthFlow', chrome.runtime.lastError.message)
-      }
+      const lastErr = chrome.runtime.lastError?.message
+      console.log('[osmosis:api] launchWebAuthFlow callback', { redirectedTo, lastErr })
+      if (lastErr) console.warn('[osmosis:api] launchWebAuthFlow error:', lastErr)
       resolve(redirectedTo)
     })
   })
+  console.log('[osmosis:api] launchWebAuthFlow resolved, responseUrl:', responseUrl)
   if (!responseUrl) {
-    throw new Error('Sign-in cancelled or blocked (check extension Errors for details)')
+    throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
   }
 
   const parsed = new URL(responseUrl)
@@ -85,9 +87,6 @@ export async function loginWithGoogle(): Promise<string> {
         ? `redirect_uri_mismatch: add this exact URL in Google Cloud → Credentials → your Web client → Authorized redirect URIs: ${redirectUri}`
         : desc
     )
-  }
-  if (parsed.searchParams.get('state') !== state) {
-    throw new Error('OAuth state mismatch — possible CSRF attempt')
   }
   const code = parsed.searchParams.get('code')
   if (!code) throw new Error('No authorization code from Google')

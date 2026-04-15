@@ -51,7 +51,6 @@ async function runPipeline(): Promise<void> {
     return
   }
   if (res.error === 'NOT_LOGGED_IN') {
-    console.warn('[osmosis:content] sign in via popup to translate')
     return
   }
   if (res.error || !res.translations) {
