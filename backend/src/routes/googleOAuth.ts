@@ -56,8 +56,8 @@ googleOAuthRouter.post('/exchange', async c => {
     return c.json({ error: 'Google profile fetch failed' }, 401)
   }
 
-  if (!profile.email || !profile.sub) {
-    return c.json({ error: 'Google account has no email' }, 400)
+  if (!profile.email || !profile.sub || !profile.email_verified) {
+    return c.json({ error: 'Google account email not verified' }, 400)
   }
 
   const email = profile.email.toLowerCase()

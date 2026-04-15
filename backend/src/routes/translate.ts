@@ -14,21 +14,25 @@ function currentYearMonth() {
 export const translateRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 translateRouter.post('/', requireAuth, checkUsage, async (c) => {
-  const { words, targetLang } = await c.req.json<{ words: string[]; targetLang: string }>()
-  if (!words?.length || !targetLang) return c.json({ error: 'words and targetLang required' }, 400)
-  const uniqueWords = [...new Set(words)]
+  const { words, targetLang } = await c.req.json<{ words: unknown[]; targetLang: string }>()
+  if (!Array.isArray(words) || !words.length || !targetLang) return c.json({ error: 'words and targetLang required' }, 400)
+  if (words.length > 250) return c.json({ error: 'Too many words (max 250 per request)' }, 400)
+  if (words.some(w => typeof w !== 'string' || w.length > 200)) return c.json({ error: 'Invalid words array' }, 400)
+  const uniqueWords = [...new Set(words as string[])]
   console.log(
     `[translate] user ${c.get('userId')} target=${targetLang} requested=${words.length} unique=${uniqueWords.length}`
   )
 
   const result: Record<string, string> = {}
-  const uncached: string[] = []
 
-  await Promise.all(uniqueWords.map(async (word) => {
-    const hit = await getCached(c.env.TRANSLATION_CACHE, word, targetLang)
+  const cacheResults = await Promise.all(
+    uniqueWords.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
+  )
+  const uncached: string[] = []
+  for (const { word, hit } of cacheResults) {
     if (hit) result[word] = hit
     else uncached.push(word)
-  }))
+  }
   console.log(`[translate] cache hits=${uniqueWords.length - uncached.length} misses=${uncached.length}`)
 
   if (uncached.length > 0) {
@@ -37,7 +41,12 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
       translations = await translateWords(uncached, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
     } catch (err) {
       console.warn(`[translate] azure primary attempt failed, retrying once: ${String(err)}`)
-      translations = await translateWords(uncached, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
+      try {
+        translations = await translateWords(uncached, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
+      } catch (retryErr) {
+        console.error(`[translate] azure retry also failed: ${String(retryErr)}`)
+        return c.json({ error: 'Translation service unavailable' }, 503)
+      }
     }
     const usageDelta = uncached.join('').length
     await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)

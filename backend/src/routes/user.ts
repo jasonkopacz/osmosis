@@ -58,8 +58,9 @@ userRouter.post('/checkout', requireAuth, async (c) => {
     success_url: 'https://osmosis.app/success',
     cancel_url: 'https://osmosis.app/cancel',
     client_reference_id: userId,
-    customer_email: user?.email,
-    ...(user?.stripe_customer_id ? { customer: user.stripe_customer_id } : {}),
+    ...(user?.stripe_customer_id
+      ? { customer: user.stripe_customer_id }
+      : { customer_email: user?.email }),
   })
   console.log(`[user/checkout] created checkout session for user ${userId}`)
   return c.json({ url: session.url })

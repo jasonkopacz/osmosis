@@ -25,7 +25,11 @@ stripeRouter.post('/webhook', async (c) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    if (session.client_reference_id && typeof session.customer === 'string') {
+    if (
+      session.client_reference_id &&
+      typeof session.customer === 'string' &&
+      session.payment_status === 'paid'
+    ) {
       await updatePlan(c.env.DB, session.client_reference_id, 'pro', session.customer as string)
       console.log(`[stripe/webhook] upgraded user ${session.client_reference_id} to pro`)
     }

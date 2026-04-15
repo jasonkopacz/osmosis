@@ -18,7 +18,7 @@ export async function createUser(db: D1Database, email: string, passwordHash: st
 }
 
 export async function findUserByEmail(db: D1Database, email: string): Promise<User | null> {
-  const result = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<User>()
+  const result = await db.prepare('SELECT id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, created_at FROM users WHERE email = ?').bind(email).first<User>()
   return result ?? null
 }
 
