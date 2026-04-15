@@ -24,17 +24,17 @@ async function runPipeline(): Promise<void> {
   clearReplacements()
   injectTooltipStyles()
 
-  const eligible = collectWords(document.body)
-    .filter(({ word, offset, node }) => isEligible(word, node.textContent?.[offset - 1] ?? ''))
-    .map(e => e.word)
-  if (eligible.length === 0) {
+  const allEntries = collectWords(document.body)
+  const eligibleEntries = allEntries.filter(({ word, offset, node }) => isEligible(word, node.textContent?.[offset - 1] ?? ''))
+  if (eligibleEntries.length === 0) {
     console.log('[osmosis:content] no eligible words')
     return
   }
 
-  const unique = [...new Set(sampleWords(eligible, settings.percentage, location.href))]
+  const eligibleWords = eligibleEntries.map(e => e.word)
+  const unique = [...new Set(sampleWords(eligibleWords, settings.percentage, location.href))]
   console.log('[osmosis:content] pipeline', {
-    eligible: eligible.length,
+    eligible: eligibleEntries.length,
     sampled: unique.length,
     lang: settings.targetLang,
   })
@@ -57,7 +57,7 @@ async function runPipeline(): Promise<void> {
     if (res.error) console.warn('[osmosis:content] translate error', res.error)
     return
   }
-  applyReplacements(new Map(Object.entries(res.translations)))
+  applyReplacements(new Map(Object.entries(res.translations)), eligibleEntries)
 }
 
 chrome.runtime.onMessage.addListener((msg: Message) => {

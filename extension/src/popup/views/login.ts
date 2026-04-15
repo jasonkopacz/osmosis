@@ -1,5 +1,4 @@
-import { login, signup } from '../../background/api'
-import { setToken } from '../../background/auth'
+import type { Message } from '../../shared/types'
 
 export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   root.replaceChildren()
@@ -99,12 +98,12 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     submitBtn.disabled = true
     submitBtn.textContent = '...'
     try {
-      const token =
-        mode === 'login'
-          ? await login(emailInput.value, passwordInput.value)
-          : await signup(emailInput.value, passwordInput.value)
-      await setToken(token)
-      console.log('[osmosis:popup] session saved')
+      const msg: Message = mode === 'login'
+        ? { type: 'EMAIL_LOGIN', email: emailInput.value, password: passwordInput.value }
+        : { type: 'EMAIL_SIGNUP', email: emailInput.value, password: passwordInput.value }
+      const result = await chrome.runtime.sendMessage(msg) as { token?: string; error?: string }
+      if (result.error) throw new Error(result.error)
+      chrome.storage.onChanged.removeListener(onStorageChange)
       onSuccess()
     } catch (e) {
       errorEl.textContent = String(e).replace('Error: ', '')

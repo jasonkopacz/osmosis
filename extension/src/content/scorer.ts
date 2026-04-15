@@ -4,10 +4,10 @@ const MAX_WORDS = 200
 
 export function scoreWord(word: string): number {
   const rank = WORD_RANK[word.toLowerCase()]
-  if (!rank) return 0
-  if (rank < 100) return 1
-  if (rank <= 3000) return 3
-  return 2
+  if (!rank) return 2          // unknown/rare words — good learning candidates
+  if (rank < 100) return 1     // very common (the, of, and) — lowest priority
+  if (rank <= 3000) return 3   // mid-frequency — highest priority
+  return 2                     // less common known words — medium priority
 }
 
 function hashSeed(url: string): number {

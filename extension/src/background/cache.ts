@@ -7,4 +7,7 @@ export class SessionCache {
   set(word: string, lang: string, val: string): void {
     this.store.set(this.key(word, lang), val)
   }
+  clear(): void {
+    this.store.clear()
+  }
 }

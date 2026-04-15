@@ -16,12 +16,5 @@
     "default_popup": "src/popup/index.html",
     "default_icon": { "48": "icons/icon48.png" }
   },
-  "icons": { "48": "icons/icon48.png" },
-  "oauth2": {
-    "client_id": "748072379305-98llrsckd89j63fvpql03n7qq0q0ivmd.apps.googleusercontent.com",
-    "scopes": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile"
-    ]
-  }
+  "icons": { "48": "icons/icon48.png" }
 }

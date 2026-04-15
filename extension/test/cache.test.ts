@@ -15,4 +15,12 @@ describe('SessionCache', () => {
     c.set('hello', 'de', 'hallo')
     expect(c.get('hello', 'fr')).toBeNull()
   })
+  it('clear removes all entries', () => {
+    const c = new SessionCache()
+    c.set('hello', 'de', 'hallo')
+    c.set('world', 'fr', 'monde')
+    c.clear()
+    expect(c.get('hello', 'de')).toBeNull()
+    expect(c.get('world', 'fr')).toBeNull()
+  })
 })

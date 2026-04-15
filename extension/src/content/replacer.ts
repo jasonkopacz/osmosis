@@ -1,4 +1,4 @@
-import { collectWords } from './walker'
+import type { WordEntry } from './walker'
 import { isEligible } from './filter'
 
 const STYLE_ID = 'osmosis-styles'
@@ -35,13 +35,13 @@ export function injectTooltipStyles(): void {
   document.head.appendChild(style)
 }
 
-export function applyReplacements(translationMap: Map<string, string>): void {
+export function applyReplacements(translationMap: Map<string, string>, entries: WordEntry[]): void {
   if (translationMap.size === 0) return
 
   // Group all eligible matches by text node
   const byNode = new Map<Text, Array<{ word: string; offset: number; translation: string }>>()
 
-  for (const { word, node, offset } of collectWords(document.body)) {
+  for (const { word, node, offset } of entries) {
     const prevChar = node.textContent?.[offset - 1] ?? ''
     if (!isEligible(word, prevChar)) continue
     const translation = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
@@ -78,8 +78,12 @@ export function applyReplacements(translationMap: Map<string, string>): void {
 }
 
 export function clearReplacements(): void {
+  const parents = new Set<Node>()
   document.querySelectorAll<HTMLSpanElement>('.osmosis-word').forEach(span => {
-    span.parentNode?.replaceChild(document.createTextNode(span.getAttribute('data-original') ?? ''), span)
+    if (span.parentNode) {
+      parents.add(span.parentNode)
+      span.parentNode.replaceChild(document.createTextNode(span.getAttribute('data-original') ?? ''), span)
+    }
   })
-  document.body.normalize()
+  parents.forEach(parent => (parent as Element).normalize?.())
 }

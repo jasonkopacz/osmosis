@@ -1,6 +1,6 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
-import { translateBatch, fetchUser, loginWithGoogle } from './api'
+import { translateBatch, fetchUser, loginWithGoogle, login, signup } from './api'
 import type { Message } from '../shared/types'
 
 const cache = new SessionCache()
@@ -55,11 +55,25 @@ async function handle(msg: Message): Promise<unknown> {
     return token ? await fetchUser(token) : null
   }
 
+  if (msg.type === 'EMAIL_LOGIN' || msg.type === 'EMAIL_SIGNUP') {
+    try {
+      const token = msg.type === 'EMAIL_LOGIN'
+        ? await login(msg.email, msg.password)
+        : await signup(msg.email, msg.password)
+      await setToken(token)
+      cache.clear()
+      return { token }
+    } catch (err) {
+      return { error: String(err).replace('Error: ', '') }
+    }
+  }
+
   if (msg.type === 'GOOGLE_LOGIN') {
     await chrome.storage.local.remove('osmosis_auth_error')
     try {
       const token = await loginWithGoogle()
       await setToken(token)
+      cache.clear()
       return { token }
     } catch (err) {
       const errMsg = String(err).replace('Error: ', '')
