@@ -1,4 +1,12 @@
 node_modules/
 dist/
 .wrangler/
-.worktrees
+.worktrees/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+
+client_secret_*.json

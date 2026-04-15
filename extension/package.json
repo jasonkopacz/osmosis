@@ -1,0 +1,27 @@
+{
+  "name": "extension",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "generate:frequency": "tsx scripts/generateFrequency.ts",
+    "print:load": "node -e \"const { join } = require('path'); const d = join(process.cwd(), 'dist'); console.log('Load unpacked in chrome://extensions →'); console.log(d);\"",
+    "test": "vitest run --environment jsdom --passWithNoTests",
+    "test:watch": "vitest --environment jsdom --passWithNoTests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Osmosis Chrome extension (MV3)",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "@types/chrome": "^0.1.40",
+    "@types/jsdom": "^21.1.7",
+    "jsdom": "^24.1.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}

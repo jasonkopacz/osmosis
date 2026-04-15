@@ -1,0 +1,22 @@
+{
+  "name": "osmosis",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Osmosis — Chrome extension (MV3) + Cloudflare Workers backend",
+  "workspaces": [
+    "backend",
+    "extension"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:backend": "npm run dev -w backend",
+    "dev:extension": "npm run dev -w extension",
+    "chrome:load": "npm run build -w extension && npm run print:load -w extension",
+    "generate:frequency": "npm run generate:frequency -w extension",
+    "deploy:backend": "npm run deploy -w backend"
+  },
+  "engines": {
+    "node": ">=20.14.0"
+  }
+}

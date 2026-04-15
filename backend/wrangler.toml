@@ -1,0 +1,23 @@
+name = "osmosis-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "osmosis"
+database_id = "9aef87c8-3859-4deb-aae6-851670702c1c"
+
+[[kv_namespaces]]
+binding = "TRANSLATION_CACHE"
+id = "5379e31e3a9a48aaa528409924084738"
+
+[vars]
+AZURE_TRANSLATOR_REGION = "eastus"
+# Stripe Dashboard → Product → Price ID (price_...). Required for POST /user/checkout.
+STRIPE_PRO_PRICE_ID = ""
+# Optional override for tests (default 50000). Example: "5" to simulate hitting limit quickly.
+# FREE_TIER_CHAR_LIMIT = "50000"
+# Google OAuth (Chrome extension: add redirect https://<EXTENSION_ID>.chromiumapp.org/ in Cloud Console)
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET via wrangler secret put (or vars for client id only + secret)
+# Secrets (set via wrangler secret put):
+# JWT_SECRET, AZURE_TRANSLATOR_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET

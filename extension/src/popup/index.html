@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Osmosis</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 300px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+        background: #1e2533;
+        color: #e2e8f0;
+      }
+      .header {
+        background: #1a202c;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #2d3748;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .logo-icon {
+        width: 22px;
+        height: 22px;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      .body {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .field-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #718096;
+        margin-bottom: 5px;
+      }
+      .footer {
+        background: #1a202c;
+        padding: 9px 16px;
+        border-top: 1px solid #2d3748;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: #718096;
+      }
+      .footer-email {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+      }
+      .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #718096;
+        font-size: 16px;
+        padding: 2px;
+      }
+      .icon-btn:hover {
+        color: #a0aec0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
