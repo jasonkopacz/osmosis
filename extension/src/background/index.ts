@@ -82,12 +82,5 @@ async function handle(msg: Message): Promise<unknown> {
     }
   }
 
-  if (msg.type === 'LOGOUT') {
-    console.log('[osmosis:bg] LOGOUT message received, clearing session')
-    await clearToken()
-    cache.clear()
-    return { ok: true }
-  }
-
   return { error: 'UNKNOWN_MESSAGE' }
 }

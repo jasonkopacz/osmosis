@@ -18,7 +18,5 @@ export const checkUsage = createMiddleware<{ Bindings: Env; Variables: Variables
     console.warn(`[checkUsage] user ${userId} hit monthly free limit`)
     return c.json({ error: 'Monthly limit reached', code: 'LIMIT_REACHED' }, 402)
   }
-  // Note: This is a best-effort gate and not strictly race-free across concurrent requests.
-  // The translate route performs an additional preflight usage check before calling Azure to reduce overage risk.
   await next()
 })
