@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/requireAuth'
 import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../lib/kv'
 import { translateWords } from '../lib/azure'
-import { incrementUsage } from '../lib/db'
+import { incrementUsage, getTranslationCached, setTranslationCached } from '../lib/db'
 
 function currentYearMonth() {
   const d = new Date()
@@ -25,15 +25,31 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
 
   const result: Record<string, string> = {}
 
-  const cacheResults = await Promise.all(
-    uniqueWords.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
+  // Layer 1: D1 database cache (permanent)
+  const d1Results = await Promise.all(
+    uniqueWords.map(word => getTranslationCached(c.env.DB, word, targetLang).then(hit => ({ word, hit })))
+  )
+  const afterD1: string[] = []
+  for (const { word, hit } of d1Results) {
+    if (hit) result[word] = hit
+    else afterD1.push(word)
+  }
+
+  // Layer 2: KV cache (permanent, lower latency)
+  const kvResults = await Promise.all(
+    afterD1.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
   )
   const uncached: string[] = []
-  for (const { word, hit } of cacheResults) {
-    if (hit) result[word] = hit
-    else uncached.push(word)
+  for (const { word, hit } of kvResults) {
+    if (hit) {
+      result[word] = hit
+      // Backfill into D1 so future hits are served from there
+      void setTranslationCached(c.env.DB, word, targetLang, hit)
+    } else {
+      uncached.push(word)
+    }
   }
-  console.log(`[translate] cache hits=${uniqueWords.length - uncached.length} misses=${uncached.length}`)
+  console.log(`[translate] d1_hits=${uniqueWords.length - afterD1.length} kv_hits=${afterD1.length - uncached.length} misses=${uncached.length}`)
 
   if (uncached.length > 0) {
     let translations: Map<string, string>
@@ -53,7 +69,10 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     console.log(`[translate] incremented usage by ${usageDelta} chars`)
     await Promise.all([...translations.entries()].map(async ([word, translation]) => {
       result[word] = translation
-      await setCached(c.env.TRANSLATION_CACHE, word, targetLang, translation)
+      await Promise.all([
+        setCached(c.env.TRANSLATION_CACHE, word, targetLang, translation),
+        setTranslationCached(c.env.DB, word, targetLang, translation),
+      ])
     }))
   }
 
