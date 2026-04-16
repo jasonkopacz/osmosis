@@ -1,57 +1,14 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { hashPassword, verifyPassword, DUMMY_HASH } from '../utils/passwords'
-import { signJWT } from '../utils/jwt'
-import { createUser, findUserByEmail, DuplicateEmailError } from '../db/users'
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export const authRouter = new Hono<{ Bindings: Env }>()
 
-authRouter.post('/signup', async (c) => {
-  const { email: rawEmail, password } = await c.req.json<{ email: string; password: string }>()
-  const email = rawEmail?.toLowerCase().trim()
-  if (!email || !EMAIL_RE.test(email) || !password || password.length < 8) {
-    console.warn('[auth/signup] invalid payload')
-    return c.json({ error: 'Invalid email or password (min 8 chars)' }, 400)
-  }
-  try {
-    await createUser(c.env.DB, email, await hashPassword(password))
-  } catch (err) {
-    if (err instanceof DuplicateEmailError) {
-      console.warn(`[auth/signup] duplicate email attempted: ${email}`)
-      return c.json({ error: 'Email already registered' }, 409)
-    }
-    throw err
-  }
-  const user = (await findUserByEmail(c.env.DB, email))!
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-  const token = await signJWT({ sub: user.id, email, exp }, c.env.JWT_SECRET)
-  console.log(`[auth/signup] created user ${user.id}`)
-  return c.json({ token })
+authRouter.post('/signup', c => {
+  console.warn('[auth/signup] rejected — Google OAuth only')
+  return c.json({ error: 'Email/password sign-up is disabled. Use Google sign-in.' }, 403)
 })
 
-authRouter.post('/login', async (c) => {
-  const { email: rawEmail, password } = await c.req.json<{ email: string; password: string }>()
-  const email = rawEmail?.toLowerCase().trim()
-  const user = await findUserByEmail(c.env.DB, email)
-  if (!user) {
-    // Run verifyPassword against a dummy hash to prevent timing-based email enumeration
-    await verifyPassword(password ?? '', DUMMY_HASH)
-    console.warn(`[auth/login] failed login for unknown user ${email}`)
-    return c.json({ error: 'Invalid credentials' }, 401)
-  }
-  if (user.auth_provider === 'google') {
-    await verifyPassword(password ?? '', DUMMY_HASH)
-    console.warn(`[auth/login] password login blocked for Google-only user ${email}`)
-    return c.json({ error: 'Use Google sign-in for this account' }, 401)
-  }
-  if (!(await verifyPassword(password, user.password_hash))) {
-    console.warn(`[auth/login] failed login for ${email}`)
-    return c.json({ error: 'Invalid credentials' }, 401)
-  }
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-  const token = await signJWT({ sub: user.id, email, exp }, c.env.JWT_SECRET)
-  console.log(`[auth/login] successful login for user ${user.id}`)
-  return c.json({ token })
+authRouter.post('/login', c => {
+  console.warn('[auth/login] rejected — Google OAuth only')
+  return c.json({ error: 'Email/password sign-in is disabled. Use Google sign-in.' }, 403)
 })

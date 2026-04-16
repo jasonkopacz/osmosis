@@ -28,30 +28,20 @@ function readJsonError(res: Response, bodyText: string): string {
   return bodyText.trim() ? `${res.status}: ${bodyText.slice(0, 200)}` : `Request failed (${res.status})`
 }
 
-export async function login(email: string, password: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (res.status === 409) throw new Error('Email already registered')
-  if (!res.ok) throw new Error(readJsonError(res, await res.text()))
-  return ((await res.json()) as { token: string }).token
-}
-
-export async function signup(email: string, password: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (res.status === 409) throw new Error('Email already registered')
-  if (!res.ok) throw new Error(readJsonError(res, await res.text()))
-  return ((await res.json()) as { token: string }).token
+function normalizeChromeExtensionRedirectUri(raw: string): string {
+  try {
+    const u = new URL(raw)
+    if (u.protocol === 'https:' && /\.chromiumapp\.org$/.test(u.hostname)) {
+      return `https://${u.hostname}/`
+    }
+  } catch {
+    /* ignore */
+  }
+  return raw
 }
 
 export async function loginWithGoogle(): Promise<string> {
-  const redirectUri = chrome.identity.getRedirectURL()
+  const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
   const state = crypto.randomUUID()
   console.log('[osmosis:api] Google redirect_uri (must match Cloud Console exactly):', redirectUri)
 

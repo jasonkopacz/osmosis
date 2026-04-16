@@ -28,15 +28,15 @@ User visits page
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Extension | Chrome MV3, TypeScript, Vite, @crxjs/vite-plugin |
-| Backend | Cloudflare Workers, Hono |
-| Database | Cloudflare D1 (SQLite) |
-| Cache | Cloudflare KV |
-| Translation | Azure Cognitive Services Translator |
-| Auth | JWT, Google OAuth 2.0 |
-| Payments | Stripe (subscriptions) |
+| Layer       | Technology                                       |
+| ----------- | ------------------------------------------------ |
+| Extension   | Chrome MV3, TypeScript, Vite, @crxjs/vite-plugin |
+| Backend     | Cloudflare Workers, Hono                         |
+| Database    | Cloudflare D1 (SQLite)                           |
+| Cache       | Cloudflare KV                                    |
+| Translation | Azure Cognitive Services Translator              |
+| Auth        | JWT, Google OAuth 2.0                            |
+| Payments    | Stripe (subscriptions)                           |
 
 ## Prerequisites
 
@@ -174,18 +174,16 @@ cd extension && npm test
 
 All authenticated endpoints require `Authorization: Bearer <jwt>`.
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/auth/signup` | — | Create account (email + password) |
-| `POST` | `/auth/login` | — | Sign in, returns JWT |
-| `GET` | `/auth/google/url` | — | Get Google OAuth authorization URL |
-| `POST` | `/auth/google/exchange` | — | Exchange OAuth code for JWT |
-| `GET` | `/user/me` | ✓ | Get current user profile and usage |
-| `POST` | `/user/checkout` | ✓ | Create Stripe checkout session |
-| `POST` | `/user/portal` | ✓ | Open Stripe billing portal |
-| `POST` | `/translate` | ✓ | Translate an array of words |
-| `POST` | `/stripe/webhook` | — | Stripe webhook receiver |
-| `GET` | `/health` | — | Health check |
+| Method | Path                    | Auth | Description                        |
+| ------ | ----------------------- | ---- | ---------------------------------- |
+| `GET`  | `/auth/google/url`      | —    | Get Google OAuth authorization URL |
+| `POST` | `/auth/google/exchange` | —    | Exchange OAuth code for JWT        |
+| `GET`  | `/user/me`              | ✓    | Get current user profile and usage |
+| `POST` | `/user/checkout`        | ✓    | Create Stripe checkout session     |
+| `POST` | `/user/portal`          | ✓    | Open Stripe billing portal         |
+| `POST` | `/translate`            | ✓    | Translate an array of words        |
+| `POST` | `/stripe/webhook`       | —    | Stripe webhook receiver            |
+| `GET`  | `/health`               | —    | Health check                       |
 
 ### `POST /translate`
 
@@ -197,6 +195,7 @@ All authenticated endpoints require `Authorization: Bearer <jwt>`.
 ```
 
 Response:
+
 ```json
 {
   "translations": {
@@ -210,10 +209,10 @@ Returns `402` with `{ "code": "LIMIT_REACHED" }` when a free-tier user exceeds t
 
 ## Plans & Billing
 
-| | Free | Pro |
-|---|---|---|
-| Monthly character limit | 50,000 | Unlimited |
-| Price | Free | Stripe subscription |
+|                         | Free   | Pro                 |
+| ----------------------- | ------ | ------------------- |
+| Monthly character limit | 50,000 | Unlimited           |
+| Price                   | Free   | Stripe subscription |
 
 Plan is stored in the `users` table and enforced server-side via the `checkUsage` middleware. Upgrades and downgrades are handled via Stripe webhooks (`checkout.session.completed` and `customer.subscription.deleted`).
 
@@ -223,11 +222,11 @@ To test billing without real charges, use Stripe's test card `4242 4242 4242 424
 
 Accessible via the gear icon in the popup:
 
-| Setting | Description |
-|---|---|
-| **Enable/Disable** | Toggle replacements on/off globally |
+| Setting             | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| **Enable/Disable**  | Toggle replacements on/off globally              |
 | **Target Language** | Language to translate words into (50+ supported) |
-| **Replacement %** | Percentage of eligible words to replace (1–100%) |
+| **Replacement %**   | Percentage of eligible words to replace (1–100%) |
 
 Settings are synced across devices via `chrome.storage.sync`.
 
@@ -239,22 +238,22 @@ All languages supported by Azure Cognitive Services Translator, including German
 
 ### Backend (`wrangler.toml` vars — not secret)
 
-| Variable | Description |
-|---|---|
-| `AZURE_TRANSLATOR_REGION` | Azure region (e.g. `eastus`) |
-| `STRIPE_PRO_PRICE_ID` | Stripe Price ID for the Pro subscription |
-| `FREE_TIER_CHAR_LIMIT` | Override free tier limit (default: 50,000) |
+| Variable                  | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `AZURE_TRANSLATOR_REGION` | Azure region (e.g. `eastus`)               |
+| `STRIPE_PRO_PRICE_ID`     | Stripe Price ID for the Pro subscription   |
+| `FREE_TIER_CHAR_LIMIT`    | Override free tier limit (default: 50,000) |
 
 ### Backend secrets (via `wrangler secret put`)
 
-| Secret | Description |
-|---|---|
-| `JWT_SECRET` | Secret for signing JWTs |
-| `AZURE_TRANSLATOR_KEY` | Azure Cognitive Services API key |
-| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_...`) |
+| Secret                  | Description                                 |
+| ----------------------- | ------------------------------------------- |
+| `JWT_SECRET`            | Secret for signing JWTs                     |
+| `AZURE_TRANSLATOR_KEY`  | Azure Cognitive Services API key            |
+| `STRIPE_SECRET_KEY`     | Stripe secret key (`sk_...`)                |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`) |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GOOGLE_CLIENT_ID`      | Google OAuth client ID                      |
+| `GOOGLE_CLIENT_SECRET`  | Google OAuth client secret                  |
 
 ## Deployment
 
@@ -288,7 +287,6 @@ osmosis/
 │   │   │   ├── requireAuth.ts    # JWT authentication
 │   │   │   └── checkUsage.ts     # Free tier enforcement
 │   │   └── routes/
-│   │       ├── auth.ts           # Email/password auth
 │   │       ├── googleOAuth.ts    # Google OAuth flow
 │   │       ├── translate.ts      # Translation endpoint
 │   │       ├── user.ts           # User profile + Stripe checkout

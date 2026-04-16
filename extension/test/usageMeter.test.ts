@@ -25,30 +25,35 @@ describe('createUsageMeter', () => {
   })
 
   it('shows reset date', () => {
-    const el = createUsageMeter(0, 50000, '2026-05-01T00:00:00.000Z')
-    expect(el.textContent).toMatch(/May 1/)
+    const el = createUsageMeter(0, 50000, '2026-05-01T12:00:00.000Z')
+    expect(el.textContent).toMatch(/May\s+1/)
   })
+
+  function fillEl(root: HTMLElement): HTMLElement {
+    const track = root.children[1] as HTMLElement
+    return track.children[0] as HTMLElement
+  }
 
   it('caps fill at 100% when usage exceeds limit', () => {
     const el = createUsageMeter(99999, 1000, new Date().toISOString())
-    const fill = el.querySelector('div > div') as HTMLElement | null
-    // The fill div is nested; check that its width style is capped
-    const html = el.innerHTML
-    expect(html).toContain('width:100%')
+    expect(fillEl(el).style.width).toBe('100%')
   })
 
   it('uses green color below 60% usage', () => {
     const el = createUsageMeter(100, 10000, new Date().toISOString())
-    expect(el.innerHTML).toContain('#10b981')
+    const bg = fillEl(el).style.background
+    expect(bg === '#10b981' || bg.includes('rgb(16, 185, 129)')).toBe(true)
   })
 
   it('uses amber color between 60-85% usage', () => {
     const el = createUsageMeter(7000, 10000, new Date().toISOString())
-    expect(el.innerHTML).toContain('#f59e0b')
+    const bg = fillEl(el).style.background
+    expect(bg === '#f59e0b' || bg.includes('rgb(245, 158, 11)')).toBe(true)
   })
 
   it('uses red color above 85% usage', () => {
     const el = createUsageMeter(9000, 10000, new Date().toISOString())
-    expect(el.innerHTML).toContain('#ef4444')
+    const bg = fillEl(el).style.background
+    expect(bg === '#ef4444' || bg.includes('rgb(239, 68, 68)')).toBe(true)
   })
 })

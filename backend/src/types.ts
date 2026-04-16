@@ -10,6 +10,7 @@ export type Env = {
   FREE_TIER_CHAR_LIMIT?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  GOOGLE_WEB_CLIENT_JSON?: string
 }
 
 export type Variables = { userId: string; email: string; plan: string }

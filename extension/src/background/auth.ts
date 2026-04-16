@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from '../constants'
+import { clearUserProfileCache } from './userProfileCache'
 
 export async function getToken(): Promise<string | null> {
   const r = await chrome.storage.local.get(STORAGE_KEYS.TOKEN)
@@ -6,9 +7,11 @@ export async function getToken(): Promise<string | null> {
 }
 
 export async function setToken(token: string): Promise<void> {
+  await clearUserProfileCache()
   await chrome.storage.local.set({ [STORAGE_KEYS.TOKEN]: token })
 }
 
 export async function clearToken(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEYS.TOKEN)
+  await clearUserProfileCache()
 }

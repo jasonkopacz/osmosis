@@ -1,9 +1,26 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
-import { translateBatch, fetchUser, loginWithGoogle, login, signup } from './api'
-import type { Message } from '../types'
+import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
+import { translateBatch, fetchUser, loginWithGoogle } from './api'
+import type { Message, UserProfile } from '../types'
 
 const cache = new SessionCache()
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
+
+async function refreshUserProfileInBackground(token: string): Promise<void> {
+  try {
+    const user = (await fetchUser(token)) as UserProfile | null
+    if (user) {
+      await setUserProfileCache(user)
+      console.log('[osmosis:bg] user profile refresh OK')
+    } else {
+      await clearToken()
+      console.warn('[osmosis:bg] user profile refresh: session invalid, cleared token')
+    }
+  } catch (err) {
+    console.warn('[osmosis:bg] user profile refresh failed', err)
+  }
+}
 
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
   handle(message)
@@ -52,32 +69,49 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'GET_USER') {
     const token = await getToken()
-    return token ? await fetchUser(token) : null
-  }
-
-  if (msg.type === 'EMAIL_LOGIN' || msg.type === 'EMAIL_SIGNUP') {
+    if (!token) {
+      console.log('[osmosis:bg] GET_USER: no token')
+      return null
+    }
+    const cached = await getUserProfileCache()
+    const cacheAge = cached ? Date.now() - cached.fetchedAt : null
+    const cacheFresh = cached && cacheAge !== null && cacheAge < PROFILE_CACHE_TTL_MS
+    if (cacheFresh && cached.profile) {
+      console.log('[osmosis:bg] GET_USER: using cached profile', { cacheAge_ms: cacheAge })
+      void refreshUserProfileInBackground(token)
+      return cached.profile
+    }
+    console.log('[osmosis:bg] GET_USER: fetching /user/me')
     try {
-      const token = msg.type === 'EMAIL_LOGIN'
-        ? await login(msg.email, msg.password)
-        : await signup(msg.email, msg.password)
-      await setToken(token)
-      cache.clear()
-      return { token }
+      const user = (await fetchUser(token)) as UserProfile | null
+      if (user) {
+        await setUserProfileCache(user)
+        return user
+      }
+      await clearToken()
+      return null
     } catch (err) {
-      return { error: String(err).replace('Error: ', '') }
+      console.warn('[osmosis:bg] GET_USER: fetch error', err)
+      if (cached?.profile) {
+        console.log('[osmosis:bg] GET_USER: returning stale cache after fetch failure')
+        return cached.profile
+      }
+      return null
     }
   }
 
   if (msg.type === 'GOOGLE_LOGIN') {
-    await chrome.storage.local.remove('osmosis_auth_error')
     try {
       const token = await loginWithGoogle()
       await setToken(token)
       cache.clear()
+      const user = (await fetchUser(token)) as UserProfile | null
+      if (user) await setUserProfileCache(user)
+      console.log('[osmosis:bg] GOOGLE_LOGIN: success')
       return { token }
     } catch (err) {
       const errMsg = String(err).replace('Error: ', '')
-      await chrome.storage.local.set({ osmosis_auth_error: errMsg })
+      console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
       return { error: errMsg }
     }
   }

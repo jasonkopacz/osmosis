@@ -6,6 +6,7 @@ import {
   buildGoogleAuthorizeUrl,
   exchangeGoogleAuthCode,
   fetchGoogleUserInfo,
+  getGoogleWebClientCredentials,
   isChromeExtensionRedirectUri,
 } from '../services/google'
 import { createGoogleUser, findUserByEmail, findUserByGoogleSub, linkGoogleToEmailUser, DuplicateEmailError } from '../db/users'
@@ -13,10 +14,11 @@ import { createGoogleUser, findUserByEmail, findUserByGoogleSub, linkGoogleToEma
 export const googleOAuthRouter = new Hono<{ Bindings: Env }>()
 
 googleOAuthRouter.get('/url', async c => {
-  const clientId = c.env.GOOGLE_CLIENT_ID
-  if (!clientId) {
-    return c.json({ error: 'Google OAuth not configured (GOOGLE_CLIENT_ID)' }, 503)
+  const creds = getGoogleWebClientCredentials(c.env)
+  if (!creds) {
+    return c.json({ error: 'Google OAuth not configured (GOOGLE_WEB_CLIENT_JSON or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)' }, 503)
   }
+  const { clientId } = creds
   const redirectUri = c.req.query('redirect_uri')?.trim()
   if (!redirectUri || !isChromeExtensionRedirectUri(redirectUri)) {
     return c.json({ error: 'redirect_uri must be https://<extension-id>.chromiumapp.org/' }, 400)
@@ -29,10 +31,8 @@ googleOAuthRouter.get('/url', async c => {
 })
 
 googleOAuthRouter.post('/exchange', async c => {
-  const clientId = c.env.GOOGLE_CLIENT_ID
-  const clientSecret = c.env.GOOGLE_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    return c.json({ error: 'Google OAuth not configured' }, 503)
+  if (!getGoogleWebClientCredentials(c.env)) {
+    return c.json({ error: 'Google OAuth not configured (GOOGLE_WEB_CLIENT_JSON or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)' }, 503)
   }
 
   const body = await c.req.json<{ code?: string; redirect_uri?: string }>()

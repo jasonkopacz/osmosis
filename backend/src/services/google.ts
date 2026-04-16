@@ -1,5 +1,26 @@
 import type { Env } from '../types'
 
+type GoogleWebClientFile = { web?: { client_id?: string; client_secret?: string } }
+
+export function getGoogleWebClientCredentials(env: Env): { clientId: string; clientSecret: string } | null {
+  const raw = env.GOOGLE_WEB_CLIENT_JSON?.trim()
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as GoogleWebClientFile
+      const clientId = parsed.web?.client_id?.trim()
+      const clientSecret = parsed.web?.client_secret?.trim()
+      if (clientId && clientSecret) return { clientId, clientSecret }
+      console.warn('[googleOAuth] GOOGLE_WEB_CLIENT_JSON missing web.client_id or web.client_secret')
+    } catch (err) {
+      console.warn('[googleOAuth] GOOGLE_WEB_CLIENT_JSON is not valid JSON', err)
+    }
+  }
+  const clientId = env.GOOGLE_CLIENT_ID?.trim()
+  const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim()
+  if (clientId && clientSecret) return { clientId, clientSecret }
+  return null
+}
+
 export type GoogleTokenResponse = {
   access_token: string
   expires_in: number
@@ -19,10 +40,24 @@ export type GoogleUserInfo = {
 export function isChromeExtensionRedirectUri(redirectUri: string): boolean {
   try {
     const u = new URL(redirectUri)
-    return u.protocol === 'https:' && u.pathname === '/' && /\.chromiumapp\.org$/.test(u.hostname)
+    const hostOk = u.protocol === 'https:' && /\.chromiumapp\.org$/.test(u.hostname)
+    const pathOk = u.pathname === '/' || u.pathname === ''
+    return hostOk && pathOk
   } catch {
     return false
   }
+}
+
+export function normalizeChromeExtensionRedirectUri(redirectUri: string): string {
+  try {
+    const u = new URL(redirectUri)
+    if (u.protocol === 'https:' && /\.chromiumapp\.org$/.test(u.hostname)) {
+      return `https://${u.hostname}/`
+    }
+  } catch {
+    /* ignore */
+  }
+  return redirectUri
 }
 
 export async function exchangeGoogleAuthCode(
@@ -30,15 +65,17 @@ export async function exchangeGoogleAuthCode(
   code: string,
   redirectUri: string
 ): Promise<GoogleTokenResponse> {
-  const clientId = env.GOOGLE_CLIENT_ID
-  const clientSecret = env.GOOGLE_CLIENT_SECRET
-  if (!clientId || !clientSecret) throw new Error('Google OAuth not configured')
+  const creds = getGoogleWebClientCredentials(env)
+  if (!creds) throw new Error('Google OAuth not configured')
+  const { clientId, clientSecret } = creds
+
+  const redirect = normalizeChromeExtensionRedirectUri(redirectUri.trim())
 
   const body = new URLSearchParams({
-    code,
+    code: code.trim(),
     client_id: clientId,
     client_secret: clientSecret,
-    redirect_uri: redirectUri,
+    redirect_uri: redirect,
     grant_type: 'authorization_code',
   })
 
@@ -68,9 +105,10 @@ export async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUs
 }
 
 export function buildGoogleAuthorizeUrl(clientId: string, redirectUri: string, state: string): string {
+  const redirect = normalizeChromeExtensionRedirectUri(redirectUri.trim())
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
+    client_id: clientId.trim(),
+    redirect_uri: redirect,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'online',

@@ -5,8 +5,13 @@ import { renderLogin } from './views/login'
 import { renderMain } from './views/main'
 import { renderSettings } from './views/settings'
 
-const app = document.getElementById('app')
-if (!app) throw new Error('popup #app missing')
+function getPopupRoot(): HTMLElement {
+  const el = document.getElementById('app')
+  if (!el) throw new Error('popup #app missing')
+  return el
+}
+
+const app = getPopupRoot()
 
 async function loadSettings(): Promise<UserSettings> {
   const r = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS)
@@ -15,8 +20,16 @@ async function loadSettings(): Promise<UserSettings> {
   return { ...merged, targetLang: normalizeTargetLang(merged.targetLang) }
 }
 
+function isUserProfile(v: unknown): v is UserProfile {
+  return typeof v === 'object' && v !== null && 'email' in v && typeof (v as UserProfile).email === 'string'
+}
+
 async function boot(): Promise<void> {
-  const user = (await chrome.runtime.sendMessage({ type: 'GET_USER' })) as UserProfile | null
+  const raw = await chrome.runtime.sendMessage({ type: 'GET_USER' })
+  const user = isUserProfile(raw) ? raw : null
+  if (raw !== null && !isUserProfile(raw)) {
+    console.warn('[osmosis:popup] GET_USER unexpected response', raw)
+  }
   if (!user) {
     renderLogin(app, boot)
     return

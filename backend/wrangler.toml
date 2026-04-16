@@ -18,6 +18,7 @@ STRIPE_PRO_PRICE_ID = "price_1TMYjoBKftQqNeWyG6Lzeq5d"
 # Optional override for tests (default 50000). Example: "5" to simulate hitting limit quickly.
 # FREE_TIER_CHAR_LIMIT = "50000"
 # Google OAuth (Chrome extension: add redirect https://<EXTENSION_ID>.chromiumapp.org/ in Cloud Console)
-# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET via wrangler secret put (or vars for client id only + secret)
+# Prefer: wrangler secret put GOOGLE_WEB_CLIENT_JSON  (paste full contents of client_secret_*.json from Google Cloud)
+# Or: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET
 # Secrets (set via wrangler secret put):
-# JWT_SECRET, AZURE_TRANSLATOR_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# JWT_SECRET, AZURE_TRANSLATOR_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, GOOGLE_WEB_CLIENT_JSON (or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)
