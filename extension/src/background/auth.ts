@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from '../shared/constants'
+import { STORAGE_KEYS } from '../constants'
 
 export async function getToken(): Promise<string | null> {
   const r = await chrome.storage.local.get(STORAGE_KEYS.TOKEN)

@@ -1,5 +1,5 @@
-import type { UserSettings, UserProfile, Message } from '../../shared/types'
-import { STORAGE_KEYS } from '../../shared/constants'
+import type { UserSettings, UserProfile, Message } from '../../types'
+import { STORAGE_KEYS } from '../../constants'
 import { createToggle } from '../components/toggle'
 import { createLanguagePicker } from '../components/languagePicker'
 import { createSlider } from '../components/slider'

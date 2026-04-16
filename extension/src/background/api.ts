@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../shared/constants'
+import { API_BASE_URL } from '../constants'
 
 export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, string>> {
   const res = await fetch(`${API_BASE_URL}/translate`, {

@@ -1,4 +1,4 @@
-import { LANGUAGES } from '../../shared/languages'
+import { LANGUAGES } from '../../languages'
 
 export function createLanguagePicker(selected: string, onChange: (code: string) => void): HTMLElement {
   const wrapper = document.createElement('div')

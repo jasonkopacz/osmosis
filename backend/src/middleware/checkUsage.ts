@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import type { Env, Variables } from '../types'
-import { getUsage } from '../lib/db'
-import { freeTierCharLimit } from '../lib/limits'
+import { getUsage } from '../db/usage'
+import { freeTierCharLimit } from '../utils/limits'
 
 function currentYearMonth() {
   const d = new Date()

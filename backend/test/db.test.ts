@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestDb } from './helpers/db'
-import { createUser, findUserByEmail, getUsage, incrementUsage, updatePlan, DuplicateEmailError } from '../src/lib/db'
+import { createUser, findUserByEmail, updatePlan, DuplicateEmailError } from '../src/db/users'
+import { getUsage, incrementUsage } from '../src/db/usage'
 import type { D1Database } from '@cloudflare/workers-types'
 
 function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {

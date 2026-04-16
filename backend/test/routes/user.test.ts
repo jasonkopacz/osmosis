@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { createTestDb, wrapDb } from '../helpers/db'
-import { signJWT } from '../../src/lib/jwt'
-import { createUser, findUserByEmail, updatePlan } from '../../src/lib/db'
+import { signJWT } from '../../src/utils/jwt'
+import { createUser, findUserByEmail, updatePlan } from '../../src/db/users'
 import type { Env, Variables } from '../../src/types'
 
 const { mockCheckoutCreate, mockPortalCreate } = vi.hoisted(() => ({

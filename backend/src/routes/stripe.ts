@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
 import Stripe from 'stripe'
-import { updatePlan } from '../lib/db'
+import { updatePlan } from '../db/users'
 
 export const stripeRouter = new Hono<{ Bindings: Env }>()
 

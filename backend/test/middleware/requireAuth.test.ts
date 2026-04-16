@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import { requireAuth } from '../../src/middleware/requireAuth'
-import { signJWT } from '../../src/lib/jwt'
+import { signJWT } from '../../src/utils/jwt'
 import type { Env, Variables } from '../../src/types'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'

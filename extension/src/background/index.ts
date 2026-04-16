@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { translateBatch, fetchUser, loginWithGoogle, login, signup } from './api'
-import type { Message } from '../shared/types'
+import type { Message } from '../types'
 
 const cache = new SessionCache()
 

@@ -2,9 +2,9 @@ import { collectWords } from './walker'
 import { isEligible } from './filter'
 import { sampleWords } from './scorer'
 import { applyReplacements, clearReplacements, injectTooltipStyles } from './replacer'
-import type { UserSettings, Message } from '../shared/types'
-import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../shared/constants'
-import { normalizeTargetLang } from '../shared/languages'
+import type { UserSettings, Message } from '../types'
+import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants'
+import { normalizeTargetLang } from '../languages'
 
 let settings: UserSettings = DEFAULT_SETTINGS
 

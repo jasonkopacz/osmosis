@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { Env, Variables } from '../types'
-import { verifyJWT } from '../lib/jwt'
+import { verifyJWT } from '../utils/jwt'
 
 export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
   const auth = c.req.header('Authorization')

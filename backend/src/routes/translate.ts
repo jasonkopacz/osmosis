@@ -2,9 +2,10 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { checkUsage } from '../middleware/checkUsage'
-import { getCached, setCached } from '../lib/kv'
-import { translateWords } from '../lib/azure'
-import { incrementUsage, getTranslationCached, setTranslationCached } from '../lib/db'
+import { getCached, setCached } from '../utils/kv'
+import { translateWords } from '../services/azure'
+import { incrementUsage } from '../db/usage'
+import { getTranslationCached, setTranslationCached } from '../db/translations'
 
 function currentYearMonth() {
   const d = new Date()

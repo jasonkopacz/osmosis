@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { signJWT, verifyJWT } from '../src/lib/jwt'
+import { signJWT, verifyJWT } from '../src/utils/jwt'
 
 const SECRET = 'test-secret-that-is-long-enough-32chars'
 

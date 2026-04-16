@@ -1,4 +1,4 @@
-import type { Message } from '../../shared/types'
+import type { Message } from '../../types'
 
 export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   root.replaceChildren()

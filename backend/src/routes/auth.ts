@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { hashPassword, verifyPassword } from '../lib/passwords'
-import { signJWT } from '../lib/jwt'
-import { createUser, findUserByEmail, DuplicateEmailError } from '../lib/db'
+import { hashPassword, verifyPassword } from '../utils/passwords'
+import { signJWT } from '../utils/jwt'
+import { createUser, findUserByEmail, DuplicateEmailError } from '../db/users'
 
 export const authRouter = new Hono<{ Bindings: Env }>()
 

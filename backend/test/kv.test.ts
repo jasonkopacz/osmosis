@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getCached, setCached } from '../src/lib/kv'
+import { getCached, setCached } from '../src/utils/kv'
 
 const EXPECTED_TTL = 60 * 60 * 24 * 30
 

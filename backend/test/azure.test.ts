@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { translateWords } from '../src/lib/azure'
+import { translateWords } from '../src/services/azure'
 
 beforeEach(() => vi.restoreAllMocks())
 

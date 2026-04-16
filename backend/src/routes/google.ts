@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { signJWT } from '../lib/jwt'
-import { hashPassword } from '../lib/passwords'
+import { signJWT } from '../utils/jwt'
+import { hashPassword } from '../utils/passwords'
 import {
   buildGoogleAuthorizeUrl,
   exchangeGoogleAuthCode,
   fetchGoogleUserInfo,
   isChromeExtensionRedirectUri,
-} from '../lib/googleOAuth'
-import { createGoogleUser, findUserByEmail, findUserByGoogleSub, linkGoogleToEmailUser, DuplicateEmailError } from '../lib/db'
+} from '../services/google'
+import { createGoogleUser, findUserByEmail, findUserByGoogleSub, linkGoogleToEmailUser, DuplicateEmailError } from '../db/users'
 
 export const googleOAuthRouter = new Hono<{ Bindings: Env }>()
 

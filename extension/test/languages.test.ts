@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LANGUAGES, normalizeTargetLang } from '../src/shared/languages'
+import { LANGUAGES, normalizeTargetLang } from '../src/languages'
 
 describe('LANGUAGES', () => {
   it('contains at least 50 languages', () => {

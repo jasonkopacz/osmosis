@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
-import { getUsage } from '../lib/db'
-import { freeTierCharLimit } from '../lib/limits'
+import { getUsage } from '../db/usage'
+import { freeTierCharLimit } from '../utils/limits'
 import Stripe from 'stripe'
 
 function currentYearMonth() {

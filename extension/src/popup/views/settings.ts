@@ -1,7 +1,7 @@
-import type { UserProfile } from '../../shared/types'
+import type { UserProfile } from '../../types'
 import { clearToken, getToken } from '../../background/auth'
 import { createUsageMeter } from '../components/usageMeter'
-import { API_BASE_URL, FREE_TIER_LIMIT } from '../../shared/constants'
+import { API_BASE_URL, FREE_TIER_LIMIT } from '../../constants'
 
 export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () => void): void {
   root.replaceChildren()

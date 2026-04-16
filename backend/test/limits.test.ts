@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freeTierCharLimit } from '../src/lib/limits'
+import { freeTierCharLimit } from '../src/utils/limits'
 import type { Env } from '../src/types'
 
 function env(partial: Partial<Env>): Env {

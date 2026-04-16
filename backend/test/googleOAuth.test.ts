@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isChromeExtensionRedirectUri } from '../src/lib/googleOAuth'
+import { isChromeExtensionRedirectUri } from '../src/services/google'
 
 describe('isChromeExtensionRedirectUri', () => {
   it('accepts chromiumapp.org root', () => {

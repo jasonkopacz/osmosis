@@ -2,20 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { translateRouter } from '../../src/routes/translate'
 import { createTestDb, wrapDb } from '../helpers/db'
-import { signJWT } from '../../src/lib/jwt'
-import { createUser, findUserByEmail } from '../../src/lib/db'
+import { signJWT } from '../../src/utils/jwt'
+import { createUser, findUserByEmail } from '../../src/db/users'
 import type { Env, Variables } from '../../src/types'
 
-vi.mock('../../src/lib/azure', () => ({
+vi.mock('../../src/services/azure', () => ({
   translateWords: vi.fn(),
 }))
-vi.mock('../../src/lib/kv', () => ({
+vi.mock('../../src/utils/kv', () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { translateWords } from '../../src/lib/azure'
-import { getCached } from '../../src/lib/kv'
+import { translateWords } from '../../src/services/azure'
+import { getCached } from '../../src/utils/kv'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
 
