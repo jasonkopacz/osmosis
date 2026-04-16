@@ -1,25 +1,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
-import { userRouter } from '../../src/routes/user'
 import { createTestDb, wrapDb } from '../helpers/db'
 import { signJWT } from '../../src/lib/jwt'
 import { createUser, findUserByEmail, updatePlan } from '../../src/lib/db'
 import type { Env, Variables } from '../../src/types'
 
+const { mockCheckoutCreate, mockPortalCreate } = vi.hoisted(() => ({
+  mockCheckoutCreate: vi.fn(),
+  mockPortalCreate: vi.fn(),
+}))
+
 vi.mock('stripe', () => {
-  const mockCheckoutCreate = vi.fn()
-  const mockPortalCreate = vi.fn()
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      checkout: { sessions: { create: mockCheckoutCreate } },
-      billingPortal: { sessions: { create: mockPortalCreate } },
-    })),
-    __mockCheckoutCreate: mockCheckoutCreate,
-    __mockPortalCreate: mockPortalCreate,
+  class MockStripe {
+    checkout = { sessions: { create: mockCheckoutCreate } }
+    billingPortal = { sessions: { create: mockPortalCreate } }
   }
+  return { default: MockStripe }
 })
 
-import Stripe from 'stripe'
+import { userRouter } from '../../src/routes/user'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
 
@@ -109,8 +108,7 @@ describe('POST /user/checkout', () => {
   })
 
   it('creates a checkout session and returns url', async () => {
-    const mockCreate = vi.mocked(new Stripe('').checkout.sessions.create)
-    mockCreate.mockResolvedValue({ url: 'https://checkout.stripe.com/abc' } as never)
+    mockCheckoutCreate.mockResolvedValue({ url: 'https://checkout.stripe.com/abc' })
     const { app, env } = makeApp(db)
     const token = await makeToken(userId)
     const res = await app.request('/user/checkout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }, env)
@@ -141,8 +139,7 @@ describe('POST /user/portal', () => {
 
   it('creates a portal session and returns url', async () => {
     await updatePlan(db, userId, 'pro', 'cus_existing')
-    const mockCreate = vi.mocked(new Stripe('').billingPortal.sessions.create)
-    mockCreate.mockResolvedValue({ url: 'https://billing.stripe.com/portal' } as never)
+    mockPortalCreate.mockResolvedValue({ url: 'https://billing.stripe.com/portal' })
     const { app, env } = makeApp(db)
     const token = await makeToken(userId)
     const res = await app.request('/user/portal', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }, env)

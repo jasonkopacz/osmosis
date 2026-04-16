@@ -25,9 +25,10 @@ export function renderMain(
 
   const logo = document.createElement('div')
   logo.className = 'logo'
-  const logoIcon = document.createElement('div')
+  const logoIcon = document.createElement('img')
   logoIcon.className = 'logo-icon'
-  logoIcon.textContent = '🌍'
+  logoIcon.src = chrome.runtime.getURL('icons/icon48.png')
+  logoIcon.alt = 'Osmosis'
   logo.append(logoIcon, document.createTextNode(' Osmosis'))
 
   const toggle = createToggle(s.enabled, enabled => {

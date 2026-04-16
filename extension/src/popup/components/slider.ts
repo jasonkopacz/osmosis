@@ -17,9 +17,9 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
 
   const input = document.createElement('input')
   input.type = 'range'
-  input.min = '10'
-  input.max = '50'
-  input.step = '5'
+  input.min = '1'
+  input.max = '90'
+  input.step = '1'
   input.value = String(value)
   input.style.cssText = 'width:100%;accent-color:#3b82f6;cursor:pointer;'
   input.addEventListener('input', () => {
@@ -31,9 +31,9 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
   const rangeLabels = document.createElement('div')
   rangeLabels.style.cssText = 'display:flex;justify-content:space-between;font-size:11px;color:#718096;margin-top:4px;'
   const minL = document.createElement('span')
-  minL.textContent = '10%'
+  minL.textContent = '1%'
   const maxL = document.createElement('span')
-  maxL.textContent = '50%'
+  maxL.textContent = '90%'
   rangeLabels.append(minL, maxL)
 
   wrapper.append(header, input, rangeLabels)

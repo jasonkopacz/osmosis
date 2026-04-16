@@ -101,7 +101,7 @@ describe('POST /auth/login', () => {
     const rawDb = createTestDb()
     const wrappedDb = wrapDb(rawDb)
     rawDb.prepare(
-      `INSERT INTO users (id, email, google_sub, auth_provider, plan, created_at) VALUES ('g1', 'google@test.com', 'sub123', 'google', 'free', 0)`
+      `INSERT INTO users (id, email, password_hash, google_sub, auth_provider, plan, created_at) VALUES ('g1', 'google@test.com', '', 'sub123', 'google', 'free', 0)`
     ).run()
     const { app, env } = makeApp(wrappedDb)
     const res = await post(app, '/auth/login', { email: 'google@test.com', password: 'anypassword' }, env)
