@@ -10,6 +10,9 @@ export type Env = {
   FREE_TIER_CHAR_LIMIT?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  RATE_LIMITER?: {
+    limit: (opts: { key: string }) => Promise<{ success: boolean }>
+  }
 }
 
 export type Variables = { userId: string; email: string; plan: string }

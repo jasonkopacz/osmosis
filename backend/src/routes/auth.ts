@@ -10,6 +10,18 @@ export const authRouter = new Hono<{ Bindings: Env }>()
 
 authRouter.post('/signup', async (c) => {
   const { email: rawEmail, password } = await c.req.json<{ email: string; password: string }>()
+  if (c.env.RATE_LIMITER) {
+    try {
+      const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+      const { success } = await c.env.RATE_LIMITER.limit({ key: `signup:${ip}` })
+      if (!success) {
+        console.warn('[auth/signup] rate limit exceeded', { ip })
+        return c.json({ error: 'Too many sign-up attempts. Please try again later.' }, 429)
+      }
+    } catch (err) {
+      console.warn('[auth/signup] RATE_LIMITER error, continuing without rate limit', err)
+    }
+  }
   const email = rawEmail?.toLowerCase().trim()
   if (!email || !EMAIL_RE.test(email) || !password || password.length < 8) {
     console.warn('[auth/signup] invalid payload')
@@ -33,6 +45,18 @@ authRouter.post('/signup', async (c) => {
 
 authRouter.post('/login', async (c) => {
   const { email: rawEmail, password } = await c.req.json<{ email: string; password: string }>()
+  if (c.env.RATE_LIMITER) {
+    try {
+      const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+      const { success } = await c.env.RATE_LIMITER.limit({ key: `login:${ip}` })
+      if (!success) {
+        console.warn('[auth/login] rate limit exceeded', { ip })
+        return c.json({ error: 'Too many login attempts. Please try again later.' }, 429)
+      }
+    } catch (err) {
+      console.warn('[auth/login] RATE_LIMITER error, continuing without rate limit', err)
+    }
+  }
   const email = rawEmail?.toLowerCase().trim()
   const user = await findUserByEmail(c.env.DB, email)
   if (!user) {

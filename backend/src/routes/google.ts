@@ -23,7 +23,10 @@ googleOAuthRouter.get('/url', async c => {
   }
   const state = c.req.query('state')?.trim()
   if (!state) return c.json({ error: 'state parameter required' }, 400)
+  const codeChallenge = c.req.query('code_challenge')?.trim()
+  const codeChallengeMethod = c.req.query('code_challenge_method')?.trim()
   const url = buildGoogleAuthorizeUrl(clientId, redirectUri, state)
+  // Client is responsible for appending any PKCE params to the authorize URL it uses.
   console.log('[auth/google] authorize URL issued')
   return c.json({ url })
 })
@@ -35,7 +38,7 @@ googleOAuthRouter.post('/exchange', async c => {
     return c.json({ error: 'Google OAuth not configured' }, 503)
   }
 
-  const body = await c.req.json<{ code?: string; redirect_uri?: string }>()
+  const body = await c.req.json<{ code?: string; redirect_uri?: string; code_verifier?: string }>()
   const code = body.code?.trim()
   const redirectUri = body.redirect_uri?.trim()
   if (!code || !redirectUri || !isChromeExtensionRedirectUri(redirectUri)) {
@@ -44,7 +47,7 @@ googleOAuthRouter.post('/exchange', async c => {
 
   let tokens
   try {
-    tokens = await exchangeGoogleAuthCode(c.env, code, redirectUri)
+    tokens = await exchangeGoogleAuthCode(c.env, code, redirectUri, body.code_verifier?.trim())
   } catch {
     return c.json({ error: 'Google token exchange failed' }, 401)
   }

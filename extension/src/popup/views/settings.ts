@@ -1,5 +1,5 @@
 import type { UserProfile } from '../../types'
-import { clearToken, getToken } from '../../background/auth'
+import { getToken } from '../../background/auth'
 import { createUsageMeter } from '../components/usageMeter'
 import { API_BASE_URL, FREE_TIER_LIMIT } from '../../constants'
 
@@ -9,7 +9,8 @@ async function apiFetch(path: string, token: string): Promise<{ url: string }> {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (res.status === 401) {
-    await clearToken()
+    console.warn('[osmosis:popup] API 401, requesting background logout')
+    await chrome.runtime.sendMessage({ type: 'LOGOUT' })
     window.location.reload()
     throw new Error('Session expired — please sign in again')
   }
@@ -133,7 +134,8 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   signOutBtn.style.cssText = 'background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;'
   signOutBtn.textContent = 'Sign out'
   signOutBtn.addEventListener('click', async () => {
-    await clearToken()
+    console.log('[osmosis:popup] sign-out clicked, requesting background logout')
+    await chrome.runtime.sendMessage({ type: 'LOGOUT' })
     window.location.reload()
   })
   signOutRow.appendChild(signOutBtn)

@@ -1,27 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestDb } from './helpers/db'
+import { createTestDb, wrapDb } from './helpers/db'
 import { createUser, findUserByEmail, updatePlan, DuplicateEmailError } from '../src/db/users'
 import { getUsage, incrementUsage } from '../src/db/usage'
-import type { D1Database } from '@cloudflare/workers-types'
-
-function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {
-  return {
-    prepare: (sql: string) => {
-      const stmt = db.prepare(sql)
-      return {
-        bind: (...args: unknown[]) => ({
-          first: async <T>() => (stmt.get(...args) ?? null) as T | null,
-          run: async () => { const r = stmt.run(...args); return { success: true, meta: { changes: r.changes } } },
-          all: async <T>() => ({ results: stmt.all(...args) as T[] }),
-        }),
-        first: async <T>() => (stmt.get() ?? null) as T | null,
-        run: async () => { stmt.run(); return { success: true, meta: {} } },
-      }
-    },
-  } as unknown as D1Database
-}
-
-let db: D1Database
+let db: ReturnType<typeof wrapDb>
 beforeEach(() => { db = wrapDb(createTestDb()) })
 
 describe('createUser / findUserByEmail', () => {

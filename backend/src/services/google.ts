@@ -28,7 +28,8 @@ export function isChromeExtensionRedirectUri(redirectUri: string): boolean {
 export async function exchangeGoogleAuthCode(
   env: Env,
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  codeVerifier?: string
 ): Promise<GoogleTokenResponse> {
   const clientId = env.GOOGLE_CLIENT_ID
   const clientSecret = env.GOOGLE_CLIENT_SECRET
@@ -41,6 +42,9 @@ export async function exchangeGoogleAuthCode(
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
   })
+  if (codeVerifier) {
+    body.set('code_verifier', codeVerifier)
+  }
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -78,5 +82,6 @@ export function buildGoogleAuthorizeUrl(clientId: string, redirectUri: string, s
     prompt: 'select_account',
     state,
   })
+  // PKCE support: caller may append code_challenge and code_challenge_method
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }

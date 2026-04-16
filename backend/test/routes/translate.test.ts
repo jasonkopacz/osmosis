@@ -76,16 +76,18 @@ describe('POST /translate', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 for more than 250 words', async () => {
+  it('returns 400 for more than 200 words', async () => {
     const { app, env } = makeApp(db)
-    const words = Array.from({ length: 251 }, (_, i) => `word${i}`)
+    const words = Array.from({ length: 201 }, (_, i) => `word${i}`)
     const res = await app.request('/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ words, targetLang: 'de' }),
     }, env)
     expect(res.status).toBe(400)
-    expect(await res.json()).toMatchObject({ error: 'Too many words (max 250 per request)' })
+    const body = await res.json()
+    console.log('translate batch limit response body', body)
+    expect(body).toMatchObject({ error: 'Too many words (max 200 per request)' })
   })
 
   it('returns 400 for words with invalid types', async () => {

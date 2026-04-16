@@ -2,8 +2,6 @@ import Database from 'better-sqlite3'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
-import type { D1Database } from '@cloudflare/workers-types'
-
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export function createTestDb() {
@@ -17,7 +15,7 @@ export function createTestDb() {
   return db
 }
 
-export function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {
+export function wrapDb(db: ReturnType<typeof createTestDb>) {
   return {
     prepare: (sql: string) => {
       const stmt = db.prepare(sql)
@@ -31,5 +29,5 @@ export function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {
         run: async () => { stmt.run(); return { success: true, meta: {} } },
       }
     },
-  } as unknown as D1Database
+  }
 }

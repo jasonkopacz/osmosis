@@ -58,8 +58,15 @@ export function applyReplacements(translationMap: Map<string, string>, entries: 
     let remaining: Text = node
     for (const { word, offset, translation } of matches) {
       const text = remaining.textContent ?? ''
-      const idx = text.indexOf(word, offset)
-      if (idx === -1) continue
+      const idx = offset
+      if (idx < 0 || idx + word.length > text.length) {
+        console.warn('[osmosis:replacer] skipping match with out-of-bounds offset', {
+          word,
+          offset,
+          textLength: text.length,
+        })
+        continue
+      }
 
       const before = document.createTextNode(text.slice(0, idx))
       const span = document.createElement('span')

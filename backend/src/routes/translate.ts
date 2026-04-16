@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/requireAuth'
 import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../utils/kv'
 import { translateWords } from '../services/azure'
-import { incrementUsage } from '../db/usage'
+import { getUsage, incrementUsage } from '../db/usage'
 import { getTranslationCached, setTranslationCached } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
@@ -53,6 +53,17 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   console.log(`[translate] d1_hits=${uniqueWords.length - afterD1.length} kv_hits=${afterD1.length - uncached.length} misses=${uncached.length}`)
 
   if (uncached.length > 0) {
+    if (c.get('plan') !== 'pro') {
+      const existing = await getUsage(c.env.DB, c.get('userId'), currentYearMonth())
+      const limit = freeTierCharLimit(c.env)
+      const preflightDelta = uncached.join('').length
+      console.log(`[translate] preflight usage check user=${c.get('userId')} existing=${existing} delta=${preflightDelta} limit=${limit}`)
+      if (existing + preflightDelta > limit) {
+        console.warn(`[translate] preflight limit hit, skipping Azure call user=${c.get('userId')} would_be_total=${existing + preflightDelta}/${limit}`)
+        return c.json({ error: 'Monthly limit reached', code: 'LIMIT_REACHED' }, 402)
+      }
+    }
+
     let translations: Map<string, string>
     try {
       translations = await translateWords(uncached, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
@@ -66,7 +77,7 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
       }
     }
 
-    // Charge only for words that were actually translated
+    // Charge based on total source characters sent to Azure (source chars, not target chars)
     const usageDelta = [...translations.keys()].join('').length
     if (usageDelta > 0 && c.get('plan') !== 'pro') {
       const newTotal = await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
