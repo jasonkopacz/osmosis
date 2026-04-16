@@ -12,7 +12,7 @@ export type Env = {
   GOOGLE_CLIENT_SECRET?: string
 }
 
-export type Variables = { userId: string; email: string }
+export type Variables = { userId: string; email: string; plan: string }
 
 export type User = {
   id: string

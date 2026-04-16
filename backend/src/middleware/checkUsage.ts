@@ -2,16 +2,11 @@ import { createMiddleware } from 'hono/factory'
 import type { Env, Variables } from '../types'
 import { getUsage } from '../db/usage'
 import { freeTierCharLimit } from '../utils/limits'
-
-function currentYearMonth() {
-  const d = new Date()
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
+import { currentYearMonth } from '../utils/date'
 
 export const checkUsage = createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
   const userId = c.get('userId')
-  const row = await c.env.DB.prepare('SELECT plan FROM users WHERE id = ?').bind(userId).first<{ plan: string }>()
-  if (row?.plan === 'pro') {
+  if (c.get('plan') === 'pro') {
     console.log(`[checkUsage] user ${userId} is pro, skipping usage gate`)
     await next()
     return

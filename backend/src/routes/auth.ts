@@ -1,15 +1,17 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { hashPassword, verifyPassword } from '../utils/passwords'
+import { hashPassword, verifyPassword, DUMMY_HASH } from '../utils/passwords'
 import { signJWT } from '../utils/jwt'
 import { createUser, findUserByEmail, DuplicateEmailError } from '../db/users'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export const authRouter = new Hono<{ Bindings: Env }>()
 
 authRouter.post('/signup', async (c) => {
   const { email: rawEmail, password } = await c.req.json<{ email: string; password: string }>()
   const email = rawEmail?.toLowerCase().trim()
-  if (!email || !password || password.length < 8) {
+  if (!email || !EMAIL_RE.test(email) || !password || password.length < 8) {
     console.warn('[auth/signup] invalid payload')
     return c.json({ error: 'Invalid email or password (min 8 chars)' }, 400)
   }
@@ -34,10 +36,13 @@ authRouter.post('/login', async (c) => {
   const email = rawEmail?.toLowerCase().trim()
   const user = await findUserByEmail(c.env.DB, email)
   if (!user) {
-    console.warn(`[auth/login] failed login for ${email}`)
+    // Run verifyPassword against a dummy hash to prevent timing-based email enumeration
+    await verifyPassword(password ?? '', DUMMY_HASH)
+    console.warn(`[auth/login] failed login for unknown user ${email}`)
     return c.json({ error: 'Invalid credentials' }, 401)
   }
   if (user.auth_provider === 'google') {
+    await verifyPassword(password ?? '', DUMMY_HASH)
     console.warn(`[auth/login] password login blocked for Google-only user ${email}`)
     return c.json({ error: 'Use Google sign-in for this account' }, 401)
   }

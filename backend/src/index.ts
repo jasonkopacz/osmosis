@@ -8,7 +8,16 @@ import { userRouter } from './routes/user'
 import { stripeRouter } from './routes/stripe'
 
 const app = new Hono<{ Bindings: Env }>()
-app.use('*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type'] }))
+app.use('*', cors({
+  // Allow Chrome extension pages and non-browser clients (e.g. extension SW, curl).
+  // Reject all other web origins to prevent cross-site token abuse.
+  origin: (origin) => {
+    if (!origin) return '*'
+    if (origin.startsWith('chrome-extension://')) return origin
+    return null
+  },
+  allowHeaders: ['Authorization', 'Content-Type'],
+}))
 app.use('*', async (c, next) => {
   console.log(`[request] ${c.req.method} ${c.req.path}`)
   await next()

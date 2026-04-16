@@ -2,20 +2,19 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { getUsage } from '../db/usage'
+import { getTopTranslations } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
+import { currentYearMonth } from '../utils/date'
+import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
 import Stripe from 'stripe'
-
-function currentYearMonth() {
-  const d = new Date()
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 userRouter.get('/me', requireAuth, async (c) => {
   const userId = c.get('userId')
-  const user = await c.env.DB.prepare('SELECT id, email, plan FROM users WHERE id = ?')
-    .bind(userId).first<{ id: string; email: string; plan: string }>()
+  const plan = c.get('plan')
+  const user = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?')
+    .bind(userId).first<{ email: string }>()
   if (!user) {
     console.warn(`[user/me] user not found for id ${userId}`)
     return c.json({ error: 'User not found' }, 404)
@@ -25,18 +24,25 @@ userRouter.get('/me', requireAuth, async (c) => {
   const resetsAt = new Date()
   resetsAt.setUTCMonth(resetsAt.getUTCMonth() + 1, 1)
   resetsAt.setUTCHours(0, 0, 0, 0)
-  console.log(`[user/me] user=${userId} plan=${user.plan} usage=${charCount}`)
+  console.log(`[user/me] user=${userId} plan=${plan} usage=${charCount}`)
 
   const freeLimit = freeTierCharLimit(c.env)
   return c.json({
     email: user.email,
-    plan: user.plan,
+    plan,
     usage: {
       used: charCount,
-      limit: user.plan === 'pro' ? null : freeLimit,
+      limit: plan === 'pro' ? null : freeLimit,
       resetsAt: resetsAt.toISOString(),
     },
   })
+})
+
+userRouter.get('/cache-stats', requireAuth, async (c) => {
+  const lang = c.req.query('lang')
+  if (!lang || !VALID_LANGUAGE_CODES.has(lang)) return c.json({ error: 'Valid lang query param required' }, 400)
+  const top = await getTopTranslations(c.env.DB, lang)
+  return c.json({ lang, topTranslations: top })
 })
 
 userRouter.post('/checkout', requireAuth, async (c) => {

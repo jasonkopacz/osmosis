@@ -3,6 +3,23 @@ import { clearToken, getToken } from '../../background/auth'
 import { createUsageMeter } from '../components/usageMeter'
 import { API_BASE_URL, FREE_TIER_LIMIT } from '../../constants'
 
+async function apiFetch(path: string, token: string): Promise<{ url: string }> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) {
+    await clearToken()
+    window.location.reload()
+    throw new Error('Session expired — please sign in again')
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? `Server error (${res.status})`)
+  }
+  return res.json() as Promise<{ url: string }>
+}
+
 export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () => void): void {
   root.replaceChildren()
 
@@ -63,16 +80,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
       try {
         const token = await getToken()
         if (!token) throw new Error('Not signed in')
-
-        const res = await fetch(`${API_BASE_URL}/user/checkout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({})) as { error?: string }
-          throw new Error(body.error ?? `Server error (${res.status})`)
-        }
-        const { url } = (await res.json()) as { url: string }
+        const { url } = await apiFetch('/user/checkout', token)
         await chrome.tabs.create({ url })
       } catch (err) {
         console.warn('[osmosis:popup] checkout failed', err)
@@ -104,16 +112,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
       try {
         const token = await getToken()
         if (!token) throw new Error('Not signed in')
-
-        const res = await fetch(`${API_BASE_URL}/user/portal`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({})) as { error?: string }
-          throw new Error(body.error ?? `Server error (${res.status})`)
-        }
-        const { url } = (await res.json()) as { url: string }
+        const { url } = await apiFetch('/user/portal', token)
         await chrome.tabs.create({ url })
       } catch (err) {
         console.warn('[osmosis:popup] portal failed', err)

@@ -18,27 +18,6 @@ export async function fetchUser(token: string): Promise<unknown> {
   return res.ok ? res.json() : null
 }
 
-export async function login(email: string, password: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (!res.ok) throw new Error('Invalid credentials')
-  return ((await res.json()) as { token: string }).token
-}
-
-export async function signup(email: string, password: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (res.status === 409) throw new Error('Email already registered')
-  if (!res.ok) throw new Error('Signup failed')
-  return ((await res.json()) as { token: string }).token
-}
-
 function readJsonError(res: Response, bodyText: string): string {
   try {
     const j = JSON.parse(bodyText) as { error?: string }
@@ -49,10 +28,33 @@ function readJsonError(res: Response, bodyText: string): string {
   return bodyText.trim() ? `${res.status}: ${bodyText.slice(0, 200)}` : `Request failed (${res.status})`
 }
 
+export async function login(email: string, password: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (res.status === 409) throw new Error('Email already registered')
+  if (!res.ok) throw new Error(readJsonError(res, await res.text()))
+  return ((await res.json()) as { token: string }).token
+}
+
+export async function signup(email: string, password: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (res.status === 409) throw new Error('Email already registered')
+  if (!res.ok) throw new Error(readJsonError(res, await res.text()))
+  return ((await res.json()) as { token: string }).token
+}
+
 export async function loginWithGoogle(): Promise<string> {
   const redirectUri = chrome.identity.getRedirectURL()
-  const state = crypto.randomUUID() // passed to backend for URL generation; not verified on return (CSRF handled by launchWebAuthFlow)
+  const state = crypto.randomUUID()
   console.log('[osmosis:api] Google redirect_uri (must match Cloud Console exactly):', redirectUri)
+
   const urlRes = await fetch(
     `${API_BASE_URL}/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
   )
@@ -63,6 +65,10 @@ export async function loginWithGoogle(): Promise<string> {
     throw new Error(msg)
   }
   const { url } = JSON.parse(urlBody) as { url: string }
+
+  // Store state before launching the flow so we can verify it on return
+  await chrome.storage.session.set({ osmosis_oauth_state: state })
+
   console.log('[osmosis:api] calling launchWebAuthFlow...')
   const responseUrl = await new Promise<string | undefined>(resolve => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
@@ -72,12 +78,22 @@ export async function loginWithGoogle(): Promise<string> {
       resolve(redirectedTo)
     })
   })
+
+  await chrome.storage.session.remove('osmosis_oauth_state')
+
   console.log('[osmosis:api] launchWebAuthFlow resolved, responseUrl:', responseUrl)
   if (!responseUrl) {
     throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
   }
 
   const parsed = new URL(responseUrl)
+
+  // Verify state to prevent OAuth CSRF
+  const returnedState = parsed.searchParams.get('state')
+  if (returnedState !== state) {
+    throw new Error('OAuth state mismatch — possible CSRF attempt')
+  }
+
   const oauthErr = parsed.searchParams.get('error')
   if (oauthErr) {
     const desc = parsed.searchParams.get('error_description') ?? oauthErr

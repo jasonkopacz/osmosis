@@ -6,23 +6,24 @@ import { getCached, setCached } from '../utils/kv'
 import { translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
 import { getTranslationCached, setTranslationCached } from '../db/translations'
+import { freeTierCharLimit } from '../utils/limits'
+import { currentYearMonth } from '../utils/date'
+import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
 
-function currentYearMonth() {
-  const d = new Date()
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-}
+// Must match MAX_WORDS in extension/src/content/scorer.ts
+const MAX_WORDS_PER_BATCH = 200
 
 export const translateRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   const { words, targetLang } = await c.req.json<{ words: unknown[]; targetLang: string }>()
   if (!Array.isArray(words) || !words.length || !targetLang) return c.json({ error: 'words and targetLang required' }, 400)
-  if (words.length > 250) return c.json({ error: 'Too many words (max 250 per request)' }, 400)
+  if (!VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
+  if (words.length > MAX_WORDS_PER_BATCH) return c.json({ error: `Too many words (max ${MAX_WORDS_PER_BATCH} per request)` }, 400)
   if (words.some(w => typeof w !== 'string' || w.length > 200)) return c.json({ error: 'Invalid words array' }, 400)
+
   const uniqueWords = [...new Set(words as string[])]
-  console.log(
-    `[translate] user ${c.get('userId')} target=${targetLang} requested=${words.length} unique=${uniqueWords.length}`
-  )
+  console.log(`[translate] user=${c.get('userId')} lang=${targetLang} requested=${words.length} unique=${uniqueWords.length}`)
 
   const result: Record<string, string> = {}
 
@@ -44,8 +45,7 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   for (const { word, hit } of kvResults) {
     if (hit) {
       result[word] = hit
-      // Backfill into D1 so future hits are served from there
-      void setTranslationCached(c.env.DB, word, targetLang, hit)
+      void setTranslationCached(c.env.DB, word, targetLang, hit) // backfill D1
     } else {
       uncached.push(word)
     }
@@ -65,9 +65,22 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
         return c.json({ error: 'Translation service unavailable' }, 503)
       }
     }
-    const usageDelta = uncached.join('').length
-    await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
-    console.log(`[translate] incremented usage by ${usageDelta} chars`)
+
+    // Charge only for words that were actually translated
+    const usageDelta = [...translations.keys()].join('').length
+    if (usageDelta > 0 && c.get('plan') !== 'pro') {
+      const newTotal = await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
+      const limit = freeTierCharLimit(c.env)
+      if (newTotal > limit) {
+        console.warn(`[translate] user ${c.get('userId')} exceeded limit after this request (${newTotal}/${limit})`)
+        return c.json({ error: 'Monthly limit reached', code: 'LIMIT_REACHED' }, 402)
+      }
+      console.log(`[translate] charged ${usageDelta} chars, new total=${newTotal}`)
+    } else if (usageDelta > 0) {
+      await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
+      console.log(`[translate] pro user, charged ${usageDelta} chars (no limit)`)
+    }
+
     await Promise.all([...translations.entries()].map(async ([word, translation]) => {
       result[word] = translation
       await Promise.all([

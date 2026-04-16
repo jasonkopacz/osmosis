@@ -43,7 +43,9 @@ async function runPipeline(): Promise<void> {
     type: 'TRANSLATE',
     words: unique,
     targetLang: settings.targetLang,
-  } as Message)) as { translations?: Record<string, string>; error?: string }
+  } as Message)) as { translations?: Record<string, string>; error?: string } | undefined
+
+  if (!res) return // service worker inactive
 
   if (res.error === 'LIMIT_REACHED') {
     await chrome.storage.local.set({ osmosis_limit_reached: true })

@@ -1,9 +1,17 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
 import Stripe from 'stripe'
-import { updatePlan } from '../db/users'
+import { updatePlan, findUserByStripeCustomerId } from '../db/users'
 
 export const stripeRouter = new Hono<{ Bindings: Env }>()
+
+async function downgradeByCustomerId(db: Env['DB'], customerId: string, reason: string): Promise<void> {
+  const user = await findUserByStripeCustomerId(db, customerId)
+  if (user) {
+    await updatePlan(db, user.id, 'free', customerId)
+    console.log(`[stripe/webhook] downgraded user ${user.id} to free (${reason})`)
+  }
+}
 
 stripeRouter.post('/webhook', async (c) => {
   const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
@@ -30,7 +38,7 @@ stripeRouter.post('/webhook', async (c) => {
       typeof session.customer === 'string' &&
       session.payment_status === 'paid'
     ) {
-      await updatePlan(c.env.DB, session.client_reference_id, 'pro', session.customer as string)
+      await updatePlan(c.env.DB, session.client_reference_id, 'pro', session.customer)
       console.log(`[stripe/webhook] upgraded user ${session.client_reference_id} to pro`)
     }
   }
@@ -38,11 +46,14 @@ stripeRouter.post('/webhook', async (c) => {
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as Stripe.Customer).id
-    const user = await c.env.DB.prepare('SELECT id FROM users WHERE stripe_customer_id = ?')
-      .bind(customerId).first<{ id: string }>()
-    if (user) {
-      await updatePlan(c.env.DB, user.id, 'free', customerId)
-      console.log(`[stripe/webhook] downgraded user ${user.id} to free`)
+    await downgradeByCustomerId(c.env.DB, customerId, 'subscription deleted')
+  }
+
+  if (event.type === 'customer.subscription.updated') {
+    const sub = event.data.object as Stripe.Subscription
+    const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as Stripe.Customer).id
+    if (['past_due', 'unpaid', 'canceled'].includes(sub.status)) {
+      await downgradeByCustomerId(c.env.DB, customerId, `subscription ${sub.status}`)
     }
   }
 

@@ -1,6 +1,8 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import type { User } from '../types'
 
+const USER_COLUMNS = 'id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, created_at'
+
 export class DuplicateEmailError extends Error {
   constructor() { super('Email already registered'); this.name = 'DuplicateEmailError' }
 }
@@ -18,13 +20,17 @@ export async function createUser(db: D1Database, email: string, passwordHash: st
 }
 
 export async function findUserByEmail(db: D1Database, email: string): Promise<User | null> {
-  const result = await db.prepare('SELECT id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, created_at FROM users WHERE email = ?').bind(email).first<User>()
+  const result = await db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`).bind(email).first<User>()
   return result ?? null
 }
 
 export async function findUserByGoogleSub(db: D1Database, googleSub: string): Promise<User | null> {
-  const result = await db.prepare('SELECT * FROM users WHERE google_sub = ?').bind(googleSub).first<User>()
+  const result = await db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE google_sub = ?`).bind(googleSub).first<User>()
   return result ?? null
+}
+
+export async function findUserByStripeCustomerId(db: D1Database, customerId: string): Promise<{ id: string } | null> {
+  return db.prepare('SELECT id FROM users WHERE stripe_customer_id = ?').bind(customerId).first<{ id: string }>() ?? null
 }
 
 export async function createGoogleUser(
@@ -35,9 +41,7 @@ export async function createGoogleUser(
 ): Promise<void> {
   try {
     await db
-      .prepare(
-        'INSERT INTO users (email, password_hash, google_sub, auth_provider) VALUES (?, ?, ?, ?)'
-      )
+      .prepare('INSERT INTO users (email, password_hash, google_sub, auth_provider) VALUES (?, ?, ?, ?)')
       .bind(email, passwordHash, googleSub, 'google')
       .run()
   } catch (err) {
@@ -51,9 +55,7 @@ export async function createGoogleUser(
 
 export async function linkGoogleToEmailUser(db: D1Database, userId: string, googleSub: string): Promise<void> {
   await db
-    .prepare(
-      `UPDATE users SET google_sub = ?, auth_provider = CASE WHEN auth_provider = 'email' THEN 'both' ELSE auth_provider END WHERE id = ?`
-    )
+    .prepare(`UPDATE users SET google_sub = ?, auth_provider = CASE WHEN auth_provider = 'email' THEN 'both' ELSE auth_provider END WHERE id = ?`)
     .bind(googleSub, userId)
     .run()
 }

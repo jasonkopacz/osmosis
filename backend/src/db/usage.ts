@@ -7,11 +7,14 @@ export async function getUsage(db: D1Database, userId: string, yearMonth: string
   return row?.char_count ?? 0
 }
 
+/** Atomically increments usage and returns the new total. */
 export async function incrementUsage(
   db: D1Database, userId: string, yearMonth: string, chars: number
-): Promise<void> {
-  await db.prepare(`
+): Promise<number> {
+  const row = await db.prepare(`
     INSERT INTO usage (user_id, year_month, char_count) VALUES (?, ?, ?)
     ON CONFLICT(user_id, year_month) DO UPDATE SET char_count = char_count + excluded.char_count
-  `).bind(userId, yearMonth, chars).run()
+    RETURNING char_count
+  `).bind(userId, yearMonth, chars).first<{ char_count: number }>()
+  return row?.char_count ?? chars
 }

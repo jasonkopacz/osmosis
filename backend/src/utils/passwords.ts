@@ -1,3 +1,7 @@
+// A syntactically valid but unmatchable stored-hash used for constant-time dummy comparisons.
+// Prevents timing-based email enumeration: login always runs PBKDF2, whether the user exists or not.
+export const DUMMY_HASH = `${'0'.repeat(32)}:${'0'.repeat(64)}`
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
@@ -19,11 +23,10 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const candidate = new Uint8Array(bits)
   const storedBytes = new Uint8Array(hashHex.match(/.{2}/g)!.map(h => parseInt(h, 16)))
 
-  // Constant-time comparison: HMAC both values under the same ephemeral key and compare MACs
+  // Constant-time comparison via HMAC under ephemeral key
   const hmacKey = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']) as CryptoKey
   const macA = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, candidate))
   const macB = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, storedBytes))
-  if (macA.length !== macB.length) return false
   let diff = 0
   for (let i = 0; i < macA.length; i++) diff |= macA[i]! ^ macB[i]!
   return diff === 0
