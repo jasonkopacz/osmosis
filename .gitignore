@@ -10,3 +10,5 @@ backend/.env
 .DS_Store
 
 client_secret_*.json
+
+extension/osmosis-chrome-store.zip
