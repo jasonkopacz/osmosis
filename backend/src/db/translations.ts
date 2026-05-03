@@ -1,5 +1,14 @@
 import type { D1Database } from '@cloudflare/workers-types'
 
+// D1 caps bound variables per query at ~100; reserve 1 slot for target_lang
+const D1_CHUNK_SIZE = 99
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size))
+  return chunks
+}
+
 export async function getTranslationCached(db: D1Database, word: string, targetLang: string): Promise<string | null> {
   const row = await db
     .prepare('SELECT translation FROM translation_cache WHERE word = ? AND target_lang = ?')
@@ -13,22 +22,33 @@ export async function getTranslationsCachedBatch(
 ): Promise<Map<string, string>> {
   if (words.length === 0) return new Map()
   const lower = words.map(w => w.toLowerCase())
-  const placeholders = lower.map(() => '?').join(', ')
-  const { results } = await db
-    .prepare(`SELECT word, translation FROM translation_cache WHERE target_lang = ? AND word IN (${placeholders})`)
-    .bind(targetLang.toLowerCase(), ...lower)
-    .all<{ word: string; translation: string }>()
-  return new Map(results.map(r => [r.word, r.translation]))
+  const lang = targetLang.toLowerCase()
+  const results = await Promise.all(
+    chunk(lower, D1_CHUNK_SIZE).map(batch => {
+      const placeholders = batch.map(() => '?').join(', ')
+      return db
+        .prepare(`SELECT word, translation FROM translation_cache WHERE target_lang = ? AND word IN (${placeholders})`)
+        .bind(lang, ...batch)
+        .all<{ word: string; translation: string }>()
+        .then(r => r.results)
+    })
+  )
+  return new Map(results.flat().map(r => [r.word, r.translation]))
 }
 
 export async function batchIncrementHitCount(db: D1Database, words: string[], targetLang: string): Promise<void> {
   if (words.length === 0) return
   const lower = words.map(w => w.toLowerCase())
-  const placeholders = lower.map(() => '?').join(', ')
-  await db
-    .prepare(`UPDATE translation_cache SET hit_count = hit_count + 1 WHERE target_lang = ? AND word IN (${placeholders})`)
-    .bind(targetLang.toLowerCase(), ...lower)
-    .run()
+  const lang = targetLang.toLowerCase()
+  await Promise.all(
+    chunk(lower, D1_CHUNK_SIZE).map(batch => {
+      const placeholders = batch.map(() => '?').join(', ')
+      return db
+        .prepare(`UPDATE translation_cache SET hit_count = hit_count + 1 WHERE target_lang = ? AND word IN (${placeholders})`)
+        .bind(lang, ...batch)
+        .run()
+    })
+  )
 }
 
 /** Writes a translation to the cache. Does not touch hit_count — only reads should increment it. */

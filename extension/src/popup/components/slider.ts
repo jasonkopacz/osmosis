@@ -23,9 +23,10 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
   input.value = String(value)
   input.style.cssText = 'width:100%;accent-color:#3b82f6;cursor:pointer;'
   input.addEventListener('input', () => {
-    const v = Number(input.value)
-    valueEl.textContent = `${v}%`
-    onChange(v)
+    valueEl.textContent = `${Number(input.value)}%`
+  })
+  input.addEventListener('change', () => {
+    onChange(Number(input.value))
   })
 
   const rangeLabels = document.createElement('div')

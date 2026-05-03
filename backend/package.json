@@ -7,7 +7,9 @@
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:es": "node scripts/seed-es-translations.mjs"
+    "seed": "node scripts/seed-translations.mjs",
+    "seed:es": "node scripts/seed-translations.mjs es",
+    "seed:all": "node scripts/seed-translations.mjs all"
   },
   "keywords": [],
   "author": "",
