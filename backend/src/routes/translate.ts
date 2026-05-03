@@ -5,7 +5,7 @@ import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../utils/kv'
 import { translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
-import { getTranslationsCachedBatch, setTranslationCached } from '../db/translations'
+import { getTranslationsCachedBatch, setTranslationCached, batchIncrementHitCount } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
@@ -37,6 +37,10 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     else afterD1.push(word)
   }
   console.log(`[translate] D1 (database): ${d1Words.length} hits [${d1Words.join(', ')}]`)
+  if (d1Words.length > 0) {
+    void batchIncrementHitCount(c.env.DB, d1Words, targetLang)
+      .catch(err => console.warn(`[translate] hit_count increment failed: ${String(err)}`))
+  }
 
   // Layer 2: KV cache (permanent, lower latency)
   const kvResults = await Promise.all(
@@ -48,7 +52,8 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     if (hit) {
       result[word] = hit
       kvWords.push(word)
-      void setTranslationCached(c.env.DB, word, targetLang, hit) // backfill D1
+      void setTranslationCached(c.env.DB, word, targetLang, hit)
+        .catch(err => console.warn(`[translate] D1 backfill failed for "${word}": ${String(err)}`))
     } else {
       uncached.push(word)
     }
@@ -88,8 +93,10 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     await Promise.all([...translations.entries()].map(async ([word, translation]) => {
       result[word] = translation
       await Promise.all([
-        setCached(c.env.TRANSLATION_CACHE, word, targetLang, translation),
-        setTranslationCached(c.env.DB, word, targetLang, translation),
+        setCached(c.env.TRANSLATION_CACHE, word, targetLang, translation)
+          .catch(err => console.warn(`[translate] KV write failed for "${word}": ${String(err)}`)),
+        setTranslationCached(c.env.DB, word, targetLang, translation)
+          .catch(err => console.warn(`[translate] D1 write failed for "${word}": ${String(err)}`)),
       ])
     }))
   }

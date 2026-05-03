@@ -29,7 +29,7 @@ export async function signJWT(payload: Record<string, unknown>, secret: string):
 
 export async function verifyJWT(
   token: string, secret: string
-): Promise<{ userId: string; email: string } | null> {
+): Promise<{ userId: string; email: string; plan: string } | null> {
   const parts = token.split('.')
   if (parts.length !== 3) return null
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), ALG, false, ['verify'])
@@ -41,5 +41,6 @@ export async function verifyJWT(
   const sub = payload['sub']
   const email = payload['email']
   if (typeof sub !== 'string' || typeof email !== 'string') return null
-  return { userId: sub, email }
+  const plan = typeof payload['plan'] === 'string' ? payload['plan'] : 'free'
+  return { userId: sub, email, plan }
 }

@@ -66,7 +66,7 @@ googleOAuthRouter.post('/exchange', async c => {
   let user = await findUserByGoogleSub(c.env.DB, googleSub)
   if (user) {
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-    const token = await signJWT({ sub: user.id, email: user.email, exp }, c.env.JWT_SECRET)
+    const token = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
     console.log(`[auth/google] existing google user ${user.id}`)
     return c.json({ token })
   }
@@ -78,10 +78,9 @@ googleOAuthRouter.post('/exchange', async c => {
     }
     if (!byEmail.google_sub) {
       await linkGoogleToEmailUser(c.env.DB, byEmail.id, googleSub)
-      const linked = (await findUserByEmail(c.env.DB, email))!
       const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-      const token = await signJWT({ sub: linked.id, email: linked.email, exp }, c.env.JWT_SECRET)
-      console.log(`[auth/google] linked Google to ${linked.id}`)
+      const token = await signJWT({ sub: byEmail.id, email: byEmail.email, plan: byEmail.plan, exp }, c.env.JWT_SECRET)
+      console.log(`[auth/google] linked Google to ${byEmail.id}`)
       return c.json({ token })
     }
   }
@@ -97,9 +96,13 @@ googleOAuthRouter.post('/exchange', async c => {
     throw err
   }
 
-  const created = (await findUserByEmail(c.env.DB, email))!
+  const created = await findUserByEmail(c.env.DB, email)
+  if (!created) {
+    console.error(`[auth/google] failed to retrieve newly created user for ${email}`)
+    return c.json({ error: 'Account creation failed' }, 500)
+  }
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-  const token = await signJWT({ sub: created.id, email: created.email, exp }, c.env.JWT_SECRET)
+  const token = await signJWT({ sub: created.id, email: created.email, plan: created.plan, exp }, c.env.JWT_SECRET)
   console.log(`[auth/google] new user ${created.id}`)
   return c.json({ token })
 })

@@ -1,26 +1,13 @@
 import type { D1Database } from '@cloudflare/workers-types'
 
-/**
- * Returns the cached translation and increments hit_count in one atomic operation.
- * Returns null if no cached entry exists.
- */
 export async function getTranslationCached(db: D1Database, word: string, targetLang: string): Promise<string | null> {
   const row = await db
-    .prepare(`
-      UPDATE translation_cache
-      SET hit_count = hit_count + 1
-      WHERE word = ? AND target_lang = ?
-      RETURNING translation
-    `)
+    .prepare('SELECT translation FROM translation_cache WHERE word = ? AND target_lang = ?')
     .bind(word.toLowerCase(), targetLang.toLowerCase())
     .first<{ translation: string }>()
   return row?.translation ?? null
 }
 
-/**
- * Batch version of getTranslationCached. Fetches all matching translations in a single query
- * and increments hit_count for each hit atomically. Returns a Map keyed by lowercased word.
- */
 export async function getTranslationsCachedBatch(
   db: D1Database, words: string[], targetLang: string
 ): Promise<Map<string, string>> {
@@ -28,15 +15,20 @@ export async function getTranslationsCachedBatch(
   const lower = words.map(w => w.toLowerCase())
   const placeholders = lower.map(() => '?').join(', ')
   const { results } = await db
-    .prepare(`
-      UPDATE translation_cache
-      SET hit_count = hit_count + 1
-      WHERE target_lang = ? AND word IN (${placeholders})
-      RETURNING word, translation
-    `)
+    .prepare(`SELECT word, translation FROM translation_cache WHERE target_lang = ? AND word IN (${placeholders})`)
     .bind(targetLang.toLowerCase(), ...lower)
     .all<{ word: string; translation: string }>()
   return new Map(results.map(r => [r.word, r.translation]))
+}
+
+export async function batchIncrementHitCount(db: D1Database, words: string[], targetLang: string): Promise<void> {
+  if (words.length === 0) return
+  const lower = words.map(w => w.toLowerCase())
+  const placeholders = lower.map(() => '?').join(', ')
+  await db
+    .prepare(`UPDATE translation_cache SET hit_count = hit_count + 1 WHERE target_lang = ? AND word IN (${placeholders})`)
+    .bind(targetLang.toLowerCase(), ...lower)
+    .run()
 }
 
 /** Writes a translation to the cache. Does not touch hit_count — only reads should increment it. */

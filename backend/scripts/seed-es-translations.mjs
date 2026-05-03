@@ -16,9 +16,9 @@ import { writeFileSync } from 'fs'
 const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY
 const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION ?? 'eastus'
 const ENDPOINT = 'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&textType=plain&to=es'
-const BATCH_SIZE = 100  // Azure max is 1000; 100 keeps requests well within limits
+const BATCH_SIZE = 900  // Azure max is 1000; 900 keeps requests well within limits
 const OUTPUT_FILE = 'seed_es.sql'
-const SQL_CHUNK_SIZE = 100  // rows per INSERT statement
+const SQL_CHUNK_SIZE = 900  // rows per INSERT statement
 
 if (!AZURE_KEY) {
   console.error('Error: AZURE_TRANSLATOR_KEY env var is required')
