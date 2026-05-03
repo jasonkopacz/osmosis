@@ -12,3 +12,5 @@ backend/.env
 client_secret_*.json
 
 extension/osmosis-chrome-store.zip
+
+backend/scripts
