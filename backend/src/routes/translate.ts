@@ -5,7 +5,7 @@ import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../utils/kv'
 import { translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
-import { getTranslationCached, setTranslationCached } from '../db/translations'
+import { getTranslationsCachedBatch, setTranslationCached } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
@@ -27,30 +27,34 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
 
   const result: Record<string, string> = {}
 
-  // Layer 1: D1 database cache (permanent)
-  const d1Results = await Promise.all(
-    uniqueWords.map(word => getTranslationCached(c.env.DB, word, targetLang).then(hit => ({ word, hit })))
-  )
+  // Layer 1: D1 database (single batch query)
+  const d1Map = await getTranslationsCachedBatch(c.env.DB, uniqueWords, targetLang)
   const afterD1: string[] = []
-  for (const { word, hit } of d1Results) {
-    if (hit) result[word] = hit
+  const d1Words: string[] = []
+  for (const word of uniqueWords) {
+    const hit = d1Map.get(word.toLowerCase())
+    if (hit) { result[word] = hit; d1Words.push(word) }
     else afterD1.push(word)
   }
+  console.log(`[translate] D1 (database): ${d1Words.length} hits [${d1Words.join(', ')}]`)
 
   // Layer 2: KV cache (permanent, lower latency)
   const kvResults = await Promise.all(
     afterD1.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
   )
   const uncached: string[] = []
+  const kvWords: string[] = []
   for (const { word, hit } of kvResults) {
     if (hit) {
       result[word] = hit
+      kvWords.push(word)
       void setTranslationCached(c.env.DB, word, targetLang, hit) // backfill D1
     } else {
       uncached.push(word)
     }
   }
-  console.log(`[translate] d1_hits=${uniqueWords.length - afterD1.length} kv_hits=${afterD1.length - uncached.length} misses=${uncached.length}`)
+  console.log(`[translate] KV (cache): ${kvWords.length} hits [${kvWords.join(', ')}]`)
+  console.log(`[translate] Azure (api): ${uncached.length} misses [${uncached.join(', ')}]`)
 
   if (uncached.length > 0) {
     let translations: Map<string, string>
