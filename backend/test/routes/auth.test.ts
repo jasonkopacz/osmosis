@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { authRouter } from '../../src/routes/auth'
 import { createTestDb, wrapDb } from '../helpers/db'
-import { createMetaUser, createAppleUser, createMicrosoftUser } from '../../src/db/users'
 import { hashPassword } from '../../src/utils/passwords'
 import type { Env } from '../../src/types'
 
@@ -105,36 +104,48 @@ describe('POST /auth/login', () => {
     expect(res.status).toBe(200)
   })
 
-  it('returns provider-specific message for Meta-only accounts', async () => {
-    const { app, env } = makeApp(db)
+  const legacySocialError =
+    'This account used a sign-in method that is no longer available. Try Google if this email is linked there, or contact support.'
+
+  it('returns a clear error for legacy Meta-only accounts', async () => {
+    const raw = createTestDb()
+    const wrapped = wrapDb(raw)
     const passwordHash = await hashPassword('strong-password')
-    await createMetaUser(db, 'meta@test.com', 'meta-sub-1', passwordHash)
+    raw
+      .prepare('INSERT INTO users (email, password_hash, meta_sub, auth_provider) VALUES (?, ?, ?, ?)')
+      .bind('meta@test.com', passwordHash, 'meta-sub-1', 'meta')
+      .run()
+    const { app, env } = makeApp(wrapped)
     const res = await post(app, '/auth/login', { email: 'meta@test.com', password: 'strong-password' }, env)
     expect(res.status).toBe(401)
-    expect(await res.json()).toMatchObject({
-      error: 'This account uses Meta sign-in. Please continue with Meta.',
-    })
+    expect(await res.json()).toMatchObject({ error: legacySocialError })
   })
 
-  it('returns provider-specific message for Apple-only accounts', async () => {
-    const { app, env } = makeApp(db)
+  it('returns a clear error for legacy Apple-only accounts', async () => {
+    const raw = createTestDb()
+    const wrapped = wrapDb(raw)
     const passwordHash = await hashPassword('strong-password')
-    await createAppleUser(db, 'apple@test.com', 'apple-sub-1', passwordHash)
+    raw
+      .prepare('INSERT INTO users (email, password_hash, apple_sub, auth_provider) VALUES (?, ?, ?, ?)')
+      .bind('apple@test.com', passwordHash, 'apple-sub-1', 'apple')
+      .run()
+    const { app, env } = makeApp(wrapped)
     const res = await post(app, '/auth/login', { email: 'apple@test.com', password: 'strong-password' }, env)
     expect(res.status).toBe(401)
-    expect(await res.json()).toMatchObject({
-      error: 'This account uses Apple sign-in. Please continue with Apple.',
-    })
+    expect(await res.json()).toMatchObject({ error: legacySocialError })
   })
 
-  it('returns provider-specific message for Microsoft-only accounts', async () => {
-    const { app, env } = makeApp(db)
+  it('returns a clear error for legacy Microsoft-only accounts', async () => {
+    const raw = createTestDb()
+    const wrapped = wrapDb(raw)
     const passwordHash = await hashPassword('strong-password')
-    await createMicrosoftUser(db, 'ms@test.com', 'ms-sub-1', passwordHash)
+    raw
+      .prepare('INSERT INTO users (email, password_hash, microsoft_sub, auth_provider) VALUES (?, ?, ?, ?)')
+      .bind('ms@test.com', passwordHash, 'ms-sub-1', 'microsoft')
+      .run()
+    const { app, env } = makeApp(wrapped)
     const res = await post(app, '/auth/login', { email: 'ms@test.com', password: 'strong-password' }, env)
     expect(res.status).toBe(401)
-    expect(await res.json()).toMatchObject({
-      error: 'This account uses Microsoft sign-in. Please continue with Microsoft.',
-    })
+    expect(await res.json()).toMatchObject({ error: legacySocialError })
   })
 })

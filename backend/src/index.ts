@@ -3,9 +3,6 @@ import { cors } from 'hono/cors'
 import type { Env } from './types'
 import { authRouter } from './routes/auth'
 import { googleOAuthRouter } from './routes/google'
-import { metaOAuthRouter } from './routes/meta'
-import { appleOAuthRouter } from './routes/apple'
-import { microsoftOAuthRouter } from './routes/microsoft'
 import { translateRouter } from './routes/translate'
 import { userRouter } from './routes/user'
 import { stripeRouter } from './routes/stripe'
@@ -27,9 +24,6 @@ app.use('*', async (c, next) => {
 })
 app.route('/auth', authRouter)
 app.route('/auth/google', googleOAuthRouter)
-app.route('/auth/meta', metaOAuthRouter)
-app.route('/auth/apple', appleOAuthRouter)
-app.route('/auth/microsoft', microsoftOAuthRouter)
 app.route('/translate', translateRouter)
 app.route('/user', userRouter)
 app.route('/stripe', stripeRouter)

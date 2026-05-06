@@ -11,12 +11,6 @@ export type Env = {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   GOOGLE_WEB_CLIENT_JSON?: string
-  META_CLIENT_ID?: string
-  META_CLIENT_SECRET?: string
-  APPLE_CLIENT_ID?: string
-  APPLE_CLIENT_SECRET?: string
-  MICROSOFT_CLIENT_ID?: string
-  MICROSOFT_CLIENT_SECRET?: string
 }
 
 export type Variables = { userId: string; email: string; plan: string }

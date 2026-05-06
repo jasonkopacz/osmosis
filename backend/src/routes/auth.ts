@@ -52,14 +52,14 @@ authRouter.post('/login', async (c) => {
   if (user.auth_provider === 'google') {
     return c.json({ error: 'This account uses Google sign-in. Please continue with Google.' }, 401)
   }
-  if (user.auth_provider === 'meta') {
-    return c.json({ error: 'This account uses Meta sign-in. Please continue with Meta.' }, 401)
-  }
-  if (user.auth_provider === 'apple') {
-    return c.json({ error: 'This account uses Apple sign-in. Please continue with Apple.' }, 401)
-  }
-  if (user.auth_provider === 'microsoft') {
-    return c.json({ error: 'This account uses Microsoft sign-in. Please continue with Microsoft.' }, 401)
+  if (user.auth_provider === 'meta' || user.auth_provider === 'apple' || user.auth_provider === 'microsoft') {
+    return c.json(
+      {
+        error:
+          'This account used a sign-in method that is no longer available. Try Google if this email is linked there, or contact support.',
+      },
+      401,
+    )
   }
 
   const exp = Math.floor(Date.now() / 1000) + JWT_EXPIRY_SECS
