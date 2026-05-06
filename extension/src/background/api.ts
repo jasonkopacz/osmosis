@@ -10,8 +10,13 @@ export async function translateBatch(words: string[], targetLang: string, token:
   if (res.status === 402) throw new Error('LIMIT_REACHED')
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
-  const data = (await res.json()) as { translations: Record<string, TranslationEntry> }
-  return new Map(Object.entries(data.translations))
+  const data = (await res.json()) as { translations: Record<string, TranslationEntry | string> }
+  return new Map(
+    Object.entries(data.translations).map(([word, val]) => [
+      word,
+      typeof val === 'string' ? { t: val } : val,
+    ])
+  )
 }
 
 export async function fetchUser(token: string): Promise<unknown> {
@@ -25,8 +30,13 @@ export async function fetchPopularTranslations(lang: string, token: string, limi
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (!res.ok) return new Map()
-  const data = await res.json() as { translations: Record<string, TranslationEntry> }
-  return new Map(Object.entries(data.translations))
+  const data = await res.json() as { translations: Record<string, TranslationEntry | string> }
+  return new Map(
+    Object.entries(data.translations).map(([word, val]) => [
+      word,
+      typeof val === 'string' ? { t: val } : val,
+    ])
+  )
 }
 
 function readJsonError(res: Response, bodyText: string): string {

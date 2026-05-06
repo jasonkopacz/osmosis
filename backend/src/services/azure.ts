@@ -43,7 +43,7 @@ export async function lookupWords(
   const data = (await res.json()) as AzureDictResponse
   const map = new Map<string, TranslationEntry>()
   data.forEach((row, i) => {
-    if (!row.translations.length) return // no dictionary entry — caller falls back to /translate
+    if (!row.translations.length) return
     const sorted = [...row.translations].sort((a, b) => b.confidence - a.confidence)
     const primary = sorted[0]!
     const entry: TranslationEntry = { t: primary.displayTarget, p: primary.posTag }

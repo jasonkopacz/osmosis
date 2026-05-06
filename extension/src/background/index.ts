@@ -83,6 +83,8 @@ async function handle(msg: Message): Promise<unknown> {
         return { error: 'AUTH_EXPIRED' }
       }
       console.warn('[osmosis:bg] TRANSLATE API error', s)
+      // Return whatever we have from cache rather than nothing
+      if (Object.keys(result).length > 0) return { translations: result }
       return { error: 'API_ERROR' }
     }
   }

@@ -31,10 +31,14 @@ async function runPipeline(): Promise<void> {
     return
   }
 
-  const eligibleWords = eligibleEntries.map(e => e.word)
-  const unique = [...new Set(sampleWords(eligibleWords, settings.percentage, location.href))]
+  // Deduplicate before sampling so percentage applies to unique words, not occurrences.
+  // Without this, a long article (e.g. 3000 occurrences, 20% → 600) always hits MAX_WORDS
+  // at any percentage, making the slider appear stuck.
+  const uniqueEligible = [...new Set(eligibleEntries.map(e => e.word))]
+  const unique = sampleWords(uniqueEligible, settings.percentage, location.href)
   console.log('[osmosis:content] pipeline', {
     eligible: eligibleEntries.length,
+    uniqueEligible: uniqueEligible.length,
     sampled: unique.length,
     lang: settings.targetLang,
   })
