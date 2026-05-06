@@ -5,6 +5,14 @@ import { isEligible } from './filter'
 const STYLE_ID = 'osmosis-styles'
 const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
 
+function matchCase(original: string, translation: string): string {
+  if (!translation) return translation
+  if (original[0] === original[0].toUpperCase()) {
+    return translation.charAt(0).toUpperCase() + translation.slice(1)
+  }
+  return translation.toLowerCase()
+}
+
 const POS_LABELS: Record<string, string> = {
   VERB: 'verb', NOUN: 'noun', ADJ: 'adj.', ADV: 'adv.',
   PRON: 'pron.', PREP: 'prep.', DET: 'det.', CONJ: 'conj.', INTJ: 'interj.',
@@ -147,7 +155,7 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry>,
         const altsText = entry.a.map(a => `${a.t} (${posLabel(a.p)})`).join(' · ')
         span.setAttribute('data-alts', altsText)
       }
-      span.textContent = entry.t
+      span.textContent = matchCase(word, entry.t)
       bindTooltipSpan(span)
       const after = document.createTextNode(text.slice(idx + word.length))
 
