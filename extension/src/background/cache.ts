@@ -9,6 +9,10 @@ function coerce(v: TranslationEntry | string): TranslationEntry {
   return typeof v === 'string' ? { t: v } : v
 }
 
+function storageLocal(): chrome.storage.StorageArea | null {
+  return typeof chrome !== 'undefined' && chrome.storage?.local ? chrome.storage.local : null
+}
+
 export class SessionCache {
   private store = new Map<string, TranslationEntry>()
   private readyPromise: Promise<void>
@@ -25,8 +29,14 @@ export class SessionCache {
   }
 
   async init(): Promise<void> {
+    const local = storageLocal()
+    if (!local) {
+      console.log('[osmosis:cache] chrome.storage.local unavailable, using in-memory cache only')
+      this.resolveReady()
+      return
+    }
     try {
-      const r = await chrome.storage.local.get(STORAGE_KEYS.TRANSLATION_CACHE)
+      const r = await local.get(STORAGE_KEYS.TRANSLATION_CACHE)
       const stored = (r[STORAGE_KEYS.TRANSLATION_CACHE] ?? {}) as Record<string, StoredEntry>
       const now = Date.now()
       const expired: string[] = []
@@ -40,7 +50,7 @@ export class SessionCache {
       if (expired.length > 0) {
         const cleaned = { ...stored }
         for (const k of expired) delete cleaned[k]
-        void chrome.storage.local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: cleaned })
+        void local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: cleaned })
           .catch(err => console.warn('[osmosis:cache] evict expired failed', err))
       }
       console.log(`[osmosis:cache] loaded ${this.store.size} entries (${expired.length} expired evicted)`)
@@ -69,14 +79,16 @@ export class SessionCache {
   }
 
   private async flush(): Promise<void> {
+    const local = storageLocal()
+    if (!local) return
     this.flushScheduled = false
     const writes = new Map(this.pendingWrites)
     this.pendingWrites.clear()
     try {
-      const r = await chrome.storage.local.get(STORAGE_KEYS.TRANSLATION_CACHE)
+      const r = await local.get(STORAGE_KEYS.TRANSLATION_CACHE)
       const stored = (r[STORAGE_KEYS.TRANSLATION_CACHE] ?? {}) as Record<string, StoredEntry>
       writes.forEach((entry, key) => { stored[key] = entry })
-      await chrome.storage.local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: stored })
+      await local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: stored })
     } catch (err) {
       console.warn('[osmosis:cache] flush failed', err)
     }
@@ -86,7 +98,9 @@ export class SessionCache {
     this.store.clear()
     this.pendingWrites.clear()
     this.flushScheduled = false
-    void chrome.storage.local.remove(STORAGE_KEYS.TRANSLATION_CACHE)
+    const local = storageLocal()
+    if (!local) return
+    void local.remove(STORAGE_KEYS.TRANSLATION_CACHE)
       .catch(err => console.warn('[osmosis:cache] clear failed', err))
   }
 }

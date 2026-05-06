@@ -22,6 +22,10 @@ function posLabel(tag: string): string {
   return POS_LABELS[tag] ?? tag.toLowerCase()
 }
 
+function coerceEntry(entry: TranslationEntry | string): TranslationEntry {
+  return typeof entry === 'string' ? { t: entry } : entry
+}
+
 let detachActiveTooltip: (() => void) | null = null
 
 function ensureTooltipHost(): HTMLDivElement {
@@ -122,7 +126,7 @@ export function injectTooltipStyles(): void {
   document.head.appendChild(style)
 }
 
-export function applyReplacements(translationMap: Map<string, TranslationEntry>, entries: WordEntry[]): void {
+export function applyReplacements(translationMap: Map<string, TranslationEntry | string>, entries: WordEntry[]): void {
   if (translationMap.size === 0) return
 
   const byNode = new Map<Text, Array<{ word: string; offset: number; entry: TranslationEntry }>>()
@@ -130,23 +134,26 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry>,
   for (const { word, node, offset } of entries) {
     const prevChar = node.textContent?.[offset - 1] ?? ''
     if (!isEligible(word, prevChar)) continue
-    const entry = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
-    if (!entry) continue
+    const rawEntry = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
+    if (!rawEntry) continue
+    const entry = coerceEntry(rawEntry)
     if (!byNode.has(node)) byNode.set(node, [])
     byNode.get(node)!.push({ word, offset, entry })
   }
 
   for (const [node, matches] of byNode) {
     if (!node.parentNode) continue
-    matches.sort((a, b) => b.offset - a.offset)
+    const text = node.textContent ?? ''
+    matches.sort((a, b) => a.offset - b.offset)
+    const fragment = document.createDocumentFragment()
+    let cursor = 0
 
-    let remaining: Text = node
     for (const { word, offset, entry } of matches) {
-      const text = remaining.textContent ?? ''
       const idx = text.indexOf(word, offset)
+      if (idx < cursor) continue
       if (idx === -1) continue
+      if (idx > cursor) fragment.appendChild(document.createTextNode(text.slice(cursor, idx)))
 
-      const before = document.createTextNode(text.slice(0, idx))
       const span = document.createElement('span')
       span.className = 'osmosis-word'
       span.setAttribute('data-original', word)
@@ -157,14 +164,12 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry>,
       }
       span.textContent = matchCase(word, entry.t)
       bindTooltipSpan(span)
-      const after = document.createTextNode(text.slice(idx + word.length))
-
-      remaining.parentNode!.replaceChild(after, remaining)
-      after.parentNode!.insertBefore(span, after)
-      after.parentNode!.insertBefore(before, span)
-
-      remaining = before
+      fragment.appendChild(span)
+      cursor = idx + word.length
     }
+
+    if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)))
+    node.parentNode.replaceChild(fragment, node)
   }
 }
 

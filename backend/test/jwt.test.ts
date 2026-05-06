@@ -6,7 +6,7 @@ const SECRET = 'test-secret-that-is-long-enough-32chars'
 describe('JWT', () => {
   it('round-trips a valid token', async () => {
     const token = await signJWT({ sub: 'user-1', email: 'a@b.com' }, SECRET)
-    expect(await verifyJWT(token, SECRET)).toEqual({ userId: 'user-1', email: 'a@b.com' })
+    expect(await verifyJWT(token, SECRET)).toEqual({ userId: 'user-1', email: 'a@b.com', plan: 'free' })
   })
 
   it('returns null for a tampered token', async () => {

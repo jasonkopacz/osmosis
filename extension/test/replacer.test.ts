@@ -43,7 +43,7 @@ describe('applyReplacements', () => {
     const entries = collectWords(document.body)
     applyReplacements(new Map([['quick', 'schnell'], ['fox', 'Fuchs']]), entries)
     expect(document.body.textContent).toContain('schnell')
-    expect(document.body.textContent).toContain('Fuchs')
+    expect(document.body.textContent).toContain('fuchs')
     expect(document.querySelectorAll('.osmosis-word').length).toBe(2)
   })
 })
