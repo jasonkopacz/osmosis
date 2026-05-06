@@ -7,17 +7,15 @@
  *   AZURE_TRANSLATOR_KEY=<key> node scripts/seed-translations.mjs all
  *
  * Examples:
- *   node scripts/seed-translations.mjs fr
- *   node scripts/seed-translations.mjs it
- *   node scripts/seed-translations.mjs all
+ *   AZURE_TRANSLATOR_KEY=<key> node scripts/seed-translations.mjs fr   # one language
+ *   AZURE_TRANSLATOR_KEY=<key> node scripts/seed-translations.mjs all  # all 17 at once
  *
- * Writes seed_<lang>.sql in the project root. Apply with:
- *   wrangler d1 execute osmosis --file=seed_fr.sql --remote
- *
+ * The script translates, writes SQL, and applies to D1 in one shot.
  * Re-running is safe: uses INSERT OR IGNORE.
  */
 
 import { writeFileSync } from 'fs'
+import { execSync } from 'child_process'
 
 const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY
 const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION ?? 'eastus'
@@ -45,7 +43,13 @@ const LANGUAGES = {
   hi: 'Hindi',
 }
 
-// ~1500 high-frequency English words covering ~95%+ of everyday web content.
+// ~3000 high-frequency English words + inflections covering ~98%+ of everyday web content.
+// Sections: function words, pronouns, prepositions, auxiliaries, adverbs, verbs (base),
+// nouns, adjectives, numbers, time, body, family, food, home/environment, transport,
+// technology, education, health, society, emotions, colors/shapes,
+// present participles (-ing), irregular past tenses, regular past/-ed forms,
+// third-person -s forms, irregular/high-freq noun plurals, comparatives,
+// web/UI vocabulary.
 const WORDS = [
   // Function words
   'the','a','an','this','that','these','those','some','any','each','every','all','both',
@@ -210,6 +214,119 @@ const WORDS = [
   // Colors & shapes
   'gray','purple','pink','brown','yellow','bright','pale','round','square','circle',
   'triangle','straight','curved',
+
+  // Present participles (-ing) — frequently appear in continuous tenses and as modifiers
+  'going','getting','making','taking','seeing','coming','knowing','thinking','looking',
+  'wanting','giving','using','finding','telling','asking','feeling','trying','leaving',
+  'calling','keeping','beginning','showing','hearing','playing','running','moving',
+  'living','believing','holding','bringing','writing','sitting','standing','losing',
+  'paying','meeting','including','continuing','learning','changing','leading','watching',
+  'following','creating','opening','walking','winning','offering','remembering','loving',
+  'considering','appearing','buying','waiting','serving','dying','sending','expecting',
+  'building','staying','falling','cutting','reaching','killing','remaining','suggesting',
+  'raising','passing','selling','requiring','reporting','deciding','pulling','breaking',
+  'speaking','eating','covering','entering','stopping','adding','choosing','pushing',
+  'closing','spending','turning','starting','returning','explaining','developing',
+  'carrying','allowing','drawing','helping','working','growing','reading','driving',
+  'placing','producing','filling','fighting','wishing','counting','listening','joining',
+  'accepting','managing','reducing','preparing','handling','claiming','applying',
+  'identifying','dealing','introducing','comparing','measuring','selecting','testing',
+  'becoming','proving','failing','planning','hoping','realizing','noticing','discovering',
+  'refusing','promising','avoiding','supporting','gaining','increasing','decreasing',
+  'improving','delivering','achieving','performing','maintaining','obtaining','meaning',
+  'agreeing','acting','connecting','involving','relating','operating','implementing',
+  'enabling','affecting','attempting','focusing','limiting','forming','replacing',
+  'responding','indicating','recognizing','depending','saying',
+
+  // Irregular past tenses — among the most common word forms in written English
+  'went','came','got','made','took','saw','knew','thought','found','gave','told',
+  'felt','left','began','showed','heard','ran','held','brought','wrote','sat','stood',
+  'lost','paid','met','led','watched','followed','created','opened','walked','won',
+  'offered','remembered','loved','considered','appeared','bought','waited','served',
+  'sent','built','stayed','fell','cut','reached','suggested','raised','passed','sold',
+  'required','reported','decided','pulled','broke','spoke','ate','covered','entered',
+  'stopped','added','chose','pushed','closed','spent','turned','started','returned',
+  'explained','developed','drew','grew','drove','produced','filled','rose','saved',
+  'fought','listened','joined','accepted','managed','reduced','prepared','handled',
+  'applied','dealt','introduced','compared','measured','selected','tested','proved',
+  'failed','planned','hoped','realized','noticed','forgot','discovered','refused',
+  'promised','avoided','gained','increased','decreased','improved','delivered',
+  'achieved','performed','maintained','obtained','meant','agreed','enabled','affected',
+  'said','read','put','set','let','hit','cut','cost','hurt',
+
+  // Common regular past tense / past participle forms (-ed)
+  'used','called','changed','moved','stopped','turned','asked','seemed','looked',
+  'worked','played','wanted','needed','opened','closed','started','ended','helped',
+  'reached','passed','stayed','named','joined','checked','waited','signed','added',
+  'required','entered','removed','shared','viewed','liked','posted','updated',
+  'fixed','tried','loved','moved','killed','raised','filled','saved','covered',
+  'formed','produced','forced','limited','linked','ordered','created','designed',
+  'based','known','given','seen','shown','written','taken','made','done','spoken',
+  'broken','chosen','driven','fallen','grown','risen','worn','thrown',
+
+  // Third-person singular present (-s/-es) — very common in articles and descriptions
+  'goes','gets','makes','takes','sees','comes','knows','thinks','looks','wants',
+  'gives','uses','finds','tells','asks','feels','tries','leaves','calls','keeps',
+  'begins','shows','hears','plays','runs','moves','lives','believes','holds','brings',
+  'writes','sits','stands','loses','pays','meets','includes','continues','sets',
+  'learns','changes','leads','watches','follows','opens','walks','wins','offers',
+  'considers','appears','buys','waits','serves','dies','sends','expects','builds',
+  'stays','falls','cuts','reaches','remains','suggests','raises','passes','sells',
+  'requires','reports','decides','pulls','breaks','speaks','eats','enters','stops',
+  'adds','chooses','pushes','closes','spends','turns','starts','returns','explains',
+  'develops','carries','draws','helps','grows','means','agrees','says','needs',
+
+  // Irregular noun plurals & high-frequency plurals not derivable from base forms
+  'people','children','men','women','years','days','things','times','ways','words',
+  'places','weeks','months','hours','minutes','lives','hands','eyes','cars','books',
+  'rooms','homes','areas','stories','facts','jobs','friends','cities','teams','names',
+  'ideas','views','laws','actions','voices','states','schools','families','groups',
+  'countries','problems','faces','roads','reasons','doors','tables','plans','hearts',
+  'minds','moments','forms','forces','levels','ages','offices','courses','types',
+  'pieces','fields','steps','costs','effects','deals','buildings','values','positions',
+  'companies','systems','programs','questions','governments','nights','points','waters',
+  'studies','sides','kinds','services','powers','games','lines','members','communities',
+  'bodies','parties','results','needs','matters','markets','terms','processes',
+  'differences','reports','buildings','relationships','decisions','taxes','prices',
+  'experiences','rates','shows','chances','spaces','wars','pictures','risks',
+  'projects','goals','features','solutions','challenges','strategies','benefits',
+  'methods','conditions','factors','elements','aspects','sources','messages','records',
+  'files','tasks','roles','stages','phases','paths','options','choices','skills',
+  'resources','activities','opportunities','models','situations','agreements',
+  'structures','orders','developments','environments','answers','details','qualities',
+  'networks','products','users','performances','standards','practices','abilities',
+  'categories','collections','connections','contexts','origins','purposes',
+  'functions','responsibilities','clients','customers','audiences','institutions',
+  'departments','agencies','committees','regulations','principles','beliefs',
+  'concepts','theories','partners','numbers','images','sounds','levels','issues',
+  'members','events','cases','rules','lines','articles','points','notes','lists',
+  'tests','errors','requests','responses','pages','sections','chapters','examples',
+
+  // Comparative & superlative adjectives
+  'bigger','biggest','smaller','smallest','longer','longest','shorter','shortest',
+  'older','oldest','newer','newest','higher','highest','lower','lowest','faster',
+  'fastest','slower','slowest','easier','easiest','harder','hardest','stronger',
+  'strongest','weaker','weakest','later','latest','earlier','earliest','wider',
+  'widest','deeper','deepest','richer','richest','poorer','poorest','warmer','warmest',
+  'cooler','coolest','brighter','brightest','darker','darkest','healthier','healthiest',
+  'happier','happiest','sadder','saddest','safer','safest','closer','closest',
+  'further','furthest','farther','farthest','quieter','quietest','louder','loudest',
+  'cleaner','cleanest','heavier','heaviest','lighter','lightest','thicker','thickest',
+  'thinner','thinnest','taller','tallest','shorter','shortest','younger','youngest',
+  'simpler','simplest','stranger','strangest','fuller','fullest','emptier','emptiest',
+
+  // Common web & UI vocabulary — words users encounter constantly on web pages
+  'article','comment','reply','post','share','like','follow','subscribe','unsubscribe',
+  'login','logout','signup','register','account','profile','settings','password',
+  'username','email','search','filter','sort','view','edit','delete','save','cancel',
+  'submit','send','upload','download','install','update','refresh','reload','back',
+  'next','previous','close','open','menu','button','link','icon','image','photo',
+  'video','audio','file','folder','page','site','blog','forum','chat','message',
+  'notification','alert','error','warning','success','loading','processing',
+  'available','unavailable','required','optional','private','public','free','paid',
+  'new','popular','featured','recommended','related','similar','recent','latest',
+  'trending','top','best','worst','rating','review','feedback','support','help',
+  'contact','about','terms','privacy','cookie','policy','legal','copyright',
 ]
 
 const uniqueWords = [...new Set(WORDS.map(w => w.toLowerCase()))]
@@ -234,7 +351,6 @@ async function translateBatch(words, langCode) {
 }
 
 async function seedLanguage(langCode, langName) {
-  const outputFile = `seed_${langCode.replace('-', '_')}.sql`
   console.log(`\n[${langCode}] ${langName} — translating ${uniqueWords.length} words...`)
 
   const pairs = []
@@ -272,10 +388,14 @@ async function seedLanguage(langCode, langName) {
     )
   }
 
-  writeFileSync(outputFile, lines.join('\n'), 'utf8')
-  console.log(`  Wrote ${outputFile} (${pairs.length} translations)`)
-  console.log(`  Apply: wrangler d1 execute osmosis --file=${outputFile} --remote`)
-  return outputFile
+  console.log(`  [${langCode}] ${pairs.length} translations ready`)
+  return { lines, pairs, langCode }
+}
+
+function applyToD1(sqlFile) {
+  console.log(`\nApplying ${sqlFile} to D1...`)
+  execSync(`npx wrangler d1 execute osmosis --file=${sqlFile} --remote`, { stdio: 'inherit' })
+  console.log(`Done.`)
 }
 
 async function main() {
@@ -294,27 +414,37 @@ async function main() {
     process.exit(1)
   }
 
-  const toSeed = arg === 'all'
-    ? Object.entries(LANGUAGES)
-    : [[arg, LANGUAGES[arg]]]
-
   if (!LANGUAGES[arg] && arg !== 'all') {
     console.error(`Unknown language: ${arg}`)
     console.error(`Available: ${Object.keys(LANGUAGES).join(', ')}`)
     process.exit(1)
   }
 
-  const written = []
-  for (const [code, name] of toSeed) {
-    const file = await seedLanguage(code, name)
-    written.push({ code, file })
-  }
-
-  if (written.length > 1) {
-    console.log('\n\nAll done. Apply all files:')
-    for (const { file } of written) {
-      console.log(`  wrangler d1 execute osmosis --file=${file} --remote`)
+  if (arg === 'all') {
+    // Translate all languages, combine into one SQL file, apply once
+    const combinedLines = [
+      `-- All languages seed translations for Osmosis`,
+      `-- Generated: ${new Date().toISOString()}`,
+      `-- Languages: ${Object.keys(LANGUAGES).join(', ')}`,
+      '',
+    ]
+    let totalPairs = 0
+    for (const [code, name] of Object.entries(LANGUAGES)) {
+      const { lines, pairs } = await seedLanguage(code, name)
+      combinedLines.push(...lines)
+      totalPairs += pairs.length
     }
+    const outputFile = 'seed_all.sql'
+    writeFileSync(outputFile, combinedLines.join('\n'), 'utf8')
+    console.log(`\nWrote ${outputFile} (${totalPairs} total translations across ${Object.keys(LANGUAGES).length} languages)`)
+    applyToD1(outputFile)
+  } else {
+    // Single language: write per-language file and apply
+    const { lines, pairs, langCode } = await seedLanguage(arg, LANGUAGES[arg])
+    const outputFile = `seed_${langCode.replace('-', '_')}.sql`
+    writeFileSync(outputFile, lines.join('\n'), 'utf8')
+    console.log(`\nWrote ${outputFile} (${pairs.length} translations)`)
+    applyToD1(outputFile)
   }
 }
 

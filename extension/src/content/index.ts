@@ -43,7 +43,7 @@ async function runPipeline(): Promise<void> {
     type: 'TRANSLATE',
     words: unique,
     targetLang: settings.targetLang,
-  } as Message)) as { translations?: Record<string, string>; error?: string } | undefined
+  } as Message)) as { translations?: Record<string, import('../types').TranslationEntry>; error?: string } | undefined
 
   if (!res) return // service worker inactive
 

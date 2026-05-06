@@ -15,6 +15,12 @@ export type Env = {
 
 export type Variables = { userId: string; email: string; plan: string }
 
+export type TranslationEntry = {
+  t: string                               // primary translation text
+  p?: string                              // POS tag: VERB, NOUN, ADJ, ADV, etc.
+  a?: Array<{ t: string; p: string }>     // top alternatives with a different POS
+}
+
 export type User = {
   id: string
   email: string

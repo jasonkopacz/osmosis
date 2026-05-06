@@ -42,7 +42,7 @@ userRouter.get('/cache-stats', requireAuth, async (c) => {
   const lang = c.req.query('lang')
   if (!lang || !VALID_LANGUAGE_CODES.has(lang)) return c.json({ error: 'Valid lang query param required' }, 400)
   const top = await getTopTranslations(c.env.DB, lang)
-  return c.json({ lang, topTranslations: top })
+  return c.json({ lang, topTranslations: top.map(r => ({ word: r.word, ...r.entry, hit_count: r.hit_count })) })
 })
 
 userRouter.post('/checkout', requireAuth, async (c) => {

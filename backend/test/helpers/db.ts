@@ -15,6 +15,8 @@ export function createTestDb() {
   runFile('0001_initial.sql')
   runFile('0002_google_oauth.sql')
   runFile('0003_translation_cache.sql')
+  runFile('0004_translation_cache_index.sql')
+  runFile('0005_translation_pos.sql')
   return db
 }
 

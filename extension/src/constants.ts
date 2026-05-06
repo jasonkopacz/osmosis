@@ -10,5 +10,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
 export const STORAGE_KEYS = {
   TOKEN: "osmosis_token",
   SETTINGS: "osmosis_settings",
-  USER_PROFILE_CACHE: "osmosis_user_profile_cache"
+  USER_PROFILE_CACHE: "osmosis_user_profile_cache",
+  TRANSLATION_CACHE: "osmosis_translation_cache",
 } as const;

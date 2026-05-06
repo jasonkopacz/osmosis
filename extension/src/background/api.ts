@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../constants'
+import type { TranslationEntry } from '../types'
 
-export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, string>> {
+export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, TranslationEntry>> {
   const res = await fetch(`${API_BASE_URL}/translate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -9,13 +10,23 @@ export async function translateBatch(words: string[], targetLang: string, token:
   if (res.status === 402) throw new Error('LIMIT_REACHED')
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
-  const data = (await res.json()) as { translations: Record<string, string> }
+  const data = (await res.json()) as { translations: Record<string, TranslationEntry> }
   return new Map(Object.entries(data.translations))
 }
 
 export async function fetchUser(token: string): Promise<unknown> {
   const res = await fetch(`${API_BASE_URL}/user/me`, { headers: { Authorization: `Bearer ${token}` } })
   return res.ok ? res.json() : null
+}
+
+export async function fetchPopularTranslations(lang: string, token: string, limit = 500): Promise<Map<string, TranslationEntry>> {
+  const res = await fetch(
+    `${API_BASE_URL}/translate/popular?lang=${encodeURIComponent(lang)}&limit=${limit}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) return new Map()
+  const data = await res.json() as { translations: Record<string, TranslationEntry> }
+  return new Map(Object.entries(data.translations))
 }
 
 function readJsonError(res: Response, bodyText: string): string {

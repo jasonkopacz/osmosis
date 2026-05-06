@@ -1,8 +1,18 @@
 import type { WordEntry } from './walker'
+import type { TranslationEntry } from '../types'
 import { isEligible } from './filter'
 
 const STYLE_ID = 'osmosis-styles'
 const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
+
+const POS_LABELS: Record<string, string> = {
+  VERB: 'verb', NOUN: 'noun', ADJ: 'adj.', ADV: 'adv.',
+  PRON: 'pron.', PREP: 'prep.', DET: 'det.', CONJ: 'conj.', INTJ: 'interj.',
+}
+
+function posLabel(tag: string): string {
+  return POS_LABELS[tag] ?? tag.toLowerCase()
+}
 
 let detachActiveTooltip: (() => void) | null = null
 
@@ -23,9 +33,9 @@ function ensureTooltipHost(): HTMLDivElement {
       'color:#f9fafb',
       'border:1px solid #374151',
       'border-radius:6px',
-      'padding:3px 8px',
+      'padding:4px 8px',
       'font-size:12px',
-      'line-height:1.3',
+      'line-height:1.4',
       'white-space:nowrap',
       'pointer-events:none',
       'box-sizing:border-box',
@@ -41,13 +51,35 @@ function positionTooltip(span: HTMLElement, host: HTMLElement) {
   host.style.top = `${r.top}px`
 }
 
+function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
+  const frag = document.createDocumentFragment()
+
+  const original = span.getAttribute('data-original') ?? ''
+  const pos = span.getAttribute('data-pos') ?? ''
+  const alts = span.getAttribute('data-alts') ?? ''
+
+  // Line 1: original English word
+  const line1 = document.createElement('div')
+  line1.textContent = pos ? `${original} · ${pos}` : original
+  frag.appendChild(line1)
+
+  // Line 2: alternatives (only if present)
+  if (alts) {
+    const line2 = document.createElement('div')
+    line2.style.cssText = 'color:#9ca3af;font-size:11px;margin-top:1px'
+    line2.textContent = `also: ${alts}`
+    frag.appendChild(line2)
+  }
+
+  return frag
+}
+
 function bindTooltipSpan(span: HTMLSpanElement) {
   const host = ensureTooltipHost()
   const onMove = () => positionTooltip(span, host)
   const show = () => {
     detachActiveTooltip?.()
-    const text = span.getAttribute('data-original') ?? ''
-    host.textContent = text
+    host.replaceChildren(buildTooltipContent(span))
     host.style.display = 'block'
     positionTooltip(span, host)
     window.addEventListener('scroll', onMove, true)
@@ -82,18 +114,18 @@ export function injectTooltipStyles(): void {
   document.head.appendChild(style)
 }
 
-export function applyReplacements(translationMap: Map<string, string>, entries: WordEntry[]): void {
+export function applyReplacements(translationMap: Map<string, TranslationEntry>, entries: WordEntry[]): void {
   if (translationMap.size === 0) return
 
-  const byNode = new Map<Text, Array<{ word: string; offset: number; translation: string }>>()
+  const byNode = new Map<Text, Array<{ word: string; offset: number; entry: TranslationEntry }>>()
 
   for (const { word, node, offset } of entries) {
     const prevChar = node.textContent?.[offset - 1] ?? ''
     if (!isEligible(word, prevChar)) continue
-    const translation = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
-    if (!translation) continue
+    const entry = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
+    if (!entry) continue
     if (!byNode.has(node)) byNode.set(node, [])
-    byNode.get(node)!.push({ word, offset, translation })
+    byNode.get(node)!.push({ word, offset, entry })
   }
 
   for (const [node, matches] of byNode) {
@@ -101,7 +133,7 @@ export function applyReplacements(translationMap: Map<string, string>, entries: 
     matches.sort((a, b) => b.offset - a.offset)
 
     let remaining: Text = node
-    for (const { word, offset, translation } of matches) {
+    for (const { word, offset, entry } of matches) {
       const text = remaining.textContent ?? ''
       const idx = text.indexOf(word, offset)
       if (idx === -1) continue
@@ -110,7 +142,12 @@ export function applyReplacements(translationMap: Map<string, string>, entries: 
       const span = document.createElement('span')
       span.className = 'osmosis-word'
       span.setAttribute('data-original', word)
-      span.textContent = translation
+      if (entry.p) span.setAttribute('data-pos', posLabel(entry.p))
+      if (entry.a?.length) {
+        const altsText = entry.a.map(a => `${a.t} (${posLabel(a.p)})`).join(' · ')
+        span.setAttribute('data-alts', altsText)
+      }
+      span.textContent = entry.t
       bindTooltipSpan(span)
       const after = document.createTextNode(text.slice(idx + word.length))
 

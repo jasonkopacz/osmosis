@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "seed": "node scripts/seed-translations.mjs",
     "seed:es": "node scripts/seed-translations.mjs es",
-    "seed:all": "node scripts/seed-translations.mjs all"
+    "seed:all": "node scripts/seed-translations.mjs all",
+    "seed:apply": "npx wrangler d1 execute osmosis --file=seed_all.sql --remote"
   },
   "keywords": [],
   "author": "",

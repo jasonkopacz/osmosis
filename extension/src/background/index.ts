@@ -1,11 +1,26 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle } from './api'
-import type { Message, UserProfile } from '../types'
+import { translateBatch, fetchUser, loginWithGoogle, fetchPopularTranslations } from './api'
+import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
+void cache.init()
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
+
+let lastPrewarmedLang: string | null = null
+
+async function preWarmCache(lang: string, token: string): Promise<void> {
+  try {
+    const popular = await fetchPopularTranslations(lang, token)
+    if (popular.size === 0) return
+    popular.forEach((val, word) => cache.set(word, lang, val))
+    lastPrewarmedLang = lang
+    console.log(`[osmosis:bg] pre-warmed ${popular.size} translations for "${lang}"`)
+  } catch (err) {
+    console.warn('[osmosis:bg] pre-warm failed', err)
+  }
+}
 
 async function refreshUserProfileInBackground(token: string): Promise<void> {
   try {
@@ -31,13 +46,18 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
 
 async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'TRANSLATE') {
+    await cache.ensureReady()
     const token = await getToken()
     if (!token) {
       console.warn('[osmosis:bg] TRANSLATE rejected: not logged in')
       return { error: 'NOT_LOGGED_IN' }
     }
 
-    const result: Record<string, string> = {}
+    if (msg.targetLang !== lastPrewarmedLang) {
+      void preWarmCache(msg.targetLang, token)
+    }
+
+    const result: Record<string, TranslationEntry> = {}
     const uncached = msg.words.filter(w => {
       const hit = cache.get(w, msg.targetLang)
       if (hit) result[w] = hit
@@ -105,8 +125,12 @@ async function handle(msg: Message): Promise<unknown> {
       const token = await loginWithGoogle()
       await setToken(token)
       cache.clear()
+      lastPrewarmedLang = null
       const user = (await fetchUser(token)) as UserProfile | null
       if (user) await setUserProfileCache(user)
+      const r = await chrome.storage.sync.get('osmosis_settings')
+      const lang = (r.osmosis_settings as { targetLang?: string } | undefined)?.targetLang
+      if (lang) void preWarmCache(lang, token)
       console.log('[osmosis:bg] GOOGLE_LOGIN: success')
       return { token }
     } catch (err) {

@@ -4,7 +4,7 @@ import { translateWords } from '../src/services/azure'
 beforeEach(() => vi.restoreAllMocks())
 
 describe('translateWords', () => {
-  it('maps each input word to its translation', async () => {
+  it('maps each input word to its translation entry', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [
@@ -13,12 +13,15 @@ describe('translateWords', () => {
       ],
     }))
     const result = await translateWords(['hello', 'world'], 'de', 'key', 'eastus')
-    expect(result.get('hello')).toBe('hallo')
-    expect(result.get('world')).toBe('Welt')
+    expect(result.get('hello')).toEqual({ t: 'hallo' })
+    expect(result.get('world')).toEqual({ t: 'Welt' })
   })
 
   it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false, status: 401,
+      text: async () => '',
+    }))
     await expect(translateWords(['hello'], 'de', 'bad', 'eastus')).rejects.toThrow('Azure API error: 401')
   })
 

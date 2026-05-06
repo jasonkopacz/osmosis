@@ -4,9 +4,10 @@ import { translateRouter } from '../../src/routes/translate'
 import { createTestDb, wrapDb } from '../helpers/db'
 import { signJWT } from '../../src/utils/jwt'
 import { createUser, findUserByEmail } from '../../src/db/users'
-import type { Env, Variables } from '../../src/types'
+import type { Env, Variables, TranslationEntry } from '../../src/types'
 
 vi.mock('../../src/services/azure', () => ({
+  lookupWords: vi.fn().mockResolvedValue(new Map()),
   translateWords: vi.fn(),
 }))
 vi.mock('../../src/utils/kv', () => ({
@@ -14,7 +15,7 @@ vi.mock('../../src/utils/kv', () => ({
   setCached: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { translateWords } from '../../src/services/azure'
+import { lookupWords, translateWords } from '../../src/services/azure'
 import { getCached } from '../../src/utils/kv'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
@@ -41,6 +42,8 @@ async function makeToken(userId: string) {
   return signJWT({ sub: userId, email: 'test@test.com' }, JWT_SECRET)
 }
 
+const HALLO: TranslationEntry = { t: 'hallo', p: 'NOUN' }
+
 describe('POST /translate', () => {
   let db: ReturnType<typeof wrapDb>
   let userId: string
@@ -49,6 +52,7 @@ describe('POST /translate', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     vi.mocked(getCached).mockResolvedValue(null)
+    vi.mocked(lookupWords).mockResolvedValue(new Map())
     db = wrapDb(createTestDb())
     await createUser(db, 'test@test.com', 'hashed')
     const user = await findUserByEmail(db, 'test@test.com')
@@ -99,8 +103,8 @@ describe('POST /translate', () => {
     expect(await res.json()).toMatchObject({ error: 'Invalid words array' })
   })
 
-  it('returns translations from cache when available', async () => {
-    vi.mocked(getCached).mockResolvedValue('hallo')
+  it('returns TranslationEntry from KV cache when available', async () => {
+    vi.mocked(getCached).mockResolvedValue(HALLO)
     const { app, env } = makeApp(db)
     const res = await app.request('/translate', {
       method: 'POST',
@@ -108,12 +112,13 @@ describe('POST /translate', () => {
       body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
     }, env)
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ translations: { hello: 'hallo' } })
+    expect(await res.json()).toEqual({ translations: { hello: HALLO } })
+    expect(lookupWords).not.toHaveBeenCalled()
     expect(translateWords).not.toHaveBeenCalled()
   })
 
-  it('calls azure and returns translations for cache misses', async () => {
-    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map([['hello', 'hallo']]))
+  it('uses dictionary lookup result when available', async () => {
+    vi.mocked(lookupWords).mockResolvedValue(new Map([['hello', HALLO]]))
     const { app, env } = makeApp(db)
     const res = await app.request('/translate', {
       method: 'POST',
@@ -121,10 +126,25 @@ describe('POST /translate', () => {
       body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
     }, env)
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ translations: { hello: 'hallo' } })
+    expect(await res.json()).toEqual({ translations: { hello: HALLO } })
+    expect(translateWords).not.toHaveBeenCalled()
   })
 
-  it('returns 503 when azure fails after retry', async () => {
+  it('falls back to translateWords for words with no dictionary entry', async () => {
+    vi.mocked(lookupWords).mockResolvedValue(new Map()) // no dict entry
+    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map([['hello', { t: 'hallo' }]]))
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ translations: { hello: { t: 'hallo' } } })
+  })
+
+  it('returns 503 when both lookup and translate fail', async () => {
+    vi.mocked(lookupWords).mockRejectedValue(new Error('network error'))
     vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network error'))
     const { app, env } = makeApp(db)
     const res = await app.request('/translate', {
