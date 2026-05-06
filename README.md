@@ -40,7 +40,7 @@ User visits page
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20.14+
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm i -g wrangler`)
 - A Cloudflare account with D1 and KV enabled
 - An Azure Cognitive Services resource with the Translator API

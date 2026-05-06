@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, signupWithEmail, fetchPopularTranslations } from './api'
+import { translateBatch, fetchUser, loginWithGoogle, loginWithMeta, loginWithApple, loginWithMicrosoft, loginWithEmail, signupWithEmail, fetchPopularTranslations } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -142,6 +142,42 @@ async function handle(msg: Message): Promise<unknown> {
     } catch (err) {
       const errMsg = String(err).replace('Error: ', '')
       console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'META_LOGIN') {
+    try {
+      const token = await loginWithMeta()
+      console.log('[osmosis:bg] META_LOGIN: success')
+      return afterLogin(token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] META_LOGIN failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'APPLE_LOGIN') {
+    try {
+      const token = await loginWithApple()
+      console.log('[osmosis:bg] APPLE_LOGIN: success')
+      return afterLogin(token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] APPLE_LOGIN failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'MICROSOFT_LOGIN') {
+    try {
+      const token = await loginWithMicrosoft()
+      console.log('[osmosis:bg] MICROSOFT_LOGIN: success')
+      return afterLogin(token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] MICROSOFT_LOGIN failed', errMsg)
       return { error: errMsg }
     }
   }

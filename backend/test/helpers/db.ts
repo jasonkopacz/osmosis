@@ -17,6 +17,9 @@ export function createTestDb() {
   runFile('0003_translation_cache.sql')
   runFile('0004_translation_cache_index.sql')
   runFile('0005_translation_pos.sql')
+  runFile('0006_meta_oauth.sql')
+  runFile('0007_apple_oauth.sql')
+  runFile('0008_microsoft_oauth.sql')
   return db
 }
 

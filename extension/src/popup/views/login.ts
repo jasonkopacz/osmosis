@@ -58,6 +58,27 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     'background:#fff;color:#1f2937;border:1px solid #e2e8f0;border-radius:8px;padding:9px;width:100%;' +
     'font-size:13px;font-weight:600;cursor:pointer;'
 
+  const metaBtn = document.createElement('button')
+  metaBtn.type = 'button'
+  metaBtn.textContent = 'Continue with Meta'
+  metaBtn.style.cssText =
+    'background:#1877f2;color:#fff;border:1px solid #166fe5;border-radius:8px;padding:9px;width:100%;' +
+    'font-size:13px;font-weight:600;cursor:pointer;'
+
+  const appleBtn = document.createElement('button')
+  appleBtn.type = 'button'
+  appleBtn.textContent = 'Continue with Apple'
+  appleBtn.style.cssText =
+    'background:#111827;color:#fff;border:1px solid #1f2937;border-radius:8px;padding:9px;width:100%;' +
+    'font-size:13px;font-weight:600;cursor:pointer;'
+
+  const microsoftBtn = document.createElement('button')
+  microsoftBtn.type = 'button'
+  microsoftBtn.textContent = 'Continue with Microsoft'
+  microsoftBtn.style.cssText =
+    'background:#2563eb;color:#fff;border:1px solid #1d4ed8;border-radius:8px;padding:9px;width:100%;' +
+    'font-size:13px;font-weight:600;cursor:pointer;'
+
   // ── Tab switching ─────────────────────────────────────────────────────────
   function setMode(m: Mode): void {
     mode = m
@@ -132,7 +153,73 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     }
   })
 
-  wrap.append(tabBar, emailInput, passwordInput, hintEl, errorEl, submitBtn, divider, googleBtn)
+  metaBtn.addEventListener('click', async () => {
+    errorEl.textContent = ''
+    metaBtn.disabled = true
+    metaBtn.textContent = 'Waiting for Meta sign-in…'
+    try {
+      const result = await chrome.runtime.sendMessage(
+        { type: 'META_LOGIN' } as Message
+      ) as { token?: string; error?: string } | undefined
+      if (!result) return
+      if (result.error) throw new Error(result.error)
+      onSuccess()
+    } catch (e) {
+      const msg = String(e).replace('Error: ', '')
+      if (!msg.includes('message port closed') && !msg.includes('receiving end does not exist')) {
+        errorEl.textContent = msg
+      }
+    } finally {
+      metaBtn.disabled = false
+      metaBtn.textContent = 'Continue with Meta'
+    }
+  })
+
+  appleBtn.addEventListener('click', async () => {
+    errorEl.textContent = ''
+    appleBtn.disabled = true
+    appleBtn.textContent = 'Waiting for Apple sign-in…'
+    try {
+      const result = await chrome.runtime.sendMessage(
+        { type: 'APPLE_LOGIN' } as Message
+      ) as { token?: string; error?: string } | undefined
+      if (!result) return
+      if (result.error) throw new Error(result.error)
+      onSuccess()
+    } catch (e) {
+      const msg = String(e).replace('Error: ', '')
+      if (!msg.includes('message port closed') && !msg.includes('receiving end does not exist')) {
+        errorEl.textContent = msg
+      }
+    } finally {
+      appleBtn.disabled = false
+      appleBtn.textContent = 'Continue with Apple'
+    }
+  })
+
+  microsoftBtn.addEventListener('click', async () => {
+    errorEl.textContent = ''
+    microsoftBtn.disabled = true
+    microsoftBtn.textContent = 'Waiting for Microsoft sign-in…'
+    try {
+      const result = await chrome.runtime.sendMessage(
+        { type: 'MICROSOFT_LOGIN' } as Message
+      ) as { token?: string; error?: string } | undefined
+      if (!result) return
+      if (result.error) throw new Error(result.error)
+      onSuccess()
+    } catch (e) {
+      const msg = String(e).replace('Error: ', '')
+      if (!msg.includes('message port closed') && !msg.includes('receiving end does not exist')) {
+        errorEl.textContent = msg
+      }
+    } finally {
+      microsoftBtn.disabled = false
+      microsoftBtn.textContent = 'Continue with Microsoft'
+    }
+  })
+
+  wrap.append(tabBar, emailInput, passwordInput, hintEl, errorEl, submitBtn, divider, googleBtn, metaBtn, appleBtn, microsoftBtn)
   root.appendChild(wrap)
 }
 

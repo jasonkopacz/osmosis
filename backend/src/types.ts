@@ -11,6 +11,12 @@ export type Env = {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   GOOGLE_WEB_CLIENT_JSON?: string
+  META_CLIENT_ID?: string
+  META_CLIENT_SECRET?: string
+  APPLE_CLIENT_ID?: string
+  APPLE_CLIENT_SECRET?: string
+  MICROSOFT_CLIENT_ID?: string
+  MICROSOFT_CLIENT_SECRET?: string
 }
 
 export type Variables = { userId: string; email: string; plan: string }
@@ -26,7 +32,10 @@ export type User = {
   email: string
   password_hash: string
   google_sub: string | null
-  auth_provider: 'email' | 'google' | 'both'
+  meta_sub: string | null
+  apple_sub: string | null
+  microsoft_sub: string | null
+  auth_provider: 'email' | 'google' | 'meta' | 'apple' | 'microsoft' | 'both'
   stripe_customer_id: string | null
   plan: 'free' | 'pro'
   created_at: number

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { authRouter } from '../../src/routes/auth'
 import { createTestDb, wrapDb } from '../helpers/db'
+import { createMetaUser, createAppleUser, createMicrosoftUser } from '../../src/db/users'
+import { hashPassword } from '../../src/utils/passwords'
 import type { Env } from '../../src/types'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
@@ -101,5 +103,38 @@ describe('POST /auth/login', () => {
     await post(app, '/auth/signup', { email: 'user@test.com', password: 'password123' }, env)
     const res = await post(app, '/auth/login', { email: 'USER@TEST.COM', password: 'password123' }, env)
     expect(res.status).toBe(200)
+  })
+
+  it('returns provider-specific message for Meta-only accounts', async () => {
+    const { app, env } = makeApp(db)
+    const passwordHash = await hashPassword('strong-password')
+    await createMetaUser(db, 'meta@test.com', 'meta-sub-1', passwordHash)
+    const res = await post(app, '/auth/login', { email: 'meta@test.com', password: 'strong-password' }, env)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({
+      error: 'This account uses Meta sign-in. Please continue with Meta.',
+    })
+  })
+
+  it('returns provider-specific message for Apple-only accounts', async () => {
+    const { app, env } = makeApp(db)
+    const passwordHash = await hashPassword('strong-password')
+    await createAppleUser(db, 'apple@test.com', 'apple-sub-1', passwordHash)
+    const res = await post(app, '/auth/login', { email: 'apple@test.com', password: 'strong-password' }, env)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({
+      error: 'This account uses Apple sign-in. Please continue with Apple.',
+    })
+  })
+
+  it('returns provider-specific message for Microsoft-only accounts', async () => {
+    const { app, env } = makeApp(db)
+    const passwordHash = await hashPassword('strong-password')
+    await createMicrosoftUser(db, 'ms@test.com', 'ms-sub-1', passwordHash)
+    const res = await post(app, '/auth/login', { email: 'ms@test.com', password: 'strong-password' }, env)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({
+      error: 'This account uses Microsoft sign-in. Please continue with Microsoft.',
+    })
   })
 })

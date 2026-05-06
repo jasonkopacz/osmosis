@@ -148,3 +148,186 @@ export async function loginWithGoogle(): Promise<string> {
   if (!body.token) throw new Error('No token from server')
   return body.token
 }
+
+export async function loginWithMeta(): Promise<string> {
+  const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
+  const state = crypto.randomUUID()
+  console.log('[osmosis:api] Meta redirect_uri (must match Meta app exactly):', redirectUri)
+
+  const urlRes = await fetch(
+    `${API_BASE_URL}/auth/meta/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
+  )
+  const urlBody = await urlRes.text()
+  if (!urlRes.ok) {
+    const msg = readJsonError(urlRes, urlBody)
+    console.warn('[osmosis:api] /auth/meta/url failed', urlRes.status, msg)
+    throw new Error(msg)
+  }
+  const { url } = JSON.parse(urlBody) as { url: string }
+
+  await chrome.storage.session.set({ osmosis_oauth_state: state })
+
+  console.log('[osmosis:api] calling launchWebAuthFlow for Meta...')
+  const responseUrl = await new Promise<string | undefined>(resolve => {
+    chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
+      const lastErr = chrome.runtime.lastError?.message
+      console.log('[osmosis:api] Meta launchWebAuthFlow callback', { redirectedTo, lastErr })
+      if (lastErr) console.warn('[osmosis:api] Meta launchWebAuthFlow error:', lastErr)
+      resolve(redirectedTo)
+    })
+  })
+
+  await chrome.storage.session.remove('osmosis_oauth_state')
+
+  console.log('[osmosis:api] Meta launchWebAuthFlow resolved, responseUrl:', responseUrl)
+  if (!responseUrl) {
+    throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
+  }
+
+  const parsed = new URL(responseUrl)
+  const returnedState = parsed.searchParams.get('state')
+  if (returnedState !== state) {
+    throw new Error('OAuth state mismatch — possible CSRF attempt')
+  }
+
+  const oauthErr = parsed.searchParams.get('error')
+  if (oauthErr) {
+    const desc = parsed.searchParams.get('error_description') ?? oauthErr
+    console.warn('[osmosis:api] Meta redirected with error', oauthErr, desc)
+    throw new Error(desc)
+  }
+  const code = parsed.searchParams.get('code')
+  if (!code) throw new Error('No authorization code from Meta')
+
+  const exch = await fetch(`${API_BASE_URL}/auth/meta/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  })
+  const body = (await exch.json()) as { token?: string; error?: string }
+  if (!exch.ok) throw new Error(body.error ?? 'Meta sign-in failed')
+  if (!body.token) throw new Error('No token from server')
+  return body.token
+}
+
+export async function loginWithApple(): Promise<string> {
+  const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
+  const state = crypto.randomUUID()
+  console.log('[osmosis:api] Apple redirect_uri (must match Apple Service ID config exactly):', redirectUri)
+
+  const urlRes = await fetch(
+    `${API_BASE_URL}/auth/apple/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
+  )
+  const urlBody = await urlRes.text()
+  if (!urlRes.ok) {
+    const msg = readJsonError(urlRes, urlBody)
+    console.warn('[osmosis:api] /auth/apple/url failed', urlRes.status, msg)
+    throw new Error(msg)
+  }
+  const { url } = JSON.parse(urlBody) as { url: string }
+
+  await chrome.storage.session.set({ osmosis_oauth_state: state })
+
+  console.log('[osmosis:api] calling launchWebAuthFlow for Apple...')
+  const responseUrl = await new Promise<string | undefined>(resolve => {
+    chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
+      const lastErr = chrome.runtime.lastError?.message
+      console.log('[osmosis:api] Apple launchWebAuthFlow callback', { redirectedTo, lastErr })
+      if (lastErr) console.warn('[osmosis:api] Apple launchWebAuthFlow error:', lastErr)
+      resolve(redirectedTo)
+    })
+  })
+
+  await chrome.storage.session.remove('osmosis_oauth_state')
+
+  console.log('[osmosis:api] Apple launchWebAuthFlow resolved, responseUrl:', responseUrl)
+  if (!responseUrl) {
+    throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
+  }
+
+  const parsed = new URL(responseUrl)
+  const returnedState = parsed.searchParams.get('state')
+  if (returnedState !== state) {
+    throw new Error('OAuth state mismatch — possible CSRF attempt')
+  }
+
+  const oauthErr = parsed.searchParams.get('error')
+  if (oauthErr) {
+    const desc = parsed.searchParams.get('error_description') ?? oauthErr
+    console.warn('[osmosis:api] Apple redirected with error', oauthErr, desc)
+    throw new Error(desc)
+  }
+  const code = parsed.searchParams.get('code')
+  if (!code) throw new Error('No authorization code from Apple')
+
+  const exch = await fetch(`${API_BASE_URL}/auth/apple/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  })
+  const body = (await exch.json()) as { token?: string; error?: string }
+  if (!exch.ok) throw new Error(body.error ?? 'Apple sign-in failed')
+  if (!body.token) throw new Error('No token from server')
+  return body.token
+}
+
+export async function loginWithMicrosoft(): Promise<string> {
+  const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
+  const state = crypto.randomUUID()
+  console.log('[osmosis:api] Microsoft redirect_uri (must match Azure app exactly):', redirectUri)
+
+  const urlRes = await fetch(
+    `${API_BASE_URL}/auth/microsoft/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
+  )
+  const urlBody = await urlRes.text()
+  if (!urlRes.ok) {
+    const msg = readJsonError(urlRes, urlBody)
+    console.warn('[osmosis:api] /auth/microsoft/url failed', urlRes.status, msg)
+    throw new Error(msg)
+  }
+  const { url } = JSON.parse(urlBody) as { url: string }
+
+  await chrome.storage.session.set({ osmosis_oauth_state: state })
+
+  console.log('[osmosis:api] calling launchWebAuthFlow for Microsoft...')
+  const responseUrl = await new Promise<string | undefined>(resolve => {
+    chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
+      const lastErr = chrome.runtime.lastError?.message
+      console.log('[osmosis:api] Microsoft launchWebAuthFlow callback', { redirectedTo, lastErr })
+      if (lastErr) console.warn('[osmosis:api] Microsoft launchWebAuthFlow error:', lastErr)
+      resolve(redirectedTo)
+    })
+  })
+
+  await chrome.storage.session.remove('osmosis_oauth_state')
+
+  console.log('[osmosis:api] Microsoft launchWebAuthFlow resolved, responseUrl:', responseUrl)
+  if (!responseUrl) {
+    throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
+  }
+
+  const parsed = new URL(responseUrl)
+  const returnedState = parsed.searchParams.get('state')
+  if (returnedState !== state) {
+    throw new Error('OAuth state mismatch — possible CSRF attempt')
+  }
+
+  const oauthErr = parsed.searchParams.get('error')
+  if (oauthErr) {
+    const desc = parsed.searchParams.get('error_description') ?? oauthErr
+    console.warn('[osmosis:api] Microsoft redirected with error', oauthErr, desc)
+    throw new Error(desc)
+  }
+  const code = parsed.searchParams.get('code')
+  if (!code) throw new Error('No authorization code from Microsoft')
+
+  const exch = await fetch(`${API_BASE_URL}/auth/microsoft/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  })
+  const body = (await exch.json()) as { token?: string; error?: string }
+  if (!exch.ok) throw new Error(body.error ?? 'Microsoft sign-in failed')
+  if (!body.token) throw new Error('No token from server')
+  return body.token
+}
