@@ -18,7 +18,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
   const wrap = document.createElement('div')
   wrap.style.cssText =
-    'flex:1;min-height:100%;display:flex;flex-direction:column;' +
+    'display:flex;flex-direction:column;flex:0 0 auto;' +
     'background:linear-gradient(180deg, rgba(8,47,73,0.35) 0%, rgba(2,6,23,0.92) 55%, #020617 100%);'
 
   const hero = document.createElement('div')
@@ -28,7 +28,8 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const heroImg = document.createElement('img')
   heroImg.src = heroImage
   heroImg.alt = 'Osmosis — language learning'
-  heroImg.style.cssText = 'width:100%;height:auto;display:block;'
+  heroImg.style.cssText =
+    'width:100%;height:76px;display:block;object-fit:cover;object-position:50% 28%;'
 
   const heroOverlay = document.createElement('div')
   heroOverlay.style.cssText =
@@ -40,7 +41,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
   const card = document.createElement('section')
   card.style.cssText =
-    'display:flex;flex-direction:column;gap:10px;flex-shrink:0;margin:14px 12px 20px;padding:14px 14px 16px;border-radius:18px;' +
+    'display:flex;flex-direction:column;gap:5px;flex-shrink:0;margin:8px 10px 10px;padding:10px 12px 12px;border-radius:16px;' +
     `background:${C.glass};` +
     'border:1px solid rgba(103,232,249,0.22);' +
     'box-shadow:0 18px 48px rgba(2,6,23,0.55), inset 0 1px 0 rgba(224,242,254,0.08);' +
@@ -49,16 +50,16 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const titleBlock = document.createElement('div')
   titleBlock.style.cssText = 'display:flex;flex-direction:column;gap:2px;'
   const title = document.createElement('h1')
-  title.style.cssText = 'margin:0;font-size:17px;font-weight:700;color:#f0fdfa;letter-spacing:-0.01em;'
+  title.style.cssText = 'margin:0;font-size:16px;font-weight:700;color:#f0fdfa;letter-spacing:-0.01em;'
   title.textContent = 'Welcome'
   const subtitle = document.createElement('p')
-  subtitle.style.cssText = `margin:0;font-size:12px;color:${C.textMuted};line-height:1.35;`
+  subtitle.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.3;`
   subtitle.textContent = 'Sign in to translate the web with Osmosis.'
   titleBlock.append(title, subtitle)
 
   const tabBar = document.createElement('div')
   tabBar.style.cssText =
-    'display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(2,6,23,0.45);border:1px solid rgba(45,212,191,0.2);'
+    'display:flex;gap:3px;padding:3px;border-radius:12px;background:rgba(2,6,23,0.45);border:1px solid rgba(45,212,191,0.2);'
 
   const signinTab = makeTab('Sign in', true)
   const signupTab = makeTab('Create account', false)
@@ -88,18 +89,18 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const passwordField = makeLabeledField('Password', pwdShell)
 
   const hintEl = document.createElement('p')
-  hintEl.style.cssText = `font-size:11px;color:${C.textMuted};margin:0 2px;`
+  hintEl.style.cssText = `font-size:10px;color:${C.textMuted};margin:0 2px;line-height:1.3;`
   hintEl.textContent = 'Use at least 8 characters for a new account.'
 
   const errorEl = document.createElement('p')
-  errorEl.style.cssText = 'color:#fecaca;font-size:12px;min-height:16px;margin:0 2px;line-height:1.35;'
+  errorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0 2px;line-height:1.3;'
 
   const submitBtn = document.createElement('button')
   submitBtn.type = 'button'
   submitBtn.style.cssText =
     'background:linear-gradient(92deg, #06b6d4 0%, #22d3ee 42%, #f59e0b 100%);' +
-    'color:#042f2e;border:none;border-radius:14px;padding:11px 12px;width:100%;' +
-    'font-size:14px;font-weight:800;cursor:pointer;letter-spacing:0.01em;' +
+    'color:#042f2e;border:none;border-radius:12px;padding:9px 10px;width:100%;' +
+    'font-size:13px;font-weight:800;cursor:pointer;letter-spacing:0.01em;' +
     'box-shadow:0 10px 28px rgba(6,182,212,0.35);transition:transform .12s ease, filter .12s ease;'
   submitBtn.textContent = 'Sign in'
   submitBtn.addEventListener('mouseenter', () => {
@@ -114,7 +115,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   })
 
   const divider = document.createElement('div')
-  divider.style.cssText = 'display:flex;align-items:center;gap:10px;padding-top:2px;'
+  divider.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:0;'
   const line = (): HTMLDivElement => {
     const l = document.createElement('div')
     l.style.cssText = 'flex:1;height:1px;background:rgba(103,232,249,0.22);'
@@ -161,11 +162,17 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     clearFieldErrors()
     passwordInput.autocomplete = isSignin ? 'current-password' : 'new-password'
     console.log('[osmosis:popup:login] mode', m)
+    requestAnimationFrame(() => {
+      console.log('[osmosis:popup:login] mode layout', {
+        mode: m,
+        scrollHeight: document.documentElement.scrollHeight,
+        clientHeight: document.documentElement.clientHeight,
+      })
+    })
   }
 
   signinTab.addEventListener('click', () => setMode('signin'))
   signupTab.addEventListener('click', () => setMode('signup'))
-  setMode('signin')
 
   async function submit(): Promise<void> {
     const email = emailInput.value.trim()
@@ -249,6 +256,11 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   )
   wrap.append(hero, card)
   root.appendChild(wrap)
+  setMode('signin')
+  console.log('[osmosis:popup:login] layout metrics', {
+    scrollHeight: document.documentElement.scrollHeight,
+    clientHeight: document.documentElement.clientHeight,
+  })
 }
 
 function makeTab(label: string, active: boolean): HTMLButtonElement {
@@ -256,7 +268,7 @@ function makeTab(label: string, active: boolean): HTMLButtonElement {
   btn.type = 'button'
   btn.textContent = label
   btn.style.cssText =
-    'flex:1;padding:9px 8px;font-size:12px;font-weight:700;border:none;border-radius:11px;cursor:pointer;transition:all .15s ease;'
+    'flex:1;padding:7px 6px;font-size:11px;font-weight:700;border:none;border-radius:10px;cursor:pointer;transition:all .15s ease;'
   setActiveTab(btn, active)
   return btn
 }
@@ -275,7 +287,7 @@ function setActiveTab(btn: HTMLButtonElement, active: boolean): void {
 
 function makeLabeledField(labelText: string, control: HTMLElement): HTMLDivElement {
   const wrap = document.createElement('div')
-  wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;'
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;'
   const label = document.createElement('label')
   label.textContent = labelText
   label.style.cssText =
@@ -299,8 +311,8 @@ function makeInput(name: string, placeholder: string, type: string): HTMLInputEl
   input.placeholder = placeholder
   input.autocomplete = name === 'email' ? 'email' : type === 'password' ? 'current-password' : 'off'
   input.style.cssText =
-    `width:100%;background:rgba(2,6,23,0.35);color:#ecfeff;border:1px solid ${C.border};border-radius:12px;` +
-    'padding:11px 12px;font-size:14px;outline:none;transition:border-color .15s ease, box-shadow .15s ease;'
+    `width:100%;background:rgba(2,6,23,0.35);color:#ecfeff;border:1px solid ${C.border};border-radius:10px;` +
+    'padding:9px 10px;font-size:13px;outline:none;transition:border-color .15s ease, box-shadow .15s ease;'
   input.addEventListener('focus', () => {
     if (input.dataset.invalid) return
     input.style.borderColor = C.borderFocus
@@ -319,8 +331,8 @@ function makeSocialButton(label: string, bg: string, fg: string, border: string)
   btn.type = 'button'
   btn.textContent = label
   btn.style.cssText =
-    `background:${bg};color:${fg};border:1px solid ${border};border-radius:12px;padding:9px 12px;width:100%;` +
-    'font-size:13px;font-weight:700;cursor:pointer;transition:transform .12s ease, filter .12s ease;'
+    `background:${bg};color:${fg};border:1px solid ${border};border-radius:10px;padding:7px 10px;width:100%;` +
+    'font-size:12px;font-weight:700;cursor:pointer;transition:transform .12s ease, filter .12s ease;'
   btn.addEventListener('mouseenter', () => {
     if (!btn.disabled) btn.style.transform = 'translateY(-1px)'
   })

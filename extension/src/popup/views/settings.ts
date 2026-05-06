@@ -45,7 +45,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   const accountRow = document.createElement('div')
   accountRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;'
   const emailEl = document.createElement('span')
-  emailEl.style.cssText = 'font-size:13px;color:#a0aec0;overflow:hidden;text-overflow:ellipsis;max-width:180px;'
+  emailEl.style.cssText = 'font-size:13px;color:#a0aec0;overflow:hidden;text-overflow:ellipsis;max-width:150px;'
   emailEl.textContent = user.email
   const planBadge = document.createElement('span')
   planBadge.style.cssText = 'background:#2d3748;padding:2px 8px;border-radius:999px;font-size:11px;color:#a0aec0;'
