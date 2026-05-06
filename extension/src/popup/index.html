@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <title>Osmosis</title>
     <style>
       * {
@@ -9,12 +9,24 @@
         margin: 0;
         padding: 0;
       }
+      html {
+        min-height: 1020px;
+        height: auto;
+      }
       body {
-        width: 300px;
+        width: 420px;
+        min-height: 1020px;
+        height: auto;
+        padding-bottom: 12px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 14px;
-        background: #1e2533;
-        color: #e2e8f0;
+        background: radial-gradient(120% 80% at 50% 0%, #0c4a6e 0%, #042f2e 45%, #020617 100%);
+        color: #ecfeff;
+      }
+      #app {
+        min-height: 1020px;
+        display: flex;
+        flex-direction: column;
       }
       .header {
         background: #1a202c;
