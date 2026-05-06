@@ -15,3 +15,4 @@ extension/osmosis-chrome-store.zip
 
 backend/scripts
 backend/seed_*.sql
+backend/enrich_*.sql
