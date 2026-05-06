@@ -1,6 +1,26 @@
 import { API_BASE_URL } from '../constants'
 import type { TranslationEntry } from '../types'
 
+async function authPost(path: string, body: object): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json() as { token?: string; error?: string }
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
+  if (!data.token) throw new Error('No token received')
+  return data.token
+}
+
+export async function loginWithEmail(email: string, password: string): Promise<string> {
+  return authPost('/auth/login', { email, password })
+}
+
+export async function signupWithEmail(email: string, password: string): Promise<string> {
+  return authPost('/auth/signup', { email, password })
+}
+
 export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, TranslationEntry>> {
   const res = await fetch(`${API_BASE_URL}/translate`, {
     method: 'POST',

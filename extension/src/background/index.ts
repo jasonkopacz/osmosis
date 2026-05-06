@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle, fetchPopularTranslations } from './api'
+import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, signupWithEmail, fetchPopularTranslations } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -20,6 +20,18 @@ async function preWarmCache(lang: string, token: string): Promise<void> {
   } catch (err) {
     console.warn('[osmosis:bg] pre-warm failed', err)
   }
+}
+
+async function afterLogin(token: string): Promise<{ token: string }> {
+  await setToken(token)
+  cache.clear()
+  lastPrewarmedLang = null
+  const user = (await fetchUser(token)) as UserProfile | null
+  if (user) await setUserProfileCache(user)
+  const r = await chrome.storage.sync.get('osmosis_settings')
+  const lang = (r.osmosis_settings as { targetLang?: string } | undefined)?.targetLang
+  if (lang) void preWarmCache(lang, token)
+  return { token }
 }
 
 async function refreshUserProfileInBackground(token: string): Promise<void> {
@@ -125,19 +137,35 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'GOOGLE_LOGIN') {
     try {
       const token = await loginWithGoogle()
-      await setToken(token)
-      cache.clear()
-      lastPrewarmedLang = null
-      const user = (await fetchUser(token)) as UserProfile | null
-      if (user) await setUserProfileCache(user)
-      const r = await chrome.storage.sync.get('osmosis_settings')
-      const lang = (r.osmosis_settings as { targetLang?: string } | undefined)?.targetLang
-      if (lang) void preWarmCache(lang, token)
       console.log('[osmosis:bg] GOOGLE_LOGIN: success')
-      return { token }
+      return afterLogin(token)
     } catch (err) {
       const errMsg = String(err).replace('Error: ', '')
       console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'EMAIL_LOGIN') {
+    try {
+      const token = await loginWithEmail(msg.email, msg.password)
+      console.log('[osmosis:bg] EMAIL_LOGIN: success')
+      return afterLogin(token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] EMAIL_LOGIN failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'EMAIL_SIGNUP') {
+    try {
+      const token = await signupWithEmail(msg.email, msg.password)
+      console.log('[osmosis:bg] EMAIL_SIGNUP: success')
+      return afterLogin(token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] EMAIL_SIGNUP failed', errMsg)
       return { error: errMsg }
     }
   }
