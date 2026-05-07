@@ -87,16 +87,22 @@ function ensureTooltipHost(): HTMLDivElement {
       'top:0',
       'z-index:2147483647',
       'transform:translate(-50%,calc(-100% - 6px))',
-      'background:#1f2937',
-      'color:#f9fafb',
-      'border:1px solid #374151',
-      'border-radius:6px',
-      'padding:4px 8px',
+      'background:linear-gradient(180deg,#0f172a 0%,#111827 100%)',
+      'color:#f8fafc',
+      'border:1px solid #334155',
+      'border-radius:10px',
+      'padding:8px 10px',
       'font-size:12px',
-      'line-height:1.4',
-      'white-space:nowrap',
+      'line-height:1.35',
+      'white-space:normal',
+      'min-width:170px',
+      'max-width:280px',
+      'box-shadow:0 10px 24px rgba(0,0,0,0.28),0 2px 8px rgba(0,0,0,0.2)',
+      'backdrop-filter:blur(4px)',
       'pointer-events:auto',
       'box-sizing:border-box',
+      'opacity:0',
+      'transition:opacity 120ms ease',
     ].join(';')
     host.addEventListener('mouseenter', () => clearTooltipHideTimer())
     host.addEventListener('mouseleave', () => scheduleTooltipHide())
@@ -120,35 +126,85 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   const pos = span.getAttribute('data-pos') ?? ''
   const alts = span.getAttribute('data-alts') ?? ''
 
-  // Line 1: original English word
-  const line1 = document.createElement('div')
-  line1.textContent = pos ? `${original} · ${pos}` : original
-  frag.appendChild(line1)
+  const headerRow = document.createElement('div')
+  headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px'
+  const originalWord = document.createElement('div')
+  originalWord.style.cssText = 'font-weight:700;font-size:13px;color:#ffffff;letter-spacing:0.01em'
+  originalWord.textContent = original
+  headerRow.appendChild(originalWord)
+  if (pos) {
+    const posTag = document.createElement('span')
+    posTag.style.cssText = [
+      'display:inline-flex',
+      'align-items:center',
+      'border:1px solid #475569',
+      'background:#1e293b',
+      'color:#cbd5e1',
+      'padding:1px 6px',
+      'border-radius:999px',
+      'font-size:10px',
+      'text-transform:uppercase',
+      'letter-spacing:0.04em',
+      'white-space:nowrap',
+    ].join(';')
+    posTag.textContent = pos
+    headerRow.appendChild(posTag)
+  }
+  frag.appendChild(headerRow)
 
-  // Line 2: alternatives (only if present)
+  const translatedWord = document.createElement('div')
+  translatedWord.style.cssText = 'margin-top:4px;color:#93c5fd;font-size:13px;font-weight:600'
+  translatedWord.textContent = translated
+  frag.appendChild(translatedWord)
+
   if (alts) {
-    const line2 = document.createElement('div')
-    line2.style.cssText = 'color:#9ca3af;font-size:11px;margin-top:1px'
-    line2.textContent = `also: ${alts}`
-    frag.appendChild(line2)
+    const altsLabel = document.createElement('div')
+    altsLabel.style.cssText = 'color:#94a3b8;font-size:10px;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em'
+    altsLabel.textContent = 'Alternatives'
+    frag.appendChild(altsLabel)
+
+    const chips = document.createElement('div')
+    chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:4px'
+    for (const alt of alts.split(' · ')) {
+      const chip = document.createElement('span')
+      chip.style.cssText = [
+        'display:inline-flex',
+        'align-items:center',
+        'max-width:100%',
+        'overflow:hidden',
+        'text-overflow:ellipsis',
+        'white-space:nowrap',
+        'padding:2px 6px',
+        'border-radius:999px',
+        'border:1px solid #475569',
+        'background:#0b1220',
+        'color:#dbeafe',
+        'font-size:10px',
+      ].join(';')
+      chip.textContent = alt
+      chips.appendChild(chip)
+    }
+    frag.appendChild(chips)
   }
 
   const pronounceRow = document.createElement('div')
-  pronounceRow.style.cssText = 'margin-top:4px;display:flex;align-items:center'
+  pronounceRow.style.cssText = 'margin-top:8px;display:flex;align-items:center;justify-content:flex-end'
   const pronounceButton = document.createElement('button')
   pronounceButton.type = 'button'
-  pronounceButton.textContent = '🔊 Pronounce'
+  pronounceButton.textContent = 'Play Pronunciation'
   pronounceButton.style.cssText = [
     'appearance:none',
-    'border:1px solid #4b5563',
-    'background:#111827',
-    'color:#e5e7eb',
+    'border:1px solid #2563eb',
+    'background:linear-gradient(180deg,#2563eb 0%,#1d4ed8 100%)',
+    'color:#eff6ff',
     'font-size:11px',
+    'font-weight:600',
     'line-height:1.2',
-    'padding:2px 6px',
-    'border-radius:4px',
+    'padding:4px 8px',
+    'border-radius:7px',
     'cursor:pointer',
     'pointer-events:auto',
+    'box-shadow:0 2px 6px rgba(29,78,216,0.35)',
   ].join(';')
   pronounceButton.addEventListener('click', async (ev) => {
     ev.preventDefault()
@@ -209,10 +265,12 @@ function bindTooltipSpan(span: HTMLSpanElement) {
     currentTooltipSpan = span
     host.replaceChildren(buildTooltipContent(span))
     host.style.display = 'block'
+    host.style.opacity = '1'
     positionTooltip(span, host)
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
     detachActiveTooltip = () => {
+      host.style.opacity = '0'
       host.style.display = 'none'
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)
