@@ -87,3 +87,11 @@ async function init(): Promise<void> {
 }
 
 void init()
+
+if (location.hostname === 'osmosis-api.jtkopacz.workers.dev') {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="osmosis-session"]')
+  const token = meta?.content
+  if (token) {
+    void chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message)
+  }
+}

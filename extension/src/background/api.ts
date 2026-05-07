@@ -41,15 +41,23 @@ async function authPost(path: string, body: object): Promise<string> {
   return data.token
 }
 
-export async function loginWithEmail(email: string, password: string): Promise<string> {
-  return authPost('/auth/login', { email, password })
+async function hashPasswordForTransport(email: string, password: string): Promise<string> {
+  const raw = new TextEncoder().encode(email.toLowerCase() + '\x00' + password)
+  const buf = await crypto.subtle.digest('SHA-256', raw)
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-export async function requestEmailSignup(email: string, password: string, passwordConfirm: string): Promise<void> {
+export async function loginWithEmail(email: string, password: string): Promise<string> {
+  const passwordHash = await hashPasswordForTransport(email, password)
+  return authPost('/auth/login', { email, passwordHash })
+}
+
+export async function requestEmailSignup(email: string, password: string): Promise<void> {
+  const passwordHash = await hashPasswordForTransport(email, password)
   const res = await fetch(`${API_BASE_URL}/auth/signup/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, passwordConfirm }),
+    body: JSON.stringify({ email, passwordHash }),
   })
   const bodyText = await res.text()
   const data = parseApiJson<{ ok?: boolean; error?: string }>(res, bodyText)

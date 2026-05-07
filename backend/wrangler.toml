@@ -1,6 +1,7 @@
 name = "osmosis-api"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
+assets = { directory = "./public" }
 
 [[d1_databases]]
 binding = "DB"
@@ -13,15 +14,26 @@ id = "5379e31e3a9a48aaa528409924084738"
 
 [vars]
 AZURE_TRANSLATOR_REGION = "eastus"
+
 # Stripe Dashboard → Product → Price ID (price_...). Required for POST /user/checkout.
 STRIPE_PRO_PRICE_ID = "price_1TMYjoBKftQqNeWyG6Lzeq5d"
 # Optional override for tests (default 50000). Example: "5" to simulate hitting limit quickly.
 # FREE_TIER_CHAR_LIMIT = "50000"
+
+# Chrome extension ID — find it at chrome://extensions (enable Developer mode to see IDs).
+# Used to build the verify-email redirect link: chrome-extension://<ID>/src/popup/index.html#osmosis_session=<jwt>
+# Set to the published Web Store ID for production, or your dev extension ID for local testing.
+CHROME_EXTENSION_ID = "manmnbejhpmjfmjbbjkmjahhedcaabml"
+EMAIL_FROM = "Osmosis <verify@velvetwebdev.com>"
+
+# Optional: override popup path (default "src/popup/index.html")
+# EXTENSION_POPUP_PATH = "src/popup/index.html"
+
 # Google OAuth (Chrome extension: add redirect https://<EXTENSION_ID>.chromiumapp.org/ in Cloud Console)
 # Prefer: wrangler secret put GOOGLE_WEB_CLIENT_JSON  (paste full contents of client_secret_*.json from Google Cloud)
 # Or: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET
-# Email signup (Resend): RESEND_API_KEY, EMAIL_FROM (e.g. "Osmosis <verify@yourdomain.com>")
-# After deploy: CHROME_EXTENSION_ID (32-char unpacked/published extension id) so verify-email links open the extension.
-# Optional: EXTENSION_POPUP_PATH (default src/popup/index.html)
+
+# Email signup (Resend): RESEND_API_KEY must be set via `wrangler secret put RESEND_API_KEY`
+
 # Secrets (set via wrangler secret put):
 # JWT_SECRET, AZURE_TRANSLATOR_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, GOOGLE_WEB_CLIENT_JSON (or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET), RESEND_API_KEY

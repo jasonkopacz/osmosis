@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import type { User } from '../types'
 
-const USER_COLUMNS = 'id, email, password_hash, google_sub, meta_sub, apple_sub, microsoft_sub, auth_provider, stripe_customer_id, plan, created_at'
+const USER_COLUMNS = 'id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, created_at'
 
 export class DuplicateEmailError extends Error {
   constructor() { super('Email already registered'); this.name = 'DuplicateEmailError' }

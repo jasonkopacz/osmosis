@@ -8,6 +8,12 @@ import { userRouter } from './routes/user'
 import { stripeRouter } from './routes/stripe'
 
 const app = new Hono<{ Bindings: Env }>()
+
+app.onError((err, c) => {
+  console.error('[osmosis:api] unhandled error', err)
+  return c.json({ error: err.message || 'Internal server error' }, 500)
+})
+
 app.use('*', cors({
   // Allow Chrome extension pages and non-browser clients (e.g. extension SW, curl).
   // Reject all other web origins to prevent cross-site token abuse.

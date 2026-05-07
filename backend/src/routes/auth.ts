@@ -29,57 +29,39 @@ function validateNewPassword(password: string): string | null {
   return null
 }
 
-function verifyLandingPageHtml(jwt: string, extensionId: string, popupPath: string): string {
-  const extUrl =
-    `chrome-extension://${extensionId}/${popupPath.replace(/^\//, '')}` +
-    `#osmosis_session=${encodeURIComponent(jwt)}`
-  const safeExt = extUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+function verifyLandingPageHtml(jwt: string): string {
+  // JWTs are base64url-encoded (A-Za-z0-9-_.) so no HTML escaping needed
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="osmosis-session" content="${jwt}" />
   <title>Osmosis — email confirmed</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #0f172a; color: #ecfeff; margin: 0; padding: 32px 20px; line-height: 1.5; }
     .card { max-width: 420px; margin: 0 auto; background: rgba(30,41,59,0.9); border: 1px solid rgba(56,189,248,0.25); border-radius: 16px; padding: 24px; }
     h1 { font-size: 1.25rem; margin: 0 0 12px; }
     p { margin: 0 0 14px; color: #94a3b8; font-size: 0.95rem; }
-    .btn { display: inline-block; background: linear-gradient(92deg, #06b6d4, #22d3ee); color: #042f2e; font-weight: 800; padding: 12px 18px; border-radius: 12px; text-decoration: none; margin-top: 8px; }
-    .hint { font-size: 0.85rem; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(148,163,184,0.25); }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>You’re verified</h1>
-    <p>Your Osmosis account is ready. Open the extension to start translating.</p>
-    <p><a class="btn" id="openExt" href="${safeExt}">Return to Osmosis</a></p>
-    <p class="hint">After opening, use <strong>Continue with Google</strong> on the sign-in screen if you want Google sign-in next time.</p>
+    <h1>&#10003; Email confirmed!</h1>
+    <p>Your Osmosis account is ready. Click the Osmosis icon in your browser toolbar to start translating.</p>
+    <p style="font-size:0.85rem">If you don’t see it, click the puzzle icon next to the address bar and pin Osmosis.</p>
   </div>
 </body>
 </html>`
 }
 
 authRouter.post('/signup/request', async (c) => {
-  const body = await c.req.json<{ email?: unknown; password?: unknown; passwordConfirm?: unknown }>()
+  const body = await c.req.json<{ email?: unknown; passwordHash?: unknown }>()
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  const password = typeof body.password === 'string' ? body.password : ''
-  const passwordConfirm = typeof body.passwordConfirm === 'string' ? body.passwordConfirm : ''
+  const password = typeof body.passwordHash === 'string' ? body.passwordHash.trim() : ''
 
   if (!email || !EMAIL_RE.test(email)) return c.json({ error: 'Valid email required' }, 400)
-  if (!passwordConfirm) {
-    console.warn('[auth/signup/request] missing password confirmation')
-    return c.json({ error: 'Please confirm your password' }, 400)
-  }
-  if (passwordConfirm !== password) {
-    console.warn('[auth/signup/request] password confirmation mismatch')
-    return c.json({ error: 'Passwords do not match' }, 400)
-  }
-  const pwdErr = validateNewPassword(password)
-  if (pwdErr) {
-    console.warn('[auth/signup/request] password policy rejected:', pwdErr)
-    return c.json({ error: pwdErr }, 400)
-  }
+  if (!password) return c.json({ error: 'Password is required' }, 400)
 
   const existing = await findUserByEmail(c.env.DB, email)
   if (existing) return c.json({ error: 'An account with this email already exists' }, 409)
@@ -135,27 +117,14 @@ authRouter.get('/verify-email', async (c) => {
   const jwt = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
   console.log(`[auth/verify-email] new user ${user.id}`)
 
-  const extensionId = c.env.CHROME_EXTENSION_ID?.trim()
-  const popupPath = (c.env.EXTENSION_POPUP_PATH?.trim() || 'src/popup/index.html').replace(/^\//, '')
-
-  if (!extensionId) {
-    console.warn('[auth/verify-email] CHROME_EXTENSION_ID not set; returning token in page only')
-    return c.html(
-      `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:24px">
-      <p>Account created. Set CHROME_EXTENSION_ID on the API to enable one-tap return to the extension.</p>
-      <p style="word-break:break-all;font-size:12px">${jwt}</p></body></html>`,
-      200,
-    )
-  }
-
-  const html = verifyLandingPageHtml(jwt, extensionId, popupPath)
+  const html = verifyLandingPageHtml(jwt)
   return c.html(html)
 })
 
 authRouter.post('/login', async (c) => {
-  const body = await c.req.json<{ email?: unknown; password?: unknown }>()
+  const body = await c.req.json<{ email?: unknown; passwordHash?: unknown }>()
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  const password = typeof body.password === 'string' ? body.password : ''
+  const password = typeof body.passwordHash === 'string' ? body.passwordHash.trim() : ''
 
   if (!email || !password) return c.json({ error: 'Email and password required' }, 400)
 
@@ -169,15 +138,6 @@ authRouter.post('/login', async (c) => {
 
   if (user.auth_provider === 'google') {
     return c.json({ error: 'This account uses Google sign-in. Please continue with Google.' }, 401)
-  }
-  if (user.auth_provider === 'meta' || user.auth_provider === 'apple' || user.auth_provider === 'microsoft') {
-    return c.json(
-      {
-        error:
-          'This account used a sign-in method that is no longer available. Try Google if this email is linked there, or contact support.',
-      },
-      401,
-    )
   }
 
   const exp = Math.floor(Date.now() / 1000) + JWT_EXPIRY_SECS

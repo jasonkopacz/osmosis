@@ -56,6 +56,7 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
   return true
 })
 
+
 async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'TRANSLATE') {
     await cache.ensureReady()
@@ -160,7 +161,7 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'EMAIL_SIGNUP') {
     try {
-      await requestEmailSignup(msg.email, msg.password, msg.passwordConfirm)
+      await requestEmailSignup(msg.email, msg.password)
       console.log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
       return { ok: true }
     } catch (err) {

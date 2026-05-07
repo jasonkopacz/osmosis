@@ -91,7 +91,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   pwdShell.append(passwordInput, pwdToggle)
   const passwordField = makeLabeledField('Password', pwdShell)
 
-  const passwordConfirmInput = makeInput('passwordConfirm', 'repeat password', 'password')
+  const passwordConfirmInput = makeInput('passwordConfirm', 'Confirm password', 'password')
   passwordConfirmInput.autocomplete = 'new-password'
   const pwdConfirmShell = document.createElement('div')
   pwdConfirmShell.style.cssText = 'position:relative;display:flex;align-items:center;'
@@ -166,8 +166,8 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const emailSentBody = document.createElement('p')
   emailSentBody.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.45;`
   emailSentBody.innerHTML =
-    'We sent a confirmation message. Open it and tap <strong>Confirm email &amp; return to Osmosis</strong> — that creates your account and opens this extension.<br><br>' +
-    'After your inbox confirms you, use Google below for OAuth, or open this popup again after clicking the email link.'
+    'We sent a confirmation link. Open your email and click <strong>Confirm email &amp; return to Osmosis</strong> — that activates your account.<br><br>' +
+    'Once confirmed, click the Osmosis icon in your toolbar to sign in. Or skip the email and use Google below if your Google account shares the same address.'
   const sentDivider = document.createElement('div')
   sentDivider.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:4px;'
   const sl = (): HTMLDivElement => {
@@ -272,22 +272,22 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       setFieldError(passwordInput, true)
       ok = false
     }
+    if (mode === 'signup' && password.length > 0) {
+      if (password.length < PASSWORD_MIN_LENGTH || !PASSWORD_SPECIAL_RE.test(password)) {
+        if (!errorEl.textContent) errorEl.textContent = `Password must be at least ${PASSWORD_MIN_LENGTH} characters and include a special character.`
+        setFieldError(passwordInput, true)
+        ok = false
+      }
+    }
     if (mode === 'signup') {
       if (!passwordConfirm) {
         if (!errorEl.textContent) errorEl.textContent = 'Please confirm your password.'
         setFieldError(passwordConfirmInput, true)
         ok = false
       } else if (passwordConfirm !== password) {
-        errorEl.textContent = 'Passwords do not match.'
+        if (!errorEl.textContent) errorEl.textContent = 'Passwords do not match.'
         setFieldError(passwordInput, true)
         setFieldError(passwordConfirmInput, true)
-        ok = false
-      }
-    }
-    if (mode === 'signup' && password.length > 0) {
-      if (password.length < PASSWORD_MIN_LENGTH || !PASSWORD_SPECIAL_RE.test(password)) {
-        errorEl.textContent = `Password must be at least ${PASSWORD_MIN_LENGTH} characters and include a special character.`
-        setFieldError(passwordInput, true)
         ok = false
       }
     }
@@ -310,10 +310,10 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
         showEmailSentChrome()
       } catch (e) {
         console.warn('[osmosis:popup:login] signup request failed', e)
-        errorEl.textContent = String(e).replace('Error: ', '')
-        setFieldError(emailInput, true)
-        setFieldError(passwordInput, true)
-        setFieldError(passwordConfirmInput, true)
+        const msg = String(e).replace('Error: ', '')
+        errorEl.textContent = msg
+        const isEmailError = /email|account|already/i.test(msg)
+        setFieldError(emailInput, isEmailError)
       } finally {
         submitBtn.disabled = false
         submitBtn.textContent = 'Send confirmation email'
@@ -435,7 +435,7 @@ function makeInput(name: string, placeholder: string, type: string): HTMLInputEl
   input.placeholder = placeholder
   input.autocomplete = name === 'email' ? 'email' : type === 'password' ? 'current-password' : 'off'
   input.style.cssText =
-    `width:100%;background:rgba(2,6,23,0.35);color:#ecfeff;border:1px solid ${C.border};border-radius:10px;` +
+    `box-sizing:border-box;width:100%;background:rgba(2,6,23,0.35);color:#ecfeff;border:1px solid ${C.border};border-radius:10px;` +
     'padding:9px 10px;font-size:13px;outline:none;transition:border-color .15s ease, box-shadow .15s ease;'
   input.addEventListener('focus', () => {
     if (input.dataset.invalid) return

@@ -14,7 +14,6 @@ export type Env = {
   RESEND_API_KEY?: string
   EMAIL_FROM?: string
   CHROME_EXTENSION_ID?: string
-  EXTENSION_POPUP_PATH?: string
 }
 
 export type Variables = { userId: string; email: string; plan: string }
@@ -30,10 +29,7 @@ export type User = {
   email: string
   password_hash: string
   google_sub: string | null
-  meta_sub: string | null
-  apple_sub: string | null
-  microsoft_sub: string | null
-  auth_provider: 'email' | 'google' | 'meta' | 'apple' | 'microsoft' | 'both'
+  auth_provider: 'email' | 'google' | 'both'
   stripe_customer_id: string | null
   plan: 'free' | 'pro'
   created_at: number
