@@ -27,11 +27,13 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   header.className = 'header'
   const backBtn = document.createElement('button')
   backBtn.className = 'icon-btn'
-  backBtn.style.fontSize = '13px'
-  backBtn.textContent = '← Back'
+  backBtn.setAttribute('aria-label', 'Back')
+  backBtn.innerHTML =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M15 18l-6-6 6-6"/></svg>'
   backBtn.addEventListener('click', onBack)
   const title = document.createElement('span')
-  title.style.cssText = 'font-weight:600;color:#e2e8f0;'
+  title.style.cssText = 'font-weight:600;font-size:14px;color:#e2e8f0;'
   title.textContent = 'Settings'
   header.append(backBtn, title, document.createElement('span'))
 
@@ -138,15 +140,28 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   })
   body.appendChild(signOutBtn)
 
-  // Delete account
+  // Collapsible danger zone
   body.appendChild(divider())
 
-  const deleteSection = document.createElement('div')
-  deleteSection.style.cssText = 'display:flex;flex-direction:column;gap:6px;'
+  const dangerToggle = document.createElement('button')
+  dangerToggle.style.cssText =
+    'background:none;border:none;display:flex;align-items:center;gap:4px;' +
+    'color:#4a5568;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;cursor:pointer;padding:0;'
+  const dangerChevron = document.createElement('span')
+  dangerChevron.textContent = '›'
+  dangerChevron.style.cssText = 'font-size:14px;transition:transform 0.15s;display:inline-block;'
+  dangerToggle.append(dangerChevron, document.createTextNode(' Danger zone'))
 
-  const deleteLabel = document.createElement('div')
-  deleteLabel.className = 'field-label'
-  deleteLabel.textContent = 'Danger zone'
+  const deleteSection = document.createElement('div')
+  deleteSection.style.cssText = 'display:none;flex-direction:column;gap:6px;margin-top:6px;'
+
+  dangerToggle.addEventListener('click', () => {
+    const open = deleteSection.style.display === 'flex'
+    deleteSection.style.display = open ? 'none' : 'flex'
+    dangerChevron.style.transform = open ? '' : 'rotate(90deg)'
+  })
+
+  body.appendChild(dangerToggle)
 
   const deleteBtn = document.createElement('button')
   deleteBtn.style.cssText =
@@ -205,7 +220,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
     }
   })
 
-  deleteSection.append(deleteLabel, deleteBtn, confirmRow)
+  deleteSection.append(deleteBtn, confirmRow)
   body.appendChild(deleteSection)
 
   root.append(header, body)

@@ -7,7 +7,7 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
   const labelEl = document.createElement('span')
   labelEl.className = 'field-label'
   labelEl.style.margin = '0'
-  labelEl.textContent = 'Word replacement'
+  labelEl.textContent = 'Words to translate'
 
   const valueEl = document.createElement('span')
   valueEl.style.cssText = 'font-size:15px;font-weight:700;color:#e2e8f0;'

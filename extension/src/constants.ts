@@ -12,4 +12,6 @@ export const STORAGE_KEYS = {
   SETTINGS: "osmosis_settings",
   USER_PROFILE_CACHE: "osmosis_user_profile_cache",
   TRANSLATION_CACHE: "osmosis_translation_cache",
+  PAGE_STATS: "osmosis_page_stats",
+  ONBOARDED: "osmosis_onboarded",
 } as const;

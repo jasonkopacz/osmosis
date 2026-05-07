@@ -9,6 +9,9 @@ import { normalizeTargetLang } from '../languages'
 let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
 let mutationTimer: ReturnType<typeof setTimeout> | null = null
+let lastMutationRun = 0
+const MUTATION_COOLDOWN_MS = 5_000
+const MUTATION_TEXT_THRESHOLD = 30 // ignore trivial DOM changes (ads, badges, analytics)
 
 async function loadSettings(): Promise<UserSettings> {
   const r = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS)
@@ -17,10 +20,24 @@ async function loadSettings(): Promise<UserSettings> {
   return { ...merged, targetLang: normalizeTargetLang(merged.targetLang) }
 }
 
-function scheduleFromMutation(): void {
+function hasMeaningfulNewText(mutations: MutationRecord[]): boolean {
+  for (const m of mutations) {
+    for (const node of m.addedNodes) {
+      const text = node.textContent?.trim() ?? ''
+      if (text.length >= MUTATION_TEXT_THRESHOLD) return true
+    }
+  }
+  return false
+}
+
+function scheduleFromMutation(mutations: MutationRecord[]): void {
+  if (!hasMeaningfulNewText(mutations)) return
   if (mutationTimer !== null) clearTimeout(mutationTimer)
   mutationTimer = setTimeout(() => {
     mutationTimer = null
+    const now = Date.now()
+    if (now - lastMutationRun < MUTATION_COOLDOWN_MS) return
+    lastMutationRun = now
     void runPipeline()
   }, 800)
 }
@@ -59,6 +76,9 @@ async function runPipeline(): Promise<void> {
     // at any percentage, making the slider appear stuck.
     const uniqueEligible = [...new Set(eligibleEntries.map(e => e.word))]
     const unique = sampleWords(uniqueEligible, settings.percentage, location.href)
+    void chrome.storage.local.set({
+      [STORAGE_KEYS.PAGE_STATS]: { sampled: unique.length, eligible: uniqueEligible.length, lang: settings.targetLang },
+    })
     console.log('[osmosis:content] pipeline', {
       eligible: eligibleEntries.length,
       uniqueEligible: uniqueEligible.length,
@@ -102,7 +122,7 @@ chrome.runtime.onMessage.addListener((msg: Message) => {
 async function init(): Promise<void> {
   console.log('[osmosis:content] init')
   settings = await loadSettings()
-  domObserver = new MutationObserver(scheduleFromMutation)
+  domObserver = new MutationObserver((mutations) => scheduleFromMutation(mutations))
   console.log('[osmosis:content] settings loaded', settings)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
