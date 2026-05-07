@@ -86,7 +86,7 @@ function ensureTooltipHost(): HTMLDivElement {
       'left:0',
       'top:0',
       'z-index:2147483647',
-      'transform:translate(-50%,calc(-100% - 6px))',
+      'transform:translate(-50%,-100%)',
       'background:linear-gradient(180deg,#0f172a 0%,#111827 100%)',
       'color:#f8fafc',
       'border:1px solid #334155',
