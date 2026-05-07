@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../constants'
 import type { TranslationEntry } from '../types'
 
 const TTL_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
+const MAX_ENTRIES = 10_000
 
 interface StoredEntry { v: TranslationEntry | string; t: number }
 
@@ -70,6 +71,11 @@ export class SessionCache {
 
   set(word: string, lang: string, entry: TranslationEntry): void {
     const k = this.makeKey(word, lang)
+    // Evict oldest entry when at capacity (Map preserves insertion order)
+    if (!this.store.has(k) && this.store.size >= MAX_ENTRIES) {
+      const oldest = this.store.keys().next().value
+      if (oldest !== undefined) this.store.delete(oldest)
+    }
     this.store.set(k, entry)
     this.pendingWrites.set(k, { v: entry, t: Date.now() })
     if (!this.flushScheduled) {

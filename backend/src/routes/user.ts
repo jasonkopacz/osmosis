@@ -10,15 +10,13 @@ import Stripe from 'stripe'
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+let _stripe: Stripe | null = null
+const getStripe = (key: string) => (_stripe ??= new Stripe(key))
+
 userRouter.get('/me', requireAuth, async (c) => {
   const userId = c.get('userId')
+  const email = c.get('email')
   const plan = c.get('plan')
-  const user = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?')
-    .bind(userId).first<{ email: string }>()
-  if (!user) {
-    console.warn(`[user/me] user not found for id ${userId}`)
-    return c.json({ error: 'User not found' }, 404)
-  }
 
   const charCount = await getUsage(c.env.DB, userId, currentYearMonth())
   const resetsAt = new Date()
@@ -28,7 +26,7 @@ userRouter.get('/me', requireAuth, async (c) => {
 
   const freeLimit = freeTierCharLimit(c.env)
   return c.json({
-    email: user.email,
+    email,
     plan,
     usage: {
       used: charCount,
@@ -53,10 +51,11 @@ userRouter.post('/checkout', requireAuth, async (c) => {
   }
 
   const userId = c.get('userId')
-  const user = await c.env.DB.prepare('SELECT email, stripe_customer_id FROM users WHERE id = ?')
-    .bind(userId).first<{ email: string; stripe_customer_id: string | null }>()
+  const email = c.get('email')
+  const user = await c.env.DB.prepare('SELECT stripe_customer_id FROM users WHERE id = ?')
+    .bind(userId).first<{ stripe_customer_id: string | null }>()
 
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+  const stripe = getStripe(c.env.STRIPE_SECRET_KEY)
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -66,7 +65,7 @@ userRouter.post('/checkout', requireAuth, async (c) => {
     client_reference_id: userId,
     ...(user?.stripe_customer_id
       ? { customer: user.stripe_customer_id }
-      : { customer_email: user?.email }),
+      : { customer_email: email }),
   })
   console.log(`[user/checkout] created checkout session for user ${userId}`)
   return c.json({ url: session.url })
@@ -82,7 +81,7 @@ userRouter.post('/portal', requireAuth, async (c) => {
     return c.json({ error: 'No active subscription found' }, 404)
   }
 
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+  const stripe = getStripe(c.env.STRIPE_SECRET_KEY)
   const session = await stripe.billingPortal.sessions.create({
     customer: user.stripe_customer_id,
     return_url: 'https://osmosis.app',

@@ -5,7 +5,7 @@ import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../utils/kv'
 import { lookupWords, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
-import { getTranslationsCachedBatch, setTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
+import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
@@ -16,14 +16,26 @@ const MAX_POPULAR_LIMIT = 500
 
 export const translateRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+const POPULAR_CACHE_TTL = 60 * 60 * 24 // 24 hours
+
 translateRouter.get('/popular', requireAuth, async (c) => {
   const lang = c.req.query('lang')
   if (!lang || !VALID_LANGUAGE_CODES.has(lang)) return c.json({ error: 'Valid lang query param required' }, 400)
   const limitParam = parseInt(c.req.query('limit') ?? '', 10)
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_POPULAR_LIMIT) : MAX_POPULAR_LIMIT
+
+  const cacheKey = `popular:${lang}:${limit}`
+  const cached = await c.env.TRANSLATION_CACHE.get(cacheKey)
+  if (cached) {
+    console.log(`[translate/popular] KV cache hit lang=${lang} limit=${limit}`)
+    return c.json({ translations: JSON.parse(cached) })
+  }
+
   const rows = await getTopTranslations(c.env.DB, lang, limit)
   const translations = Object.fromEntries(rows.map(r => [r.word, r.entry]))
   console.log(`[translate/popular] lang=${lang} limit=${limit} returned=${rows.length}`)
+
+  void c.env.TRANSLATION_CACHE.put(cacheKey, JSON.stringify(translations), { expirationTtl: POPULAR_CACHE_TTL })
   return c.json({ translations })
 })
 
@@ -62,17 +74,21 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   )
   const uncached: string[] = []
   const kvWords: string[] = []
+  const kvHits: Array<{ word: string; entry: TranslationEntry }> = []
   for (const { word, hit } of kvResults) {
     if (hit) {
       result[word] = hit
       kvWords.push(word)
-      backgroundTasks.push(
-        setTranslationCached(c.env.DB, word, targetLang, hit)
-          .catch(err => console.warn(`[translate] D1 backfill failed for "${word}": ${String(err)}`))
-      )
+      kvHits.push({ word, entry: hit })
     } else {
       uncached.push(word)
     }
+  }
+  if (kvHits.length > 0) {
+    backgroundTasks.push(
+      batchSetTranslationCached(c.env.DB, kvHits.map(({ word, entry }) => ({ word, targetLang, entry })))
+        .catch(err => console.warn(`[translate] D1 KV backfill failed: ${String(err)}`))
+    )
   }
   // kv_hit_rate = kvWords / afterD1 — if consistently 0%, KV layer can be removed
   console.log(`[translate] layers: d1=${d1Words.length} kv=${kvWords.length}(rate=${afterD1.length > 0 ? ((kvWords.length / afterD1.length) * 100).toFixed(0) : 0}%) uncached=${uncached.length} total=${uniqueWords.length}`)
@@ -93,7 +109,8 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
       try {
         translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
       } catch (err) {
-        console.warn(`[translate] azure translate primary attempt failed, retrying: ${String(err)}`)
+        console.warn(`[translate] azure translate primary attempt failed, retrying with backoff: ${String(err)}`)
+        await new Promise(resolve => setTimeout(resolve, 500))
         try {
           translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
         } catch (retryErr) {
@@ -125,15 +142,16 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
       result[word] = entry
     }
 
+    const newEntries = [...allNew.entries()]
     backgroundTasks.push(
-      ...([...allNew.entries()].map(([word, entry]) =>
-        Promise.all([
-          setCached(c.env.TRANSLATION_CACHE, word, targetLang, entry)
-            .catch(err => console.warn(`[translate] KV write failed for "${word}": ${String(err)}`)),
-          setTranslationCached(c.env.DB, word, targetLang, entry)
-            .catch(err => console.warn(`[translate] D1 write failed for "${word}": ${String(err)}`)),
-        ])
-      ))
+      // Batch all D1 inserts into a single query per chunk instead of N individual writes
+      batchSetTranslationCached(c.env.DB, newEntries.map(([word, entry]) => ({ word, targetLang, entry })))
+        .catch(err => console.warn(`[translate] D1 batch write failed: ${String(err)}`)),
+      // KV writes can stay parallel — they're fast and independent
+      ...newEntries.map(([word, entry]) =>
+        setCached(c.env.TRANSLATION_CACHE, word, targetLang, entry)
+          .catch(err => console.warn(`[translate] KV write failed for "${word}": ${String(err)}`))
+      ),
     )
   }
 

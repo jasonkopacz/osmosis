@@ -5,6 +5,9 @@ import { updatePlan, findUserByStripeCustomerId } from '../db/users'
 
 export const stripeRouter = new Hono<{ Bindings: Env }>()
 
+let _stripe: Stripe | null = null
+const getStripe = (key: string) => (_stripe ??= new Stripe(key))
+
 async function downgradeByCustomerId(db: Env['DB'], customerId: string, reason: string): Promise<void> {
   const user = await findUserByStripeCustomerId(db, customerId)
   if (user) {
@@ -14,7 +17,7 @@ async function downgradeByCustomerId(db: Env['DB'], customerId: string, reason: 
 }
 
 stripeRouter.post('/webhook', async (c) => {
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+  const stripe = getStripe(c.env.STRIPE_SECRET_KEY)
   const sig = c.req.header('stripe-signature')
   if (!sig) {
     console.warn('[stripe/webhook] missing stripe-signature header')

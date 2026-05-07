@@ -3,6 +3,8 @@ import type { TranslationEntry } from '../types'
 
 // D1 caps bound variables per query at ~100; reserve 1 slot for target_lang
 const D1_CHUNK_SIZE = 99
+// INSERT rows have 5 params each; leave headroom
+const D1_INSERT_CHUNK_SIZE = Math.floor(D1_CHUNK_SIZE / 5)
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = []
@@ -74,6 +76,32 @@ export async function setTranslationCached(
       entry.a ? JSON.stringify(entry.a) : null
     )
     .run()
+}
+
+export async function batchSetTranslationCached(
+  db: D1Database,
+  entries: Array<{ word: string; targetLang: string; entry: TranslationEntry }>,
+): Promise<void> {
+  if (entries.length === 0) return
+  for (const batch of chunk(entries, D1_INSERT_CHUNK_SIZE)) {
+    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, 0)').join(', ')
+    const values = batch.flatMap(({ word, targetLang, entry }) => [
+      word.toLowerCase(), targetLang.toLowerCase(),
+      entry.t, entry.p ?? null,
+      entry.a ? JSON.stringify(entry.a) : null,
+    ])
+    await db
+      .prepare(`
+        INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count)
+        VALUES ${placeholders}
+        ON CONFLICT(word, target_lang) DO UPDATE SET
+          translation = excluded.translation,
+          pos_tag = excluded.pos_tag,
+          alternatives = excluded.alternatives
+      `)
+      .bind(...values)
+      .run()
+  }
 }
 
 export async function getTopTranslations(

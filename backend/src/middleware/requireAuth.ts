@@ -13,6 +13,18 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variable
     console.warn('[requireAuth] invalid or expired JWT provided')
     return c.json({ error: 'Invalid or expired token' }, 401)
   }
+
+  const kvKey = `user_auth:${payload.userId}`
+  const kvHit = await c.env.TRANSLATION_CACHE.get(kvKey)
+  if (kvHit) {
+    const { email, plan } = JSON.parse(kvHit) as { email: string; plan: string }
+    c.set('userId', payload.userId)
+    c.set('email', email)
+    c.set('plan', plan)
+    await next()
+    return
+  }
+
   const user = await c.env.DB.prepare('SELECT email, plan FROM users WHERE id = ?')
     .bind(payload.userId)
     .first<{ email: string; plan: string }>()
@@ -20,6 +32,9 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variable
     console.warn(`[requireAuth] token references missing user ${payload.userId}`)
     return c.json({ error: 'Invalid token user' }, 401)
   }
+
+  void c.env.TRANSLATION_CACHE.put(kvKey, JSON.stringify({ email: user.email, plan: user.plan }), { expirationTtl: 60 })
+
   console.log(`[requireAuth] authenticated user ${payload.userId} plan=${user.plan}`)
   c.set('userId', payload.userId)
   c.set('email', user.email)
