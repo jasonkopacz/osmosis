@@ -20,6 +20,7 @@ export type UserProfile = {
 
 export type Message =
   | { type: 'TRANSLATE'; words: string[]; targetLang: string; contextsByWord?: Record<string, string> }
+  | { type: 'PRONOUNCE'; text: string; targetLang: string }
   | { type: 'GET_USER' }
   | { type: 'SETTINGS_CHANGED'; settings: UserSettings }
   | { type: 'GOOGLE_LOGIN' }

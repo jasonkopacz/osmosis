@@ -3,7 +3,7 @@ import type { Env, Variables, TranslationEntry } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { checkUsage } from '../middleware/checkUsage'
 import { getCached, setCached } from '../utils/kv'
-import { lookupWords, translateWords } from '../services/azure'
+import { lookupWords, synthesizePronunciation, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
 import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
 import { freeTierCharLimit } from '../utils/limits'
@@ -201,4 +201,38 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
 
   console.log(`[translate] returning ${Object.keys(result).length} translated words`)
   return c.json({ translations: result })
+})
+
+translateRouter.post('/pronounce', requireAuth, checkUsage, async (c) => {
+  let body: { text?: unknown; targetLang?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const { text, targetLang } = body
+  if (typeof text !== 'string' || !text.trim()) return c.json({ error: 'text required' }, 400)
+  if (typeof targetLang !== 'string' || !VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
+  const cleanedText = text.trim().slice(0, 120)
+  const speechKey = c.env.AZURE_SPEECH_KEY ?? c.env.AZURE_TRANSLATOR_KEY
+  const speechRegion = c.env.AZURE_SPEECH_REGION ?? c.env.AZURE_TRANSLATOR_REGION
+  if (!speechKey || !speechRegion) return c.json({ error: 'Speech service not configured' }, 503)
+
+  try {
+    const speech = await synthesizePronunciation(cleanedText, targetLang, speechKey, speechRegion)
+    const usageDelta = cleanedText.length
+    if (usageDelta > 0) {
+      const newTotal = await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
+      if (c.get('plan') !== 'pro') {
+        const limit = freeTierCharLimit(c.env)
+        if (newTotal > limit) {
+          console.warn(`[translate/pronounce] user ${c.get('userId')} exceeded limit (${newTotal}/${limit})`)
+          return c.json({ error: 'Monthly limit reached', code: 'LIMIT_REACHED' }, 402)
+        }
+      }
+      console.log(`[translate/pronounce] charged ${usageDelta} chars, new total=${newTotal}`)
+    }
+    console.log('[translate/pronounce] success', { text: cleanedText, targetLang, voice: speech.voice })
+    return c.json(speech)
+  } catch (err) {
+    const detail = String(err)
+    console.error(`[translate/pronounce] failed: ${detail}`)
+    return c.json({ error: 'Pronunciation service unavailable', detail }, 503)
+  }
 })

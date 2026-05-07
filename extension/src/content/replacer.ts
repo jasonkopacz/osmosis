@@ -27,6 +27,52 @@ function coerceEntry(entry: TranslationEntry | string): TranslationEntry {
 }
 
 let detachActiveTooltip: (() => void) | null = null
+let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
+let currentTooltipSpan: HTMLSpanElement | null = null
+let activeAudio: HTMLAudioElement | null = null
+
+function clearTooltipHideTimer() {
+  if (tooltipHideTimer !== null) {
+    clearTimeout(tooltipHideTimer)
+    tooltipHideTimer = null
+  }
+}
+
+function scheduleTooltipHide() {
+  clearTooltipHideTimer()
+  tooltipHideTimer = setTimeout(() => {
+    detachActiveTooltip?.()
+  }, 120)
+}
+
+function stopActiveAudio() {
+  if (!activeAudio) return
+  activeAudio.pause()
+  activeAudio.currentTime = 0
+  activeAudio = null
+}
+
+function localeFromTargetLang(targetLang: string): string {
+  const lower = targetLang.toLowerCase()
+  if (lower.startsWith('es')) return 'es-ES'
+  if (lower.startsWith('fr')) return 'fr-FR'
+  if (lower.startsWith('de')) return 'de-DE'
+  if (lower.startsWith('it')) return 'it-IT'
+  if (lower.startsWith('pt')) return 'pt-BR'
+  if (lower.startsWith('ja')) return 'ja-JP'
+  if (lower.startsWith('ko')) return 'ko-KR'
+  if (lower.startsWith('zh')) return 'zh-CN'
+  return targetLang
+}
+
+function playBrowserPronunciation(text: string, targetLang: string): boolean {
+  if (!('speechSynthesis' in window)) return false
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = localeFromTargetLang(targetLang)
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utterance)
+  return true
+}
 
 function ensureTooltipHost(): HTMLDivElement {
   let host = document.getElementById(TOOLTIP_HOST_ID) as HTMLDivElement | null
@@ -49,9 +95,11 @@ function ensureTooltipHost(): HTMLDivElement {
       'font-size:12px',
       'line-height:1.4',
       'white-space:nowrap',
-      'pointer-events:none',
+      'pointer-events:auto',
       'box-sizing:border-box',
     ].join(';')
+    host.addEventListener('mouseenter', () => clearTooltipHideTimer())
+    host.addEventListener('mouseleave', () => scheduleTooltipHide())
     document.documentElement.appendChild(host)
   }
   return host
@@ -67,6 +115,8 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   const frag = document.createDocumentFragment()
 
   const original = span.getAttribute('data-original') ?? ''
+  const translated = span.getAttribute('data-translation') ?? ''
+  const targetLang = span.getAttribute('data-target-lang') ?? ''
   const pos = span.getAttribute('data-pos') ?? ''
   const alts = span.getAttribute('data-alts') ?? ''
 
@@ -83,6 +133,70 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
     frag.appendChild(line2)
   }
 
+  const pronounceRow = document.createElement('div')
+  pronounceRow.style.cssText = 'margin-top:4px;display:flex;align-items:center'
+  const pronounceButton = document.createElement('button')
+  pronounceButton.type = 'button'
+  pronounceButton.textContent = '🔊 Pronounce'
+  pronounceButton.style.cssText = [
+    'appearance:none',
+    'border:1px solid #4b5563',
+    'background:#111827',
+    'color:#e5e7eb',
+    'font-size:11px',
+    'line-height:1.2',
+    'padding:2px 6px',
+    'border-radius:4px',
+    'cursor:pointer',
+    'pointer-events:auto',
+  ].join(';')
+  pronounceButton.addEventListener('click', async (ev) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    if (!translated || !targetLang) return
+    const previousLabel = pronounceButton.textContent
+    pronounceButton.disabled = true
+    pronounceButton.textContent = 'Loading...'
+    stopActiveAudio()
+    try {
+      const res = (await chrome.runtime.sendMessage({
+        type: 'PRONOUNCE',
+        text: translated,
+        targetLang,
+      })) as { audioBase64?: string; mimeType?: string; voice?: string; error?: string } | undefined
+      if (!res) return
+      if (res.error) {
+        console.warn('[osmosis:content] pronounce error', res.error)
+        const usedFallback = playBrowserPronunciation(translated, targetLang)
+        if (usedFallback) {
+          console.log('[osmosis:content] pronounce fallback used', { translated, targetLang })
+          pronounceButton.textContent = 'Fallback voice'
+        } else {
+          pronounceButton.textContent = 'Error'
+        }
+        return
+      }
+      if (!res.audioBase64 || !res.mimeType) {
+        pronounceButton.textContent = 'No audio'
+        return
+      }
+      console.log('[osmosis:content] pronounce success', {
+        original,
+        translated,
+        targetLang,
+        voice: res.voice,
+      })
+      const audio = new Audio(`data:${res.mimeType};base64,${res.audioBase64}`)
+      activeAudio = audio
+      void audio.play().catch(err => console.warn('[osmosis:content] audio playback failed', err))
+    } finally {
+      pronounceButton.disabled = false
+      pronounceButton.textContent = previousLabel
+    }
+  })
+  pronounceRow.appendChild(pronounceButton)
+  frag.appendChild(pronounceRow)
+
   return frag
 }
 
@@ -90,7 +204,9 @@ function bindTooltipSpan(span: HTMLSpanElement) {
   const host = ensureTooltipHost()
   const onMove = () => positionTooltip(span, host)
   const show = () => {
+    clearTooltipHideTimer()
     detachActiveTooltip?.()
+    currentTooltipSpan = span
     host.replaceChildren(buildTooltipContent(span))
     host.style.display = 'block'
     positionTooltip(span, host)
@@ -100,10 +216,13 @@ function bindTooltipSpan(span: HTMLSpanElement) {
       host.style.display = 'none'
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)
+      currentTooltipSpan = null
       detachActiveTooltip = null
     }
   }
-  const hide = () => detachActiveTooltip?.()
+  const hide = () => {
+    if (currentTooltipSpan === span) scheduleTooltipHide()
+  }
   span.addEventListener('mouseenter', show)
   span.addEventListener('mouseleave', hide)
 }
@@ -126,7 +245,11 @@ export function injectTooltipStyles(): void {
   document.head.appendChild(style)
 }
 
-export function applyReplacements(translationMap: Map<string, TranslationEntry | string>, entries: WordEntry[]): void {
+export function applyReplacements(
+  translationMap: Map<string, TranslationEntry | string>,
+  entries: WordEntry[],
+  targetLang: string
+): void {
   if (translationMap.size === 0) return
 
   const byNode = new Map<Text, Array<{ word: string; offset: number; entry: TranslationEntry }>>()
@@ -161,6 +284,8 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry |
         const altsText = entry.a.map(a => `${a.t} (${posLabel(a.p)})`).join(' · ')
         span.setAttribute('data-alts', altsText)
       }
+      span.setAttribute('data-translation', entry.t)
+      span.setAttribute('data-target-lang', targetLang)
       span.textContent = matchCase(word, entry.t)
       bindTooltipSpan(span)
       fragment.appendChild(span)
@@ -173,7 +298,9 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry |
 }
 
 export function clearReplacements(): void {
+  clearTooltipHideTimer()
   detachActiveTooltip?.()
+  stopActiveAudio()
   const parents = new Set<Node>()
   document.querySelectorAll<HTMLSpanElement>('.osmosis-word').forEach(span => {
     if (span.parentNode) {

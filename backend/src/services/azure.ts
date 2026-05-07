@@ -2,6 +2,7 @@ import type { TranslationEntry } from '../types'
 
 const TRANSLATE_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&textType=plain'
 const DICT_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/dictionary/lookup?api-version=3.0&from=en'
+const SPEECH_OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3'
 
 type AzureTranslateResponse = { translations: { text: string; to: string }[] }[]
 type AzureDictResponse = Array<{
@@ -19,6 +20,58 @@ function headers(apiKey: string, region: string): HeadersInit {
     'Ocp-Apim-Subscription-Key': apiKey,
     'Ocp-Apim-Subscription-Region': region,
     'Content-Type': 'application/json',
+  }
+}
+
+function pickVoice(targetLang: string): string {
+  const lang = targetLang.toLowerCase()
+  if (lang.startsWith('es')) return 'es-ES-ElviraNeural'
+  if (lang.startsWith('fr')) return 'fr-FR-DeniseNeural'
+  if (lang.startsWith('de')) return 'de-DE-KatjaNeural'
+  if (lang.startsWith('it')) return 'it-IT-ElsaNeural'
+  if (lang.startsWith('pt')) return 'pt-BR-FranciscaNeural'
+  if (lang.startsWith('ja')) return 'ja-JP-NanamiNeural'
+  if (lang.startsWith('ko')) return 'ko-KR-SunHiNeural'
+  if (lang.startsWith('zh')) return 'zh-CN-XiaoxiaoNeural'
+  return 'en-US-AvaMultilingualNeural'
+}
+
+export async function synthesizePronunciation(
+  text: string,
+  targetLang: string,
+  speechKey: string,
+  speechRegion: string
+): Promise<{ audioBase64: string; mimeType: string; voice: string }> {
+  const voice = pickVoice(targetLang)
+  const endpoint = `https://${speechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`
+  const escapedText = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+  const ssml = `<speak version="1.0" xml:lang="${voice.slice(0, 5)}"><voice name="${voice}">${escapedText}</voice></speak>`
+  console.log('[azure] speech request', { targetLang, voice, text })
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Ocp-Apim-Subscription-Key': speechKey,
+      'Content-Type': 'application/ssml+xml',
+      'X-Microsoft-OutputFormat': SPEECH_OUTPUT_FORMAT,
+      'User-Agent': 'osmosis-pronunciation',
+    },
+    body: ssml,
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Azure speech error: ${res.status} ${body}`)
+  }
+  const bytes = await res.arrayBuffer()
+  const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(bytes)))
+  return {
+    audioBase64,
+    mimeType: 'audio/mpeg',
+    voice,
   }
 }
 

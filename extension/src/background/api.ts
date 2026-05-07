@@ -103,6 +103,32 @@ export async function translateBatch(
   )
 }
 
+export async function pronounceText(
+  text: string,
+  targetLang: string,
+  token: string
+): Promise<{ audioBase64: string; mimeType: string; voice: string }> {
+  const res = await fetch(`${API_BASE_URL}/translate/pronounce`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ text, targetLang }),
+  })
+  if (res.status === 402) throw new Error('LIMIT_REACHED')
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) {
+    const bodyText = await res.text()
+    let detail = bodyText
+    try {
+      const parsed = JSON.parse(bodyText) as { error?: string; detail?: string }
+      detail = `${parsed.error ?? 'API_ERROR'}${parsed.detail ? ` (${parsed.detail})` : ''}`
+    } catch {
+      /* keep raw body text */
+    }
+    throw new Error(`API_ERROR:${res.status}:${detail}`)
+  }
+  return res.json() as Promise<{ audioBase64: string; mimeType: string; voice: string }>
+}
+
 export async function fetchUser(token: string): Promise<unknown> {
   const res = await fetch(`${API_BASE_URL}/user/me`, { headers: { Authorization: `Bearer ${token}` } })
   return res.ok ? res.json() : null

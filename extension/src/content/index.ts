@@ -188,7 +188,7 @@ async function runPipeline(): Promise<void> {
       if (res.error) console.warn('[osmosis:content] translate error', res.error)
       return
     }
-    applyReplacements(new Map(Object.entries(res.translations)), eligibleEntries)
+    applyReplacements(new Map(Object.entries(res.translations)), eligibleEntries, settings.targetLang)
   } finally {
     resumeObserver() // resume watching for new dynamic content
   }

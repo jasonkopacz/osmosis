@@ -4,6 +4,8 @@ export type Env = {
   JWT_SECRET: string
   AZURE_TRANSLATOR_KEY: string
   AZURE_TRANSLATOR_REGION: string
+  AZURE_SPEECH_KEY?: string
+  AZURE_SPEECH_REGION?: string
   STRIPE_SECRET_KEY: string
   STRIPE_WEBHOOK_SECRET: string
   STRIPE_PRO_PRICE_ID?: string

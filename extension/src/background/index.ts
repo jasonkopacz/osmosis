@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount } from './api'
+import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -119,6 +119,27 @@ async function handle(msg: Message): Promise<unknown> {
       console.warn('[osmosis:bg] TRANSLATE API error', s)
       // Return whatever we have from cache rather than nothing
       if (Object.keys(result).length > 0) return { translations: result }
+      return { error: 'API_ERROR' }
+    }
+  }
+
+  if (msg.type === 'PRONOUNCE') {
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      const text = msg.text.trim().slice(0, 120)
+      if (!text) return { error: 'INVALID_TEXT' }
+      console.log('[osmosis:bg] PRONOUNCE', { text, targetLang: msg.targetLang })
+      const result = await pronounceText(text, msg.targetLang, token)
+      return result
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('LIMIT_REACHED')) return { error: 'LIMIT_REACHED' }
+      if (s.includes('AUTH_EXPIRED')) {
+        await clearToken()
+        return { error: 'AUTH_EXPIRED' }
+      }
+      console.warn('[osmosis:bg] PRONOUNCE API error', s)
       return { error: 'API_ERROR' }
     }
   }
