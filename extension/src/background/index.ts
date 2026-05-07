@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations } from './api'
+import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -178,6 +178,32 @@ async function handle(msg: Message): Promise<unknown> {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'FORGOT_PASSWORD') {
+    try {
+      await requestPasswordReset(msg.email)
+      return { ok: true }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.warn('[osmosis:bg] FORGOT_PASSWORD failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'DELETE_ACCOUNT') {
+    try {
+      const token = await getToken()
+      if (!token) return { error: 'Not signed in' }
+      await deleteAccount(token)
+      await clearToken()
+      console.log('[osmosis:bg] DELETE_ACCOUNT: account deleted')
+      return { ok: true }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.warn('[osmosis:bg] DELETE_ACCOUNT failed', errMsg)
       return { error: errMsg }
     }
   }

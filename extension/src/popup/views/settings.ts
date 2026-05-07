@@ -127,17 +127,86 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
     body.append(manageBtn, manageError, divider())
   }
 
-  const signOutRow = document.createElement('div')
-  signOutRow.style.cssText = 'display:flex;justify-content:flex-end;'
   const signOutBtn = document.createElement('button')
-  signOutBtn.style.cssText = 'background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer;'
+  signOutBtn.style.cssText =
+    'background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;border-radius:8px;' +
+    'padding:10px;width:100%;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;'
   signOutBtn.textContent = 'Sign out'
   signOutBtn.addEventListener('click', async () => {
     await clearToken()
     window.location.reload()
   })
-  signOutRow.appendChild(signOutBtn)
-  body.appendChild(signOutRow)
+  body.appendChild(signOutBtn)
+
+  // Delete account
+  body.appendChild(divider())
+
+  const deleteSection = document.createElement('div')
+  deleteSection.style.cssText = 'display:flex;flex-direction:column;gap:6px;'
+
+  const deleteLabel = document.createElement('div')
+  deleteLabel.className = 'field-label'
+  deleteLabel.textContent = 'Danger zone'
+
+  const deleteBtn = document.createElement('button')
+  deleteBtn.style.cssText =
+    'background:none;border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;' +
+    'padding:8px;width:100%;font-size:12px;font-weight:600;cursor:pointer;'
+  deleteBtn.textContent = 'Delete account'
+
+  const confirmRow = document.createElement('div')
+  confirmRow.style.cssText = 'display:none;flex-direction:column;gap:6px;'
+  const confirmMsg = document.createElement('p')
+  confirmMsg.style.cssText = 'margin:0;font-size:11px;color:#fca5a5;line-height:1.4;'
+  confirmMsg.textContent = 'This permanently deletes your account and cancels any active subscription. There is no undo.'
+  const confirmBtns = document.createElement('div')
+  confirmBtns.style.cssText = 'display:flex;gap:6px;'
+  const cancelDeleteBtn = document.createElement('button')
+  cancelDeleteBtn.style.cssText =
+    'flex:1;background:none;border:1px solid rgba(103,232,249,0.25);color:#94a3b8;' +
+    'border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;'
+  cancelDeleteBtn.textContent = 'Cancel'
+  const confirmDeleteBtn = document.createElement('button')
+  confirmDeleteBtn.style.cssText =
+    'flex:1;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#ef4444;' +
+    'border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;'
+  confirmDeleteBtn.textContent = 'Yes, delete'
+  const deleteErrorEl = document.createElement('p')
+  deleteErrorEl.style.cssText = 'display:none;color:#fca5a5;font-size:11px;margin:0;'
+  confirmBtns.append(cancelDeleteBtn, confirmDeleteBtn)
+  confirmRow.append(confirmMsg, confirmBtns, deleteErrorEl)
+
+  deleteBtn.addEventListener('click', () => {
+    deleteBtn.style.display = 'none'
+    confirmRow.style.display = 'flex'
+  })
+  cancelDeleteBtn.addEventListener('click', () => {
+    confirmRow.style.display = 'none'
+    deleteBtn.style.display = ''
+    deleteErrorEl.style.display = 'none'
+  })
+  confirmDeleteBtn.addEventListener('click', async () => {
+    confirmDeleteBtn.disabled = true
+    cancelDeleteBtn.disabled = true
+    confirmDeleteBtn.textContent = 'Deleting…'
+    deleteErrorEl.style.display = 'none'
+    try {
+      const result = await chrome.runtime.sendMessage({ type: 'DELETE_ACCOUNT' }) as
+        { ok?: boolean; error?: string } | undefined
+      if (result?.error) throw new Error(result.error)
+      window.location.reload()
+    } catch (err) {
+      deleteErrorEl.textContent = err instanceof Error ? err.message : 'Deletion failed. Try again.'
+      deleteErrorEl.style.display = 'block'
+    } finally {
+      confirmDeleteBtn.disabled = false
+      cancelDeleteBtn.disabled = false
+      confirmDeleteBtn.textContent = 'Yes, delete'
+    }
+  })
+
+  deleteSection.append(deleteLabel, deleteBtn, confirmRow)
+  body.appendChild(deleteSection)
 
   root.append(header, body)
 }

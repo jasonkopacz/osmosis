@@ -16,7 +16,7 @@ function parseApiJson<T>(res: Response, bodyText: string): T {
     })
     if (res.status === 404) {
       throw new Error(
-        'Signup API not found (404). Deploy the latest backend (route /auth/signup/request) or verify API_BASE_URL.',
+        `API route not found (404): ${res.url}. Deploy the latest backend or verify API_BASE_URL.`,
       )
     }
     if (t.startsWith('<!') || t.startsWith('<html') || t.includes('<!DOCTYPE')) {
@@ -54,6 +54,29 @@ export async function requestEmailSignup(email: string, password: string): Promi
   const bodyText = await res.text()
   const data = parseApiJson<{ ok?: boolean; error?: string }>(res, bodyText)
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  const bodyText = await res.text()
+  const data = parseApiJson<{ ok?: boolean; error?: string }>(res, bodyText)
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
+}
+
+export async function deleteAccount(token: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/user/me`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const bodyText = await res.text()
+    const data = parseApiJson<{ error?: string }>(res, bodyText)
+    throw new Error(data.error ?? `Request failed (${res.status})`)
+  }
 }
 
 export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, TranslationEntry>> {

@@ -155,6 +155,73 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const googleBtn = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
   const googleBtnAfterEmail = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
 
+  // --- Forgot-password panel ---
+  const forgotPanel = document.createElement('div')
+  forgotPanel.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+  const forgotTitle = document.createElement('p')
+  forgotTitle.style.cssText = 'margin:0;font-size:14px;font-weight:700;color:#ecfeff;line-height:1.35;'
+  forgotTitle.textContent = 'Reset your password'
+  const forgotDesc = document.createElement('p')
+  forgotDesc.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.45;`
+  forgotDesc.textContent = "Enter your email and we'll send a reset link. Check your spam folder if it doesn't arrive within a minute."
+  const forgotEmailInput = makeInput('forgot-email', 'you@example.com', 'text')
+  const forgotEmailField = makeLabeledField('Email', forgotEmailInput)
+  const forgotErrorEl = document.createElement('p')
+  forgotErrorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0;line-height:1.3;'
+  const forgotSubmitBtn = document.createElement('button')
+  forgotSubmitBtn.type = 'button'
+  forgotSubmitBtn.style.cssText = submitBtn.style.cssText
+  forgotSubmitBtn.textContent = 'Send reset link'
+  const forgotSentMsg = document.createElement('p')
+  forgotSentMsg.style.cssText = 'display:none;font-size:12px;color:#6ee7b7;line-height:1.45;margin:0;'
+  forgotSentMsg.textContent = 'If an account exists for that email, a reset link is on its way. Check your inbox (and spam).'
+  const backFromForgotBtn = document.createElement('button')
+  backFromForgotBtn.type = 'button'
+  backFromForgotBtn.textContent = '← Back to sign in'
+  backFromForgotBtn.style.cssText = 'background:transparent;color:#94a3b8;border:none;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0;text-align:left;'
+  forgotPanel.append(forgotTitle, forgotDesc, forgotEmailField, forgotErrorEl, forgotSubmitBtn, forgotSentMsg, backFromForgotBtn)
+
+  forgotSubmitBtn.addEventListener('click', async () => {
+    const email = forgotEmailInput.value.trim().toLowerCase()
+    forgotErrorEl.textContent = ''
+    if (!email) { forgotErrorEl.textContent = 'Email is required.'; return }
+    forgotSubmitBtn.disabled = true
+    forgotSubmitBtn.textContent = 'Sending…'
+    try {
+      await chrome.runtime.sendMessage({ type: 'FORGOT_PASSWORD', email } as Message)
+      forgotSubmitBtn.style.display = 'none'
+      forgotEmailField.style.display = 'none'
+      forgotSentMsg.style.display = 'block'
+    } catch (e) {
+      forgotErrorEl.textContent = e instanceof Error ? e.message : 'Something went wrong.'
+    } finally {
+      forgotSubmitBtn.disabled = false
+      forgotSubmitBtn.textContent = 'Send reset link'
+    }
+  })
+  forgotEmailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') forgotSubmitBtn.click() })
+
+  function showForgotPanel(): void {
+    formPanel.style.display = 'none'
+    emailSentPanel.style.display = 'none'
+    forgotPanel.style.display = 'flex'
+    forgotSentMsg.style.display = 'none'
+    forgotSubmitBtn.style.display = ''
+    forgotEmailField.style.display = ''
+    forgotEmailInput.value = emailInput.value
+    forgotErrorEl.textContent = ''
+    title.textContent = 'Forgot password?'
+    subtitle.textContent = ''
+  }
+
+  backFromForgotBtn.addEventListener('click', () => {
+    forgotPanel.style.display = 'none'
+    formPanel.style.display = 'flex'
+    title.textContent = 'Welcome'
+    subtitle.textContent = 'Sign in to translate the web with Osmosis.'
+  })
+  // --- end forgot-password panel ---
+
   const oauthSentErrorEl = document.createElement('p')
   oauthSentErrorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0;line-height:1.3;'
 
@@ -240,6 +307,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     passwordInput.autocomplete = isSignin ? 'current-password' : 'new-password'
     hintEl.style.display = isSignin ? 'none' : ''
     passwordConfirmField.style.display = isSignin ? 'none' : 'flex'
+    forgotLink.style.display = isSignin ? '' : 'none'
     showFormChrome()
     console.log('[osmosis:popup:login] mode', m)
     requestAnimationFrame(() => {
@@ -366,10 +434,19 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   wireOAuth(googleBtn, 'GOOGLE_LOGIN', 'google', errorEl, onSuccess)
   wireOAuth(googleBtnAfterEmail, 'GOOGLE_LOGIN', 'google', oauthSentErrorEl, onSuccess)
 
+  const forgotLink = document.createElement('button')
+  forgotLink.type = 'button'
+  forgotLink.textContent = 'Forgot password?'
+  forgotLink.style.cssText =
+    `background:transparent;border:none;color:${C.textMuted};font-size:10px;` +
+    'cursor:pointer;padding:0;text-align:right;align-self:flex-end;text-decoration:underline;'
+  forgotLink.addEventListener('click', showForgotPanel)
+
   formPanel.append(
     tabBar,
     emailField,
     passwordField,
+    forgotLink,
     passwordConfirmField,
     hintEl,
     errorEl,
@@ -377,7 +454,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     divider,
     googleBtn
   )
-  card.append(titleBlock, formPanel, emailSentPanel)
+  card.append(titleBlock, formPanel, emailSentPanel, forgotPanel)
   wrap.append(hero, card)
   root.appendChild(wrap)
   setMode('signin')

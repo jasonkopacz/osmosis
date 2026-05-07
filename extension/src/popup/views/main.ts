@@ -53,6 +53,25 @@ export function renderMain(
     })
   )
 
+  const limitReached = user.plan === 'free' && user.usage.limit !== null && user.usage.used >= user.usage.limit
+
+  if (limitReached) {
+    const banner = document.createElement('div')
+    banner.style.cssText =
+      'background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:10px;' +
+      'padding:9px 12px;font-size:12px;color:#fca5a5;line-height:1.5;display:flex;flex-direction:column;gap:5px;'
+    const bannerText = document.createElement('span')
+    bannerText.textContent = 'Monthly limit reached — translations are paused until your usage resets.'
+    const upgradeLink = document.createElement('button')
+    upgradeLink.textContent = 'Upgrade to Pro for unlimited translations →'
+    upgradeLink.style.cssText =
+      'background:none;border:none;color:#22d3ee;font-size:11px;font-weight:700;cursor:pointer;' +
+      'padding:0;text-align:left;text-decoration:underline;'
+    upgradeLink.addEventListener('click', onSettings)
+    banner.append(bannerText, upgradeLink)
+    body.appendChild(banner)
+  }
+
   body.append(
     langWrapper,
     createSlider(s.percentage, percentage => {

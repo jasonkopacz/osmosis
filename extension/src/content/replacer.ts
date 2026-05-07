@@ -132,8 +132,7 @@ export function applyReplacements(translationMap: Map<string, TranslationEntry |
   const byNode = new Map<Text, Array<{ word: string; offset: number; entry: TranslationEntry }>>()
 
   for (const { word, node, offset } of entries) {
-    const prevChar = node.textContent?.[offset - 1] ?? ''
-    if (!isEligible(word, prevChar)) continue
+    if (!isEligible(word, node.textContent?.slice(0, offset) ?? '')) continue
     const rawEntry = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
     if (!rawEntry) continue
     const entry = coerceEntry(rawEntry)

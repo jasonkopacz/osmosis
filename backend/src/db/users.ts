@@ -60,6 +60,15 @@ export async function linkGoogleToEmailUser(db: D1Database, userId: string, goog
     .run()
 }
 
+export async function updatePassword(db: D1Database, userId: string, passwordHash: string): Promise<void> {
+  await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, userId).run()
+}
+
+export async function deleteUser(db: D1Database, userId: string): Promise<void> {
+  // usage rows cascade-delete via FK ON DELETE CASCADE
+  await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run()
+}
+
 export async function updatePlan(
   db: D1Database, userId: string, plan: 'free' | 'pro', stripeCustomerId: string
 ): Promise<void> {

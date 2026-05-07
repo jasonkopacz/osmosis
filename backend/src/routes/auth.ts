@@ -12,6 +12,15 @@ import {
   verificationKvKey,
 } from '../services/emailSignup'
 import { checkRateLimit } from '../utils/ratelimit'
+import {
+  buildResetEmailUrl,
+  generateResetToken,
+  resetPageHtml,
+  sendPasswordResetEmail,
+  storePendingReset,
+  takePendingReset,
+} from '../services/emailReset'
+import { updatePassword } from '../db/users'
 
 export const authRouter = new Hono<{ Bindings: Env }>()
 
@@ -132,6 +141,64 @@ authRouter.get('/verify-email', async (c) => {
 
   const html = verifyLandingPageHtml(jwt)
   return c.html(html)
+})
+
+authRouter.post('/forgot-password', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `forgot:${ip}`, 5, 60 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
+  let body: { email?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+
+  // Always respond 200 to prevent email enumeration
+  if (!email || !EMAIL_RE.test(email)) return c.json({ ok: true })
+
+  const user = await findUserByEmail(c.env.DB, email)
+  if (user && user.auth_provider !== 'google') {
+    const token = generateResetToken()
+    await storePendingReset(c.env.TRANSLATION_CACHE, token, { userId: user.id, email: user.email })
+    const origin = new URL(c.req.url).origin
+    const resetUrl = buildResetEmailUrl(origin, token)
+    try {
+      await sendPasswordResetEmail(c.env, email, resetUrl)
+      console.log(`[auth/forgot-password] reset email sent to ${email}`)
+    } catch (e) {
+      console.warn('[auth/forgot-password] send failed', e)
+    }
+  } else {
+    console.log(`[auth/forgot-password] no-op: ${!user ? 'user not found' : 'google-only account'}`)
+  }
+
+  return c.json({ ok: true })
+})
+
+authRouter.get('/reset-password', (c) => {
+  return c.html(resetPageHtml())
+})
+
+authRouter.post('/reset-password', async (c) => {
+  let body: { token?: unknown; password?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const token = typeof body.token === 'string' ? body.token.trim() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+
+  if (!token) return c.json({ error: 'Reset token required' }, 400)
+  if (!password) return c.json({ error: 'Password required' }, 400)
+
+  const pwError = validateNewPassword(password)
+  if (pwError) return c.json({ error: pwError }, 400)
+
+  const pending = await takePendingReset(c.env.TRANSLATION_CACHE, token)
+  if (!pending) return c.json({ error: 'This reset link is invalid or has expired.' }, 400)
+
+  const hash = await hashPassword(password)
+  await updatePassword(c.env.DB, pending.userId, hash)
+  void c.env.TRANSLATION_CACHE.delete(`user_auth:${pending.userId}`)
+
+  console.log(`[auth/reset-password] password updated for user ${pending.userId}`)
+  return c.json({ ok: true })
 })
 
 authRouter.post('/login', async (c) => {

@@ -26,3 +26,5 @@ export type Message =
   | { type: 'EMAIL_LOGIN'; email: string; password: string }
   | { type: 'EMAIL_SIGNUP'; email: string; password: string; passwordConfirm: string }
   | { type: 'SESSION_FROM_VERIFY'; token: string }
+  | { type: 'FORGOT_PASSWORD'; email: string }
+  | { type: 'DELETE_ACCOUNT' }

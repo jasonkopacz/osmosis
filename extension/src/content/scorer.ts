@@ -1,7 +1,7 @@
 import { WORD_RANK } from '../data/wordFrequency'
 
 // Must stay in sync with MAX_WORDS_PER_BATCH in backend/src/routes/translate.ts
-const MAX_WORDS = 200
+const MAX_WORDS = 400
 
 export function scoreWord(word: string): number {
   const rank = WORD_RANK[word.toLowerCase()]

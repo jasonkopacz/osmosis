@@ -11,7 +11,7 @@ import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
 
 // Must match MAX_WORDS in extension/src/content/scorer.ts
-const MAX_WORDS_PER_BATCH = 200
+const MAX_WORDS_PER_BATCH = 400
 const MAX_POPULAR_LIMIT = 500
 
 export const translateRouter = new Hono<{ Bindings: Env; Variables: Variables }>()

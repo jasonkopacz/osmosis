@@ -48,7 +48,7 @@ async function runPipeline(): Promise<void> {
     injectTooltipStyles()
 
     const allEntries = collectWords(document.body)
-    const eligibleEntries = allEntries.filter(({ word, offset, node }) => isEligible(word, node.textContent?.[offset - 1] ?? ''))
+    const eligibleEntries = allEntries.filter(({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? ''))
     if (eligibleEntries.length === 0) {
       console.log('[osmosis:content] no eligible words')
       return

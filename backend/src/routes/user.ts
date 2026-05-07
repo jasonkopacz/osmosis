@@ -3,6 +3,7 @@ import type { Env, Variables } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { getUsage } from '../db/usage'
 import { getTopTranslations } from '../db/translations'
+import { deleteUser } from '../db/users'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
@@ -90,4 +91,26 @@ userRouter.post('/portal', requireAuth, async (c) => {
   })
   console.log(`[user/portal] created portal session for user ${userId}`)
   return c.json({ url: session.url })
+})
+
+userRouter.delete('/me', requireAuth, async (c) => {
+  const userId = c.get('userId')
+
+  const row = await c.env.DB.prepare('SELECT stripe_customer_id FROM users WHERE id = ?')
+    .bind(userId).first<{ stripe_customer_id: string | null }>()
+
+  if (row?.stripe_customer_id) {
+    try {
+      await getStripe(c.env.STRIPE_SECRET_KEY).customers.del(row.stripe_customer_id)
+      console.log(`[user/me DELETE] deleted Stripe customer ${row.stripe_customer_id}`)
+    } catch (err) {
+      console.warn(`[user/me DELETE] Stripe customer deletion failed: ${String(err)}`)
+    }
+  }
+
+  await deleteUser(c.env.DB, userId)
+  void c.env.TRANSLATION_CACHE.delete(`user_auth:${userId}`)
+
+  console.log(`[user/me DELETE] deleted user ${userId}`)
+  return c.json({ ok: true })
 })
