@@ -61,7 +61,8 @@ authRouter.post('/signup/request', async (c) => {
   const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `signup:${ip}`, 5, 60 * 60)
   if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
 
-  const body = await c.req.json<{ email?: unknown; password?: unknown }>()
+  let body: { email?: unknown; password?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const password = typeof body.password === 'string' ? body.password : ''
 
@@ -138,7 +139,8 @@ authRouter.post('/login', async (c) => {
   const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `login:${ip}`, 10, 15 * 60)
   if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
 
-  const body = await c.req.json<{ email?: unknown; password?: unknown }>()
+  let body: { email?: unknown; password?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const password = typeof body.password === 'string' ? body.password : ''
 

@@ -29,7 +29,7 @@ export async function signJWT(payload: Record<string, unknown>, secret: string):
 
 export async function verifyJWT(
   token: string, secret: string
-): Promise<{ userId: string; email: string; plan: string } | null> {
+): Promise<{ userId: string; email: string; plan: 'free' | 'pro' } | null> {
   const parts = token.split('.')
   if (parts.length !== 3) return null
 
@@ -64,6 +64,7 @@ export async function verifyJWT(
   const sub = payload['sub']
   const email = payload['email']
   if (typeof sub !== 'string' || typeof email !== 'string') return null
-  const plan = typeof payload['plan'] === 'string' ? payload['plan'] : 'free'
+  const planRaw = typeof payload['plan'] === 'string' ? payload['plan'] : 'free'
+  const plan: 'free' | 'pro' = planRaw === 'pro' ? 'pro' : 'free'
   return { userId: sub, email, plan }
 }

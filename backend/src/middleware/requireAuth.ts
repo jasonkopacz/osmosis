@@ -16,11 +16,13 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variable
 
   const kvKey = `user_auth:${payload.userId}`
   const kvHit = await c.env.TRANSLATION_CACHE.get(kvKey)
+  const normalizePlan = (p: string): 'free' | 'pro' => p === 'pro' ? 'pro' : 'free'
+
   if (kvHit) {
     const { email, plan } = JSON.parse(kvHit) as { email: string; plan: string }
     c.set('userId', payload.userId)
     c.set('email', email)
-    c.set('plan', plan)
+    c.set('plan', normalizePlan(plan))
     await next()
     return
   }
@@ -38,6 +40,6 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variable
   console.log(`[requireAuth] authenticated user ${payload.userId} plan=${user.plan}`)
   c.set('userId', payload.userId)
   c.set('email', user.email)
-  c.set('plan', user.plan)
+  c.set('plan', normalizePlan(user.plan))
   await next()
 })

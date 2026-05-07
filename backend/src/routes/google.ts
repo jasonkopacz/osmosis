@@ -35,7 +35,8 @@ googleOAuthRouter.post('/exchange', async c => {
     return c.json({ error: 'Google OAuth not configured (GOOGLE_WEB_CLIENT_JSON or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)' }, 503)
   }
 
-  const body = await c.req.json<{ code?: string; redirect_uri?: string }>()
+  let body: { code?: string; redirect_uri?: string }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const code = body.code?.trim()
   const redirectUri = body.redirect_uri?.trim()
   if (!code || !redirectUri || !isChromeExtensionRedirectUri(redirectUri)) {

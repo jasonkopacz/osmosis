@@ -55,13 +55,14 @@ userRouter.post('/checkout', requireAuth, async (c) => {
   const user = await c.env.DB.prepare('SELECT stripe_customer_id FROM users WHERE id = ?')
     .bind(userId).first<{ stripe_customer_id: string | null }>()
 
+  const appUrl = c.env.APP_URL ?? 'https://osmosis.app'
   const stripe = getStripe(c.env.STRIPE_SECRET_KEY)
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: 'https://osmosis.app/success',
-    cancel_url: 'https://osmosis.app/cancel',
+    success_url: `${appUrl}/success`,
+    cancel_url: `${appUrl}/cancel`,
     client_reference_id: userId,
     ...(user?.stripe_customer_id
       ? { customer: user.stripe_customer_id }
@@ -81,10 +82,11 @@ userRouter.post('/portal', requireAuth, async (c) => {
     return c.json({ error: 'No active subscription found' }, 404)
   }
 
+  const appUrl = c.env.APP_URL ?? 'https://osmosis.app'
   const stripe = getStripe(c.env.STRIPE_SECRET_KEY)
   const session = await stripe.billingPortal.sessions.create({
     customer: user.stripe_customer_id,
-    return_url: 'https://osmosis.app',
+    return_url: appUrl,
   })
   console.log(`[user/portal] created portal session for user ${userId}`)
   return c.json({ url: session.url })

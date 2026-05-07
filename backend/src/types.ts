@@ -14,9 +14,10 @@ export type Env = {
   RESEND_API_KEY?: string
   EMAIL_FROM?: string
   CHROME_EXTENSION_ID?: string
+  APP_URL?: string
 }
 
-export type Variables = { userId: string; email: string; plan: string }
+export type Variables = { userId: string; email: string; plan: 'free' | 'pro' }
 
 export type TranslationEntry = {
   t: string                               // primary translation text
@@ -34,3 +35,6 @@ export type User = {
   plan: 'free' | 'pro'
   created_at: number
 }
+
+// Safe subset for sending to clients — never includes password_hash
+export type PublicUser = Omit<User, 'password_hash'>

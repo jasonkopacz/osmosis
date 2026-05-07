@@ -25,6 +25,7 @@ STRIPE_PRO_PRICE_ID = "price_1TMYjoBKftQqNeWyG6Lzeq5d"
 # Set to the published Web Store ID for production, or your dev extension ID for local testing.
 CHROME_EXTENSION_ID = "manmnbejhpmjfmjbbjkmjahhedcaabml"
 EMAIL_FROM = "Osmosis <verify@velvetwebdev.com>"
+APP_URL = "https://osmosis.app"
 
 # Optional: override popup path (default "src/popup/index.html")
 # EXTENSION_POPUP_PATH = "src/popup/index.html"

@@ -141,7 +141,7 @@ async function handle(msg: Message): Promise<unknown> {
       console.log('[osmosis:bg] GOOGLE_LOGIN: success')
       return afterLogin(token)
     } catch (err) {
-      const errMsg = String(err).replace('Error: ', '')
+      const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
       return { error: errMsg }
     }
@@ -153,7 +153,7 @@ async function handle(msg: Message): Promise<unknown> {
       console.log('[osmosis:bg] EMAIL_LOGIN: success')
       return afterLogin(token)
     } catch (err) {
-      const errMsg = String(err).replace('Error: ', '')
+      const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] EMAIL_LOGIN failed', errMsg)
       return { error: errMsg }
     }
@@ -165,7 +165,7 @@ async function handle(msg: Message): Promise<unknown> {
       console.log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
       return { ok: true }
     } catch (err) {
-      const errMsg = String(err).replace('Error: ', '')
+      const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] EMAIL_SIGNUP failed', errMsg)
       return { error: errMsg }
     }
@@ -176,7 +176,7 @@ async function handle(msg: Message): Promise<unknown> {
       console.log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
       return await afterLogin(msg.token)
     } catch (err) {
-      const errMsg = String(err).replace('Error: ', '')
+      const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
       return { error: errMsg }
     }

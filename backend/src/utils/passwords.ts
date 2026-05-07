@@ -17,17 +17,18 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const hashHex = stored.slice(colonIdx + 1)
   if (saltHex.length !== 32 || hashHex.length !== 64) return false
 
-  const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map(h => parseInt(h, 16)))
+  const toBytes = (hex: string) => new Uint8Array((hex.match(/.{2}/g) ?? []).map(h => parseInt(h, 16)))
+  const salt = toBytes(saltHex)
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100_000 }, key, 256)
   const candidate = new Uint8Array(bits)
-  const storedBytes = new Uint8Array(hashHex.match(/.{2}/g)!.map(h => parseInt(h, 16)))
+  const storedBytes = toBytes(hashHex)
 
   // Constant-time comparison via HMAC under ephemeral key
   const hmacKey = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']) as CryptoKey
   const macA = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, candidate))
   const macB = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, storedBytes))
   let diff = 0
-  for (let i = 0; i < macA.length; i++) diff |= macA[i]! ^ macB[i]!
+  for (let i = 0; i < macA.length; i++) diff |= (macA[i] ?? 0) ^ (macB[i] ?? 0)
   return diff === 0
 }

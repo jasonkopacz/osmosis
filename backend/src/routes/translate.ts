@@ -40,7 +40,9 @@ translateRouter.get('/popular', requireAuth, async (c) => {
 })
 
 translateRouter.post('/', requireAuth, checkUsage, async (c) => {
-  const { words, targetLang } = await c.req.json<{ words: unknown[]; targetLang: string }>()
+  let body: { words?: unknown; targetLang?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const { words, targetLang } = body as { words: unknown[]; targetLang: string }
   if (!Array.isArray(words) || !words.length || !targetLang) return c.json({ error: 'words and targetLang required' }, 400)
   if (!VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
   if (words.length > MAX_WORDS_PER_BATCH) return c.json({ error: `Too many words (max ${MAX_WORDS_PER_BATCH} per request)` }, 400)
@@ -73,12 +75,10 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     afterD1.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
   )
   const uncached: string[] = []
-  const kvWords: string[] = []
   const kvHits: Array<{ word: string; entry: TranslationEntry }> = []
   for (const { word, hit } of kvResults) {
     if (hit) {
       result[word] = hit
-      kvWords.push(word)
       kvHits.push({ word, entry: hit })
     } else {
       uncached.push(word)
@@ -90,8 +90,8 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
         .catch(err => console.warn(`[translate] D1 KV backfill failed: ${String(err)}`))
     )
   }
-  // kv_hit_rate = kvWords / afterD1 — if consistently 0%, KV layer can be removed
-  console.log(`[translate] layers: d1=${d1Words.length} kv=${kvWords.length}(rate=${afterD1.length > 0 ? ((kvWords.length / afterD1.length) * 100).toFixed(0) : 0}%) uncached=${uncached.length} total=${uniqueWords.length}`)
+  // kv_hit_rate = kvHits / afterD1 — if consistently 0%, KV layer can be removed
+  console.log(`[translate] layers: d1=${d1Words.length} kv=${kvHits.length}(rate=${afterD1.length > 0 ? ((kvHits.length / afterD1.length) * 100).toFixed(0) : 0}%) uncached=${uncached.length} total=${uniqueWords.length}`)
 
   if (uncached.length > 0) {
     // Layer 3a: Azure Dictionary Lookup (preferred — returns POS + alternatives)
