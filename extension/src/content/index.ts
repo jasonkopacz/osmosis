@@ -17,6 +17,29 @@ let mutationTimer: ReturnType<typeof setTimeout> | null = null
 let lastMutationRun = 0
 const MUTATION_COOLDOWN_MS = 5_000
 const MUTATION_TEXT_THRESHOLD = 30 // ignore trivial DOM changes (ads, badges, analytics)
+const LOG_CONTEXT_PREVIEW = true
+const CONTEXT_PREVIEW_LIMIT = 5
+
+function sentenceAroundOffset(text: string, offset: number): string | null {
+  const normalizedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)))
+  const boundaryPattern = /[.!?\n]/g
+  let start = 0
+  let end = text.length
+  let match: RegExpExecArray | null
+
+  while ((match = boundaryPattern.exec(text)) !== null) {
+    const idx = match.index
+    if (idx < normalizedOffset) {
+      start = idx + 1
+      continue
+    }
+    end = idx + 1
+    break
+  }
+
+  const sentence = text.slice(start, end).replace(/\s+/g, ' ').trim()
+  return sentence.length > 0 ? sentence : null
+}
 
 async function loadSettings(): Promise<UserSettings> {
   const r = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS)
@@ -95,6 +118,43 @@ async function runPipeline(): Promise<void> {
     // at any percentage, making the slider appear stuck.
     const uniqueEligible = [...new Set(eligibleEntries.map(e => e.word))]
     const unique = sampleWords(uniqueEligible, settings.percentage, location.href)
+    const sampledSet = new Set(unique)
+    const contextsByWord: Record<string, string> = {}
+    const wordsBySentence = new Map<string, Set<string>>()
+    const wordsWithoutContext = new Set<string>()
+    for (const { word, node, offset } of eligibleEntries) {
+      if (!sampledSet.has(word)) continue
+      if (contextsByWord[word]) continue
+      const sentence = sentenceAroundOffset(node.textContent ?? '', offset)
+      if (!sentence) {
+        wordsWithoutContext.add(word)
+        continue
+      }
+      contextsByWord[word] = sentence
+      if (!wordsBySentence.has(sentence)) wordsBySentence.set(sentence, new Set())
+      wordsBySentence.get(sentence)!.add(word)
+    }
+    if (LOG_CONTEXT_PREVIEW) {
+      const contextEntries = Object.entries(contextsByWord)
+      const preview = contextEntries
+        .slice(0, CONTEXT_PREVIEW_LIMIT)
+        .map(([word, context]) => ({ word, context }))
+      const sentenceGroups = Array.from(wordsBySentence.entries()).map(([sentence, words]) => ({
+        sentence,
+        words: Array.from(words.values()),
+      }))
+      console.log('[osmosis:content] context extraction details', {
+        sampledWords: unique.length,
+        wordsWithContext: contextEntries.length,
+        wordsWithoutContext: wordsWithoutContext.size,
+        contextCoveragePct: unique.length > 0 ? Number(((contextEntries.length / unique.length) * 100).toFixed(1)) : 0,
+        uniqueSentenceCount: wordsBySentence.size,
+        contextsByWord,
+        sentenceGroups,
+        wordsMissingContext: Array.from(wordsWithoutContext.values()),
+        preview,
+      })
+    }
     void chrome.storage.local.set({
       [STORAGE_KEYS.PAGE_STATS]: { sampled: unique.length, eligible: uniqueEligible.length, lang: settings.targetLang },
     })
@@ -102,6 +162,8 @@ async function runPipeline(): Promise<void> {
       eligible: eligibleEntries.length,
       uniqueEligible: uniqueEligible.length,
       sampled: unique.length,
+      contextWords: Object.keys(contextsByWord).length,
+      contextSentences: wordsBySentence.size,
       lang: settings.targetLang,
     })
 
@@ -109,6 +171,7 @@ async function runPipeline(): Promise<void> {
       type: 'TRANSLATE',
       words: unique,
       targetLang: settings.targetLang,
+      contextsByWord,
     } as Message)) as { translations?: Record<string, import('../types').TranslationEntry>; error?: string } | undefined
 
     if (!res) return // service worker inactive

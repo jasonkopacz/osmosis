@@ -75,20 +75,59 @@ export async function lookupWords(
 
 /** Calls Azure /translate. Used as fallback for words with no dictionary entry. */
 export async function translateWords(
-  words: string[], targetLang: string, apiKey: string, region: string
+  words: string[],
+  targetLang: string,
+  apiKey: string,
+  region: string,
+  contextByWord?: Map<string, string>
 ): Promise<Map<string, TranslationEntry>> {
   if (words.length === 0) return new Map()
+
+  const getContext = (word: string): string | undefined => contextByWord?.get(word.toLowerCase())
+
   const chunkResults = await Promise.all(
     chunkArray(words, TRANSLATE_CHUNK_SIZE).map(async chunk => {
-      const res = await fetch(`${TRANSLATE_ENDPOINT}&to=${encodeURIComponent(targetLang)}`, {
+      const hasContextInChunk = chunk.some(word => !!getContext(word))
+      const makeBody = (includeContext: boolean) =>
+        chunk.map(word => {
+          const context = getContext(word)
+          if (!includeContext || !context) return { Text: word }
+          return { Text: word, Context: context }
+        })
+      const payloadWithContext = makeBody(hasContextInChunk)
+      const payloadWithoutContext = makeBody(false)
+      const contextedWordsInChunk = payloadWithContext.filter(item => 'Context' in item).length
+      console.log('[azure] translate chunk payload', {
+        chunkSize: chunk.length,
+        hasContextInChunk,
+        contextedWordsInChunk,
+        payload: payloadWithContext,
+      })
+
+      let res = await fetch(`${TRANSLATE_ENDPOINT}&to=${encodeURIComponent(targetLang)}`, {
         method: 'POST',
         headers: headers(apiKey, region),
-        body: JSON.stringify(chunk.map(w => ({ Text: w }))),
+        body: JSON.stringify(payloadWithContext),
       })
+
+      if (!res.ok && hasContextInChunk) {
+        const firstErrorBody = await res.text().catch(() => '')
+        console.warn(`[azure] /translate with context failed, retrying without context: ${res.status} ${firstErrorBody.slice(0, 120)}`)
+        console.log('[azure] translate chunk fallback payload', {
+          chunkSize: chunk.length,
+          payload: payloadWithoutContext,
+        })
+        res = await fetch(`${TRANSLATE_ENDPOINT}&to=${encodeURIComponent(targetLang)}`, {
+          method: 'POST',
+          headers: headers(apiKey, region),
+          body: JSON.stringify(payloadWithoutContext),
+        })
+      }
       if (!res.ok) {
         const body = await res.text().catch(() => '')
         throw new Error(`Azure API error: ${res.status} ${body}`)
       }
+
       const data = (await res.json()) as AzureTranslateResponse
       if (!Array.isArray(data) || data.length !== chunk.length) {
         throw new Error(`Azure API returned unexpected response: expected ${chunk.length} items, got ${Array.isArray(data) ? data.length : typeof data}`)

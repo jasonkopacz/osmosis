@@ -79,11 +79,17 @@ export async function deleteAccount(token: string): Promise<void> {
   }
 }
 
-export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, TranslationEntry>> {
+export async function translateBatch(
+  words: string[],
+  targetLang: string,
+  token: string,
+  contextsByWord?: Record<string, string>
+): Promise<Map<string, TranslationEntry>> {
+  const hasContexts = !!contextsByWord && Object.keys(contextsByWord).length > 0
   const res = await fetch(`${API_BASE_URL}/translate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ words, targetLang }),
+    body: JSON.stringify({ words, targetLang, ...(hasContexts ? { contextsByWord } : {}) }),
   })
   if (res.status === 402) throw new Error('LIMIT_REACHED')
   if (res.status === 401) throw new Error('AUTH_EXPIRED')

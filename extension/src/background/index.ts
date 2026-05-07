@@ -81,8 +81,29 @@ async function handle(msg: Message): Promise<unknown> {
 
     if (uncached.length === 0) return { translations: result }
 
+    const uncachedContextsByWord = Object.fromEntries(
+      uncached
+        .map(word => [word, msg.contextsByWord?.[word]] as const)
+        .filter(([, context]): context is string => typeof context === 'string' && context.length > 0)
+    )
+    const contextWordCount = Object.keys(uncachedContextsByWord).length
+    if (contextWordCount > 0) {
+      console.log('[osmosis:bg] TRANSLATE context attached', {
+        uncachedWithContext: contextWordCount,
+        uncachedTotal: uncached.length,
+        coveragePct: Number(((contextWordCount / uncached.length) * 100).toFixed(1)),
+        uncachedContextsByWord,
+      })
+    } else {
+      console.log('[osmosis:bg] TRANSLATE context attached', {
+        uncachedWithContext: 0,
+        uncachedTotal: uncached.length,
+        coveragePct: 0,
+      })
+    }
+
     try {
-      const fresh = await translateBatch(uncached, msg.targetLang, token)
+      const fresh = await translateBatch(uncached, msg.targetLang, token, uncachedContextsByWord)
       fresh.forEach((val, key) => {
         result[key] = val
         cache.set(key, msg.targetLang, val)

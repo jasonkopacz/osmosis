@@ -40,16 +40,51 @@ translateRouter.get('/popular', requireAuth, async (c) => {
 })
 
 translateRouter.post('/', requireAuth, checkUsage, async (c) => {
-  let body: { words?: unknown; targetLang?: unknown }
+  let body: { words?: unknown; targetLang?: unknown; contextsByWord?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
-  const { words, targetLang } = body as { words: unknown[]; targetLang: string }
+  const { words, targetLang, contextsByWord } = body as { words: unknown[]; targetLang: string; contextsByWord?: unknown }
   if (!Array.isArray(words) || !words.length || !targetLang) return c.json({ error: 'words and targetLang required' }, 400)
   if (!VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
   if (words.length > MAX_WORDS_PER_BATCH) return c.json({ error: `Too many words (max ${MAX_WORDS_PER_BATCH} per request)` }, 400)
   if (words.some(w => typeof w !== 'string' || w.length > 200)) return c.json({ error: 'Invalid words array' }, 400)
+  if (contextsByWord !== undefined && (typeof contextsByWord !== 'object' || contextsByWord === null || Array.isArray(contextsByWord))) {
+    return c.json({ error: 'Invalid contextsByWord' }, 400)
+  }
+
+  const contextMap = new Map<string, string>()
+  if (contextsByWord && typeof contextsByWord === 'object') {
+    for (const [rawWord, rawContext] of Object.entries(contextsByWord as Record<string, unknown>)) {
+      if (typeof rawWord !== 'string' || typeof rawContext !== 'string') continue
+      const word = rawWord.trim().toLowerCase()
+      const context = rawContext.trim()
+      if (!word || !context || context.length > 500) continue
+      contextMap.set(word, context)
+    }
+  }
 
   const uniqueWords = [...new Set(words as string[])]
-  console.log(`[translate] user=${c.get('userId')} lang=${targetLang} requested=${words.length} unique=${uniqueWords.length}`)
+  const contextedUniqueWords = uniqueWords.filter(w => contextMap.has(w.toLowerCase())).length
+  console.log(`[translate] user=${c.get('userId')} lang=${targetLang} requested=${words.length} unique=${uniqueWords.length} contexted=${contextedUniqueWords}`)
+  if (contextMap.size > 0) {
+    const contextWords = new Set(uniqueWords.map(w => w.toLowerCase()))
+    const normalizedContextsByWord = Object.fromEntries(
+      Array.from(contextMap.entries()).filter(([word]) => contextWords.has(word))
+    )
+    console.log('[translate] context payload', {
+      requestedContextEntries: Object.keys((contextsByWord ?? {}) as Record<string, unknown>).length,
+      acceptedContextEntries: contextMap.size,
+      contextedUniqueWords,
+      coveragePct: uniqueWords.length > 0 ? Number(((contextedUniqueWords / uniqueWords.length) * 100).toFixed(1)) : 0,
+      normalizedContextsByWord,
+    })
+  } else {
+    console.log('[translate] context payload', {
+      requestedContextEntries: Object.keys((contextsByWord ?? {}) as Record<string, unknown>).length,
+      acceptedContextEntries: 0,
+      contextedUniqueWords: 0,
+      coveragePct: 0,
+    })
+  }
 
   const result: Record<string, TranslationEntry> = {}
   const backgroundTasks: Promise<unknown>[] = []
@@ -107,12 +142,12 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     let translateHits = new Map<string, TranslationEntry>()
     if (needsTranslate.length > 0) {
       try {
-        translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
+        translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION, contextMap)
       } catch (err) {
         console.warn(`[translate] azure translate primary attempt failed, retrying with backoff: ${String(err)}`)
         await new Promise(resolve => setTimeout(resolve, 500))
         try {
-          translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION)
+          translateHits = await translateWords(needsTranslate, targetLang, c.env.AZURE_TRANSLATOR_KEY, c.env.AZURE_TRANSLATOR_REGION, contextMap)
         } catch (retryErr) {
           console.error(`[translate] azure retry also failed: ${String(retryErr)}`)
           return c.json({ error: 'Translation service unavailable' }, 503)
