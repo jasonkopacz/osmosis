@@ -51,9 +51,6 @@ async function boot(): Promise<void> {
   const settings = await loadSettings()
   console.log('[osmosis:popup] main view', { email: user.email, plan: user.plan })
   renderMain(app, settings, user, () => renderSettings(app, user, boot))
-
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab?.id) void chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_CHANGED', settings }).catch(() => {})
 }
 
 void boot()
