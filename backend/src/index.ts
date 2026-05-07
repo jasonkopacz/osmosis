@@ -11,15 +11,16 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.onError((err, c) => {
   console.error('[osmosis:api] unhandled error', err)
-  return c.json({ error: err.message || 'Internal server error' }, 500)
+  return c.json({ error: 'Internal server error' }, 500)
 })
 
 app.use('*', cors({
-  // Allow Chrome extension pages and non-browser clients (e.g. extension SW, curl).
-  // Reject all other web origins to prevent cross-site token abuse.
-  origin: (origin) => {
+  origin: (origin, c) => {
     if (!origin) return '*'
-    if (origin.startsWith('chrome-extension://')) return origin
+    const allowedId = c.env.CHROME_EXTENSION_ID
+    if (allowedId && origin === `chrome-extension://${allowedId}`) return origin
+    // Permit any extension origin when CHROME_EXTENSION_ID is not configured (local dev)
+    if (!allowedId && origin.startsWith('chrome-extension://')) return origin
     return null
   },
   allowHeaders: ['Authorization', 'Content-Type'],

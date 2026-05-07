@@ -2,7 +2,7 @@ import type { Env } from '../types'
 
 const KV_PREFIX = 'email_verify:'
 const TOKEN_BYTES = 32
-const VERIFY_TTL_SEC = 60 * 60 * 24 * 7
+const VERIFY_TTL_SEC = 60 * 60 // 1 hour
 
 export type PendingSignupPayload = {
   email: string

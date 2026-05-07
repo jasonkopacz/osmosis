@@ -32,12 +32,35 @@ export async function verifyJWT(
 ): Promise<{ userId: string; email: string; plan: string } | null> {
   const parts = token.split('.')
   if (parts.length !== 3) return null
+
+  try {
+    const header = JSON.parse(b64urlDecode(parts[0]!)) as Record<string, unknown>
+    if (header['alg'] !== 'HS256') return null
+  } catch {
+    return null
+  }
+
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), ALG, false, ['verify'])
-  const sigBytes = Uint8Array.from(atob(parts[2]!.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+
+  let sigBytes: Uint8Array
+  try {
+    sigBytes = Uint8Array.from(atob(parts[2]!.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+  } catch {
+    return null
+  }
+
   const valid = await crypto.subtle.verify(ALG, key, sigBytes, new TextEncoder().encode(`${parts[0]}.${parts[1]}`))
   if (!valid) return null
-  const payload = JSON.parse(b64urlDecode(parts[1]!)) as Record<string, unknown>
-  if (typeof payload['exp'] === 'number' && Date.now() / 1000 > payload['exp']) return null
+
+  let payload: Record<string, unknown>
+  try {
+    payload = JSON.parse(b64urlDecode(parts[1]!)) as Record<string, unknown>
+  } catch {
+    return null
+  }
+
+  if (typeof payload['exp'] === 'number' && Date.now() / 1000 >= payload['exp']) return null
+
   const sub = payload['sub']
   const email = payload['email']
   if (typeof sub !== 'string' || typeof email !== 'string') return null

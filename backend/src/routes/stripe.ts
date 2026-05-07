@@ -31,6 +31,15 @@ stripeRouter.post('/webhook', async (c) => {
   }
   console.log(`[stripe/webhook] received event type=${event.type}`)
 
+  // Deduplicate re-delivered events
+  const idempotencyKey = `stripe_event:${event.id}`
+  const alreadyProcessed = await c.env.TRANSLATION_CACHE.get(idempotencyKey)
+  if (alreadyProcessed) {
+    console.log(`[stripe/webhook] duplicate event ${event.id}, skipping`)
+    return c.json({ received: true })
+  }
+  await c.env.TRANSLATION_CACHE.put(idempotencyKey, '1', { expirationTtl: 60 * 60 * 24 })
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     if (
@@ -49,12 +58,18 @@ stripeRouter.post('/webhook', async (c) => {
     await downgradeByCustomerId(c.env.DB, customerId, 'subscription deleted')
   }
 
-  if (event.type === 'customer.subscription.updated') {
+  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.paused') {
     const sub = event.data.object as Stripe.Subscription
     const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as Stripe.Customer).id
-    if (['past_due', 'unpaid', 'canceled'].includes(sub.status)) {
+    if (['past_due', 'unpaid', 'canceled', 'incomplete_expired', 'paused'].includes(sub.status)) {
       await downgradeByCustomerId(c.env.DB, customerId, `subscription ${sub.status}`)
     }
+  }
+
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as Stripe.Invoice
+    const customerId = typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer as Stripe.Customer).id
+    await downgradeByCustomerId(c.env.DB, customerId, 'invoice payment failed')
   }
 
   return c.json({ received: true })

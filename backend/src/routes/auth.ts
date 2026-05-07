@@ -11,6 +11,7 @@ import {
   takePendingSignup,
   verificationKvKey,
 } from '../services/emailSignup'
+import { checkRateLimit } from '../utils/ratelimit'
 
 export const authRouter = new Hono<{ Bindings: Env }>()
 
@@ -56,15 +57,26 @@ function verifyLandingPageHtml(jwt: string): string {
 }
 
 authRouter.post('/signup/request', async (c) => {
-  const body = await c.req.json<{ email?: unknown; passwordHash?: unknown }>()
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `signup:${ip}`, 5, 60 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
+  const body = await c.req.json<{ email?: unknown; password?: unknown }>()
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  const password = typeof body.passwordHash === 'string' ? body.passwordHash.trim() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
 
   if (!email || !EMAIL_RE.test(email)) return c.json({ error: 'Valid email required' }, 400)
   if (!password) return c.json({ error: 'Password is required' }, 400)
 
+  const pwError = validateNewPassword(password)
+  if (pwError) return c.json({ error: pwError }, 400)
+
   const existing = await findUserByEmail(c.env.DB, email)
-  if (existing) return c.json({ error: 'An account with this email already exists' }, 409)
+  if (existing) {
+    // Return 200 to avoid leaking whether this email is registered
+    console.log('[auth/signup/request] signup attempt for existing email', { email })
+    return c.json({ ok: true })
+  }
 
   const hash = await hashPassword(password)
   const token = generateVerifyToken()
@@ -122,9 +134,13 @@ authRouter.get('/verify-email', async (c) => {
 })
 
 authRouter.post('/login', async (c) => {
-  const body = await c.req.json<{ email?: unknown; passwordHash?: unknown }>()
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `login:${ip}`, 10, 15 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
+  const body = await c.req.json<{ email?: unknown; password?: unknown }>()
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  const password = typeof body.passwordHash === 'string' ? body.passwordHash.trim() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
 
   if (!email || !password) return c.json({ error: 'Email and password required' }, 400)
 
