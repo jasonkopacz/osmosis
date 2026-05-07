@@ -11,6 +11,10 @@ export type Env = {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   GOOGLE_WEB_CLIENT_JSON?: string
+  RESEND_API_KEY?: string
+  EMAIL_FROM?: string
+  CHROME_EXTENSION_ID?: string
+  EXTENSION_POPUP_PATH?: string
 }
 
 export type Variables = { userId: string; email: string; plan: string }

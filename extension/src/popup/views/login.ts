@@ -3,6 +3,9 @@ import heroImage from '../assets/osmosis-hero.png'
 
 type Mode = 'signin' | 'signup'
 
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
+
 const C = {
   border: 'rgba(45,212,191,0.35)',
   borderFocus: '#22d3ee',
@@ -88,9 +91,32 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   pwdShell.append(passwordInput, pwdToggle)
   const passwordField = makeLabeledField('Password', pwdShell)
 
+  const passwordConfirmInput = makeInput('passwordConfirm', 'repeat password', 'password')
+  passwordConfirmInput.autocomplete = 'new-password'
+  const pwdConfirmShell = document.createElement('div')
+  pwdConfirmShell.style.cssText = 'position:relative;display:flex;align-items:center;'
+  passwordConfirmInput.style.paddingRight = '52px'
+  const pwdConfirmToggle = document.createElement('button')
+  pwdConfirmToggle.type = 'button'
+  pwdConfirmToggle.textContent = 'Show'
+  pwdConfirmToggle.setAttribute('aria-label', 'Show confirm password')
+  pwdConfirmToggle.style.cssText =
+    'position:absolute;right:10px;background:transparent;border:none;' +
+    `color:${C.borderFocus};font-size:11px;font-weight:700;cursor:pointer;padding:4px 2px;`
+  pwdConfirmToggle.addEventListener('click', () => {
+    const show = passwordConfirmInput.type === 'password'
+    passwordConfirmInput.type = show ? 'text' : 'password'
+    pwdConfirmToggle.textContent = show ? 'Hide' : 'Show'
+    pwdConfirmToggle.setAttribute('aria-label', show ? 'Hide confirm password' : 'Show confirm password')
+  })
+  pwdConfirmShell.append(passwordConfirmInput, pwdConfirmToggle)
+  const passwordConfirmField = makeLabeledField('Confirm password', pwdConfirmShell)
+  passwordConfirmField.style.display = 'none'
+
   const hintEl = document.createElement('p')
   hintEl.style.cssText = `font-size:10px;color:${C.textMuted};margin:0 2px;line-height:1.3;`
-  hintEl.textContent = 'Password must be at least 8 characters.'
+  hintEl.textContent =
+    `Password: at least ${PASSWORD_MIN_LENGTH} characters and one special character (!@#$%^&* …).`
 
   const errorEl = document.createElement('p')
   errorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0 2px;line-height:1.3;'
@@ -127,6 +153,62 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   divider.append(line(), orSpan, line())
 
   const googleBtn = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
+  const googleBtnAfterEmail = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
+
+  const oauthSentErrorEl = document.createElement('p')
+  oauthSentErrorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0;line-height:1.3;'
+
+  const emailSentPanel = document.createElement('div')
+  emailSentPanel.style.cssText = 'display:none;flex-direction:column;gap:10px;'
+  const emailSentTitle = document.createElement('p')
+  emailSentTitle.style.cssText = 'margin:0;font-size:14px;font-weight:700;color:#ecfeff;line-height:1.35;'
+  emailSentTitle.textContent = 'Check your email'
+  const emailSentBody = document.createElement('p')
+  emailSentBody.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.45;`
+  emailSentBody.innerHTML =
+    'We sent a confirmation message. Open it and tap <strong>Confirm email &amp; return to Osmosis</strong> — that creates your account and opens this extension.<br><br>' +
+    'After your inbox confirms you, use Google below for OAuth, or open this popup again after clicking the email link.'
+  const sentDivider = document.createElement('div')
+  sentDivider.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:4px;'
+  const sl = (): HTMLDivElement => {
+    const l = document.createElement('div')
+    l.style.cssText = 'flex:1;height:1px;background:rgba(103,232,249,0.22);'
+    return l
+  }
+  const sentOr = document.createElement('span')
+  sentOr.style.cssText = `font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.textMuted};`
+  sentOr.textContent = 'or'
+  sentDivider.append(sl(), sentOr, sl())
+  const backToFormBtn = document.createElement('button')
+  backToFormBtn.type = 'button'
+  backToFormBtn.textContent = 'Use a different email'
+  backToFormBtn.style.cssText =
+    'background:transparent;color:#94a3b8;border:1px solid rgba(103,232,249,0.25);' +
+    'border-radius:10px;padding:8px;font-size:11px;font-weight:600;cursor:pointer;margin-top:4px;'
+  emailSentPanel.append(emailSentTitle, emailSentBody, oauthSentErrorEl, sentDivider, googleBtnAfterEmail, backToFormBtn)
+
+  const formPanel = document.createElement('div')
+  formPanel.style.cssText = 'display:flex;flex-direction:column;gap:5px;'
+
+  function showFormChrome(): void {
+    emailSentPanel.style.display = 'none'
+    formPanel.style.display = 'flex'
+    titleBlock.style.display = 'flex'
+    const isSignin = mode === 'signin'
+    title.textContent = 'Welcome'
+    subtitle.textContent = isSignin
+      ? 'Sign in to translate the web with Osmosis.'
+      : 'Create an account to start learning in context.'
+  }
+
+  function showEmailSentChrome(): void {
+    oauthSentErrorEl.textContent = ''
+    formPanel.style.display = 'none'
+    emailSentPanel.style.display = 'flex'
+    title.textContent = 'Almost there'
+    subtitle.textContent = 'Confirm from your inbox to finish.'
+    console.log('[osmosis:popup:login] email verification sent UI')
+  }
 
   function setFieldError(input: HTMLInputElement, on: boolean): void {
     if (on) {
@@ -143,6 +225,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   function clearFieldErrors(): void {
     setFieldError(emailInput, false)
     setFieldError(passwordInput, false)
+    setFieldError(passwordConfirmInput, false)
   }
 
   function setMode(m: Mode): void {
@@ -150,14 +233,14 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     const isSignin = m === 'signin'
     setActiveTab(signinTab, isSignin)
     setActiveTab(signupTab, !isSignin)
-    submitBtn.textContent = isSignin ? 'Sign in' : 'Create account'
-    subtitle.textContent = isSignin
-      ? 'Sign in to translate the web with Osmosis.'
-      : 'Create an account to start learning in context.'
-    hintEl.style.display = isSignin ? 'none' : ''
+    submitBtn.textContent = isSignin ? 'Sign in' : 'Send confirmation email'
     errorEl.textContent = ''
     clearFieldErrors()
+    passwordConfirmInput.value = ''
     passwordInput.autocomplete = isSignin ? 'current-password' : 'new-password'
+    hintEl.style.display = isSignin ? 'none' : ''
+    passwordConfirmField.style.display = isSignin ? 'none' : 'flex'
+    showFormChrome()
     console.log('[osmosis:popup:login] mode', m)
     requestAnimationFrame(() => {
       console.log('[osmosis:popup:login] mode layout', {
@@ -172,8 +255,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   signupTab.addEventListener('click', () => setMode('signup'))
 
   async function submit(): Promise<void> {
-    const email = emailInput.value.trim()
+    const email = emailInput.value.trim().toLowerCase()
     const password = passwordInput.value
+    const passwordConfirm = passwordConfirmInput.value
     errorEl.textContent = ''
     clearFieldErrors()
 
@@ -188,31 +272,70 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       setFieldError(passwordInput, true)
       ok = false
     }
-    if (mode === 'signup' && password.length > 0 && password.length < 8) {
-      errorEl.textContent = 'Password must be at least 8 characters.'
-      setFieldError(passwordInput, true)
-      ok = false
+    if (mode === 'signup') {
+      if (!passwordConfirm) {
+        if (!errorEl.textContent) errorEl.textContent = 'Please confirm your password.'
+        setFieldError(passwordConfirmInput, true)
+        ok = false
+      } else if (passwordConfirm !== password) {
+        errorEl.textContent = 'Passwords do not match.'
+        setFieldError(passwordInput, true)
+        setFieldError(passwordConfirmInput, true)
+        ok = false
+      }
+    }
+    if (mode === 'signup' && password.length > 0) {
+      if (password.length < PASSWORD_MIN_LENGTH || !PASSWORD_SPECIAL_RE.test(password)) {
+        errorEl.textContent = `Password must be at least ${PASSWORD_MIN_LENGTH} characters and include a special character.`
+        setFieldError(passwordInput, true)
+        ok = false
+      }
     }
     if (!ok) {
       console.log('[osmosis:popup:login] validation failed', { mode })
       return
     }
 
-    console.log('[osmosis:popup:login] email submit requested', { mode, email })
+    if (mode === 'signup') {
+      console.log('[osmosis:popup:login] signup request email', { email })
+      submitBtn.disabled = true
+      submitBtn.textContent = 'Sending…'
+      submitBtn.style.opacity = '0.78'
+      try {
+        const result = await chrome.runtime.sendMessage(
+          { type: 'EMAIL_SIGNUP', email, password, passwordConfirm } as Message
+        ) as { ok?: boolean; error?: string } | undefined
+        if (!result) throw new Error('Service worker not responding — try reloading')
+        if (result.error) throw new Error(result.error)
+        showEmailSentChrome()
+      } catch (e) {
+        console.warn('[osmosis:popup:login] signup request failed', e)
+        errorEl.textContent = String(e).replace('Error: ', '')
+        setFieldError(emailInput, true)
+        setFieldError(passwordInput, true)
+        setFieldError(passwordConfirmInput, true)
+      } finally {
+        submitBtn.disabled = false
+        submitBtn.textContent = 'Send confirmation email'
+        submitBtn.style.opacity = '1'
+      }
+      return
+    }
+
+    console.log('[osmosis:popup:login] email sign-in requested', { email })
 
     submitBtn.disabled = true
-    submitBtn.textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…'
+    submitBtn.textContent = 'Signing in…'
     submitBtn.style.opacity = '0.78'
 
     try {
-      const msgType = mode === 'signin' ? 'EMAIL_LOGIN' : 'EMAIL_SIGNUP'
       const result = await chrome.runtime.sendMessage(
-        { type: msgType, email, password } as Message
+        { type: 'EMAIL_LOGIN', email, password } as Message
       ) as { token?: string; error?: string } | undefined
 
       if (!result) throw new Error('Service worker not responding — try reloading')
       if (result.error) throw new Error(result.error)
-      console.log('[osmosis:popup:login] email auth success', { mode, email })
+      console.log('[osmosis:popup:login] email auth success', { mode: 'signin', email })
       onSuccess()
     } catch (e) {
       console.warn('[osmosis:popup:login] email auth failed', e)
@@ -221,30 +344,40 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       setFieldError(passwordInput, true)
     } finally {
       submitBtn.disabled = false
-      submitBtn.textContent = mode === 'signin' ? 'Sign in' : 'Create account'
+      submitBtn.textContent = 'Sign in'
       submitBtn.style.opacity = '1'
     }
   }
 
   submitBtn.addEventListener('click', () => void submit())
+  backToFormBtn.addEventListener('click', () => {
+    console.log('[osmosis:popup:login] back from email sent')
+    showFormChrome()
+  })
   emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
   passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
+  passwordConfirmInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
   emailInput.addEventListener('input', () => { if (emailInput.dataset.invalid) setFieldError(emailInput, false) })
   passwordInput.addEventListener('input', () => { if (passwordInput.dataset.invalid) setFieldError(passwordInput, false) })
+  passwordConfirmInput.addEventListener('input', () => {
+    if (passwordConfirmInput.dataset.invalid) setFieldError(passwordConfirmInput, false)
+  })
 
   wireOAuth(googleBtn, 'GOOGLE_LOGIN', 'google', errorEl, onSuccess)
+  wireOAuth(googleBtnAfterEmail, 'GOOGLE_LOGIN', 'google', oauthSentErrorEl, onSuccess)
 
-  card.append(
-    titleBlock,
+  formPanel.append(
     tabBar,
     emailField,
     passwordField,
+    passwordConfirmField,
     hintEl,
     errorEl,
     submitBtn,
     divider,
     googleBtn
   )
+  card.append(titleBlock, formPanel, emailSentPanel)
   wrap.append(hero, card)
   root.appendChild(wrap)
   setMode('signin')

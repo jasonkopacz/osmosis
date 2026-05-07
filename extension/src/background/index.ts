@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, signupWithEmail, fetchPopularTranslations } from './api'
+import { translateBatch, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -160,12 +160,23 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'EMAIL_SIGNUP') {
     try {
-      const token = await signupWithEmail(msg.email, msg.password)
-      console.log('[osmosis:bg] EMAIL_SIGNUP: success')
-      return afterLogin(token)
+      await requestEmailSignup(msg.email, msg.password, msg.passwordConfirm)
+      console.log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
+      return { ok: true }
     } catch (err) {
       const errMsg = String(err).replace('Error: ', '')
       console.warn('[osmosis:bg] EMAIL_SIGNUP failed', errMsg)
+      return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'SESSION_FROM_VERIFY') {
+    try {
+      console.log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
+      return await afterLogin(msg.token)
+    } catch (err) {
+      const errMsg = String(err).replace('Error: ', '')
+      console.warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
       return { error: errMsg }
     }
   }

@@ -1,4 +1,4 @@
-import type { UserProfile, UserSettings } from '../types'
+import type { UserProfile, UserSettings, Message } from '../types'
 import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants'
 import { normalizeTargetLang } from '../languages'
 import { renderLogin } from './views/login'
@@ -24,7 +24,21 @@ function isUserProfile(v: unknown): v is UserProfile {
   return typeof v === 'object' && v !== null && 'email' in v && typeof (v as UserProfile).email === 'string'
 }
 
+async function consumeVerifySessionFromHash(): Promise<void> {
+  const hash = window.location.hash.replace(/^#/, '')
+  if (!hash.includes('osmosis_session=')) return
+  const params = new URLSearchParams(hash)
+  const token = params.get('osmosis_session')
+  if (!token) return
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+  console.log('[osmosis:popup] applying session from email verification link')
+  const res = await chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message) as
+    { token?: string; error?: string } | undefined
+  if (res?.error) console.warn('[osmosis:popup] SESSION_FROM_VERIFY', res.error)
+}
+
 async function boot(): Promise<void> {
+  await consumeVerifySessionFromHash()
   const raw = await chrome.runtime.sendMessage({ type: 'GET_USER' })
   const user = isUserProfile(raw) ? raw : null
   if (raw !== null && !isUserProfile(raw)) {

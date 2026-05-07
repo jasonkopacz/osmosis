@@ -1,13 +1,41 @@
 import { API_BASE_URL } from '../constants'
 import type { TranslationEntry } from '../types'
 
+function parseApiJson<T>(res: Response, bodyText: string): T {
+  const t = bodyText.trim()
+  if (!t) {
+    throw new Error(`Empty response from API (HTTP ${res.status})`)
+  }
+  try {
+    return JSON.parse(t) as T
+  } catch {
+    console.warn('[osmosis:api] non-JSON response body', {
+      status: res.status,
+      url: res.url,
+      snippet: t.slice(0, 120),
+    })
+    if (res.status === 404) {
+      throw new Error(
+        'Signup API not found (404). Deploy the latest backend (route /auth/signup/request) or verify API_BASE_URL.',
+      )
+    }
+    if (t.startsWith('<!') || t.startsWith('<html') || t.includes('<!DOCTYPE')) {
+      throw new Error(
+        `API returned a web page instead of JSON (HTTP ${res.status}). Check that ${API_BASE_URL} is your deployed Worker.`,
+      )
+    }
+    throw new Error(`Could not read API response (HTTP ${res.status}). Redeploy the backend or try again.`)
+  }
+}
+
 async function authPost(path: string, body: object): Promise<string> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  const data = await res.json() as { token?: string; error?: string }
+  const bodyText = await res.text()
+  const data = parseApiJson<{ token?: string; error?: string }>(res, bodyText)
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
   if (!data.token) throw new Error('No token received')
   return data.token
@@ -17,8 +45,15 @@ export async function loginWithEmail(email: string, password: string): Promise<s
   return authPost('/auth/login', { email, password })
 }
 
-export async function signupWithEmail(email: string, password: string): Promise<string> {
-  return authPost('/auth/signup', { email, password })
+export async function requestEmailSignup(email: string, password: string, passwordConfirm: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/signup/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, passwordConfirm }),
+  })
+  const bodyText = await res.text()
+  const data = parseApiJson<{ ok?: boolean; error?: string }>(res, bodyText)
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
 }
 
 export async function translateBatch(words: string[], targetLang: string, token: string): Promise<Map<string, TranslationEntry>> {
@@ -143,7 +178,8 @@ export async function loginWithGoogle(): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, redirect_uri: redirectUri }),
   })
-  const body = (await exch.json()) as { token?: string; error?: string }
+  const exchText = await exch.text()
+  const body = parseApiJson<{ token?: string; error?: string }>(exch, exchText)
   if (!exch.ok) throw new Error(body.error ?? 'Google sign-in failed')
   if (!body.token) throw new Error('No token from server')
   return body.token
