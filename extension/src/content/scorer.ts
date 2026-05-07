@@ -1,4 +1,5 @@
 import { WORD_RANK } from '../data/wordFrequency'
+import { MIN_TRANSLATION_PERCENTAGE, MAX_TRANSLATION_PERCENTAGE } from '../constants'
 
 // Must stay in sync with MAX_WORDS_PER_BATCH in backend/src/routes/translate.ts
 const MAX_WORDS = 400
@@ -32,7 +33,11 @@ function seededRng(seed: number): () => number {
 }
 
 export function sampleWords(candidates: string[], percentage: number, pageUrl: string): string[] {
-  const count = Math.min(Math.round(candidates.length * (percentage / 100)), MAX_WORDS)
+  const clampedPercentage = Math.max(
+    MIN_TRANSLATION_PERCENTAGE,
+    Math.min(MAX_TRANSLATION_PERCENTAGE, percentage)
+  )
+  const count = Math.min(Math.round(candidates.length * (clampedPercentage / 100)), MAX_WORDS)
   const rng = seededRng(hashSeed(pageUrl))
   const scored = candidates
     .map(w => ({ word: w, score: scoreWord(w), r: rng() }))

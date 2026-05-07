@@ -3,7 +3,12 @@ import { isEligible } from './filter'
 import { sampleWords } from './scorer'
 import { applyReplacements, clearReplacements, injectTooltipStyles } from './replacer'
 import type { UserSettings, Message } from '../types'
-import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants'
+import {
+  STORAGE_KEYS,
+  DEFAULT_SETTINGS,
+  MIN_TRANSLATION_PERCENTAGE,
+  MAX_TRANSLATION_PERCENTAGE,
+} from '../constants'
 import { normalizeTargetLang } from '../languages'
 
 let settings: UserSettings = DEFAULT_SETTINGS
@@ -17,7 +22,21 @@ async function loadSettings(): Promise<UserSettings> {
   const r = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS)
   const raw = r[STORAGE_KEYS.SETTINGS] as Partial<UserSettings> | undefined
   const merged: UserSettings = { ...DEFAULT_SETTINGS, ...raw }
-  return { ...merged, targetLang: normalizeTargetLang(merged.targetLang) }
+  const clampedPercentage = Math.max(
+    MIN_TRANSLATION_PERCENTAGE,
+    Math.min(MAX_TRANSLATION_PERCENTAGE, merged.percentage)
+  )
+  if (clampedPercentage !== merged.percentage) {
+    console.log('[osmosis:content] clamped percentage setting', {
+      from: merged.percentage,
+      to: clampedPercentage,
+    })
+  }
+  return {
+    ...merged,
+    percentage: clampedPercentage,
+    targetLang: normalizeTargetLang(merged.targetLang),
+  }
 }
 
 function hasMeaningfulNewText(mutations: MutationRecord[]): boolean {
@@ -114,7 +133,13 @@ async function runPipeline(): Promise<void> {
 
 chrome.runtime.onMessage.addListener((msg: Message) => {
   if (msg.type === 'SETTINGS_CHANGED') {
-    settings = msg.settings
+    settings = {
+      ...msg.settings,
+      percentage: Math.max(
+        MIN_TRANSLATION_PERCENTAGE,
+        Math.min(MAX_TRANSLATION_PERCENTAGE, msg.settings.percentage)
+      ),
+    }
     void runPipeline()
   }
 })

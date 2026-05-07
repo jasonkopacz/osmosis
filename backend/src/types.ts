@@ -20,9 +20,9 @@ export type Env = {
 export type Variables = { userId: string; email: string; plan: 'free' | 'pro' }
 
 export type TranslationEntry = {
-  t: string                               // primary translation text
-  p?: string                              // POS tag: VERB, NOUN, ADJ, ADV, etc.
-  a?: Array<{ t: string; p: string }>     // top alternatives with a different POS
+  text: string                                    // primary translation text
+  partOfSpeech?: string                           // POS tag: VERB, NOUN, ADJ, ADV, etc.
+  alternative?: Array<{ text: string; partOfSpeech: string }> // top alternatives with a different POS
 }
 
 export type User = {

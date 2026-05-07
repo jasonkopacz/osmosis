@@ -139,7 +139,10 @@ async function handle(msg: Message): Promise<unknown> {
     try {
       const token = await loginWithGoogle()
       console.log('[osmosis:bg] GOOGLE_LOGIN: success')
-      return afterLogin(token)
+      const result = await afterLogin(token)
+      // Popup closed when the OAuth window stole focus — reopen it now that the flow is done
+      void chrome.action.openPopup().catch(() => {/* already open, or window not focused */})
+      return result
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)

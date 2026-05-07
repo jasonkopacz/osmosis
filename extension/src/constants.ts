@@ -2,6 +2,8 @@ import type { UserSettings } from "./types";
 
 export const API_BASE_URL = "https://osmosis-api.jtkopacz.workers.dev";
 export const FREE_TIER_LIMIT = 50_000;
+export const MIN_TRANSLATION_PERCENTAGE = 10;
+export const MAX_TRANSLATION_PERCENTAGE = 90;
 export const DEFAULT_SETTINGS: UserSettings = {
   enabled: true,
   targetLang: "es",
