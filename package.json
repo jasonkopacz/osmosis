@@ -1,6 +1,6 @@
 {
   "name": "osmosis",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Osmosis — Chrome extension (MV3) + Cloudflare Workers backend",
   "workspaces": [
