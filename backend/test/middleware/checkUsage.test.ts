@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { checkUsage } from '../../src/middleware/checkUsage'
 import { requireAuth } from '../../src/middleware/requireAuth'
 import { signJWT } from '../../src/utils/jwt'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { createUser, findUserByEmail, updatePlan } from '../../src/db/users'
 import { incrementUsage } from '../../src/db/usage'
 import type { Env, Variables } from '../../src/types'
@@ -13,7 +13,7 @@ const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
 function makeApp(db: ReturnType<typeof wrapDb>, freeLimit?: string) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>()
   app.get('/test', requireAuth, checkUsage, (c) => c.json({ ok: true }))
-  return { app, env: { DB: db, JWT_SECRET, FREE_TIER_CHAR_LIMIT: freeLimit } as unknown as Env }
+  return { app, env: { DB: db, JWT_SECRET, FREE_TIER_CHAR_LIMIT: freeLimit, TRANSLATION_CACHE: mockKV } as unknown as Env }
 }
 
 async function makeToken(userId: string) {

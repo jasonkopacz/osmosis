@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { requireAuth } from '../../src/middleware/requireAuth'
 import { signJWT } from '../../src/utils/jwt'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import type { Env, Variables } from '../../src/types'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
@@ -25,7 +25,7 @@ describe('requireAuth middleware', () => {
       )
       .run()
     db = wrapDb(raw)
-    env = { DB: db, JWT_SECRET } as unknown as Env
+    env = { DB: db, JWT_SECRET, TRANSLATION_CACHE: mockKV } as unknown as Env
   })
 
   it('rejects requests with no Authorization header', async () => {

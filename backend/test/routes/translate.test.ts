@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { translateRouter } from '../../src/routes/translate'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { signJWT } from '../../src/utils/jwt'
 import { createUser, findUserByEmail } from '../../src/db/users'
 import type { Env, Variables, TranslationEntry } from '../../src/types'
@@ -20,7 +20,6 @@ import { getCached } from '../../src/utils/kv'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
 
-const mockKV = {} as KVNamespace
 
 function makeApp(db: ReturnType<typeof wrapDb>) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>()

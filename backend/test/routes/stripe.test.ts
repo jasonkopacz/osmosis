@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { createUser, findUserByEmail } from '../../src/db/users'
 import type { Env } from '../../src/types'
 
@@ -23,6 +23,7 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
     app,
     env: {
       DB: db,
+      TRANSLATION_CACHE: mockKV,
       STRIPE_SECRET_KEY: 'sk_test_xxx',
       STRIPE_WEBHOOK_SECRET: 'whsec_test',
     } as unknown as Env,

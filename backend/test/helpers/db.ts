@@ -10,18 +10,27 @@ export function createTestDb() {
   const db = new Database(':memory:')
   const runFile = (name: string) => {
     const schema = readFileSync(join(__dirname, '../../migrations', name), 'utf8')
-    schema.split(';').map(s => s.trim()).filter(Boolean).forEach(sql => db.prepare(sql).run())
+    db.exec(schema)
   }
+  // 0001–0005: core schema
   runFile('0001_initial.sql')
   runFile('0002_google_oauth.sql')
   runFile('0003_translation_cache.sql')
   runFile('0004_translation_cache_index.sql')
   runFile('0005_translation_pos.sql')
-  runFile('0006_meta_oauth.sql')
-  runFile('0007_apple_oauth.sql')
-  runFile('0008_microsoft_oauth.sql')
+  // 0006–0008 added then removed meta/apple/microsoft OAuth; files deleted after 0009 landed
+  runFile('0009_remove_meta_apple_microsoft.sql')
+  runFile('0010_word_cards.sql')
   return db
 }
+
+export const mockKV: KVNamespace = {
+  get: async () => null,
+  put: async () => {},
+  delete: async () => {},
+  list: async () => ({ keys: [], list_complete: true, cursor: '', cacheStatus: null }),
+  getWithMetadata: async () => ({ value: null, metadata: null, cacheStatus: null }),
+} as unknown as KVNamespace
 
 export function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {
   return {

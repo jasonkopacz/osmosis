@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { signJWT } from '../../src/utils/jwt'
 import { createUser, findUserByEmail, updatePlan } from '../../src/db/users'
 import type { Env, Variables } from '../../src/types'
@@ -30,6 +30,7 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
     env: {
       DB: db,
       JWT_SECRET,
+      TRANSLATION_CACHE: mockKV,
       STRIPE_SECRET_KEY: 'sk_test_xxx',
       STRIPE_PRO_PRICE_ID: 'price_test_123',
       FREE_TIER_CHAR_LIMIT: '100000',
@@ -101,7 +102,7 @@ describe('POST /user/checkout', () => {
 
   it('returns 503 when STRIPE_PRO_PRICE_ID is not set', async () => {
     const { app } = makeApp(db)
-    const env = { DB: db, JWT_SECRET, STRIPE_SECRET_KEY: 'sk_test' } as unknown as Env
+    const env = { DB: db, JWT_SECRET, TRANSLATION_CACHE: mockKV, STRIPE_SECRET_KEY: 'sk_test' } as unknown as Env
     const token = await makeToken(userId)
     const res = await app.request('/user/checkout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }, env)
     expect(res.status).toBe(503)
