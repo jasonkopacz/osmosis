@@ -3,12 +3,13 @@ import { STORAGE_KEYS } from '../../constants'
 import { createToggle } from '../components/toggle'
 import { createLanguagePicker } from '../components/languagePicker'
 import { createSlider } from '../components/slider'
+import { createCefrPicker } from '../components/cefrPicker'
 import { showToast } from '../components/toast'
 import { renderProgress } from './progress'
 import { renderQuiz } from './quiz'
 
 type TabId = 'home' | 'progress' | 'quiz'
-type PageStats = { sampled: number; eligible: number; lang: string }
+type PageStats = { sampled: number; eligible: number; lang: string; cefr?: string }
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,8 @@ async function saveAndBroadcast(settings: UserSettings): Promise<void> {
 
 function formatHint(stats: PageStats | undefined, lang: string): string {
   if (!stats || stats.lang !== lang) return ''
-  return `${stats.sampled} of ${stats.eligible} words on this page`
+  const cefrSuffix = stats.cefr && stats.cefr !== 'all' ? ` · ${stats.cefr}+ only` : ''
+  return `${stats.sampled} of ${stats.eligible} words on this page${cefrSuffix}`
 }
 
 // ── Main render ───────────────────────────────────────────────────────────────
@@ -199,6 +201,15 @@ export function renderMain(
       showToast(`Translating to ${targetLang.toUpperCase()}`, 'info')
     }))
 
+    // CEFR level picker
+    const cefrLabel = document.createElement('div')
+    cefrLabel.className = 'field-label'
+    cefrLabel.textContent = 'Word level'
+    const cefrWrapper = document.createElement('div')
+    cefrWrapper.append(cefrLabel, createCefrPicker(s.cefrMinLevel ?? 'all', cefrMinLevel => {
+      broadcast({ ...s, cefrMinLevel })
+    }))
+
     // Slider
     const sliderEl = createSlider(s.percentage, percentage => { broadcast({ ...s, percentage }) })
 
@@ -209,7 +220,7 @@ export function renderMain(
       })
     }
 
-    body.append(langWrapper, sliderEl, hintEl)
+    body.append(langWrapper, cefrWrapper, sliderEl, hintEl)
     container.appendChild(body)
 
     // Onboarding callout

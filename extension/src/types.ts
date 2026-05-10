@@ -10,6 +10,7 @@ export type UserSettings = {
   enabled: boolean
   targetLang: string
   percentage: number
+  cefrMinLevel: import('./content/cefr').CefrMinLevel
 }
 
 export type UserProfile = {

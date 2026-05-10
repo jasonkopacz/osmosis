@@ -10,6 +10,7 @@ import {
   MAX_TRANSLATION_PERCENTAGE,
 } from '../constants'
 import { recordLocalEncounters } from './encounters'
+import { passesCefrFilter } from './cefr'
 import { normalizeTargetLang } from '../languages'
 
 let settings: UserSettings = DEFAULT_SETTINGS
@@ -117,7 +118,22 @@ async function runPipeline(): Promise<void> {
     // Deduplicate before sampling so percentage applies to unique words, not occurrences.
     // Without this, a long article (e.g. 3000 occurrences, 20% → 600) always hits MAX_WORDS
     // at any percentage, making the slider appear stuck.
-    const uniqueEligible = [...new Set(eligibleEntries.map(e => e.word))]
+    const allUnique = [...new Set(eligibleEntries.map(e => e.word))]
+
+    // CEFR filter: exclude words below the user's selected minimum level.
+    const cefrMin = settings.cefrMinLevel ?? 'all'
+    const uniqueEligible = cefrMin === 'all'
+      ? allUnique
+      : allUnique.filter(w => passesCefrFilter(w, cefrMin))
+
+    if (uniqueEligible.length === 0) {
+      console.log('[osmosis:content] no words pass CEFR filter', cefrMin)
+      void chrome.storage.local.set({
+        [STORAGE_KEYS.PAGE_STATS]: { sampled: 0, eligible: allUnique.length, lang: settings.targetLang, cefr: cefrMin },
+      })
+      return
+    }
+
     const unique = sampleWords(uniqueEligible, settings.percentage, location.href)
     const sampledSet = new Set(unique)
     const contextsByWord: Record<string, string> = {}
@@ -157,7 +173,7 @@ async function runPipeline(): Promise<void> {
       })
     }
     void chrome.storage.local.set({
-      [STORAGE_KEYS.PAGE_STATS]: { sampled: unique.length, eligible: uniqueEligible.length, lang: settings.targetLang },
+      [STORAGE_KEYS.PAGE_STATS]: { sampled: unique.length, eligible: uniqueEligible.length, lang: settings.targetLang, cefr: cefrMin },
     })
     console.log('[osmosis:content] pipeline', {
       eligible: eligibleEntries.length,

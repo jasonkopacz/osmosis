@@ -311,6 +311,52 @@
 .osmo-error { color: var(--error); font-size: 11px; line-height: 1.3; margin: 0; }
 .osmo-error:empty { min-height: 14px; }
 
+/* ── CEFR level picker ── */
+.cefr-picker {
+  display: flex;
+  gap: 3px;
+  background: var(--abyss);
+  padding: 3px;
+  border-radius: var(--r-3);
+  border: 1px solid var(--line);
+}
+
+.cefr-btn {
+  flex: 1;
+  padding: 5px 2px;
+  background: none;
+  border: none;
+  border-radius: var(--r-2);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
+  white-space: nowrap;
+}
+
+.cefr-btn:hover { color: var(--text-soft); }
+
+.cefr-btn--active {
+  background: linear-gradient(180deg, var(--osmo-bright) 0%, var(--osmo) 100%);
+  color: #042033;
+  box-shadow: var(--glow-osmo);
+}
+
+.cefr-description {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+  min-height: 14px;
+  transition: color var(--d-2) var(--ease-out);
+}
+
+.cefr-description--active { color: var(--current); }
+
 /* ── Hint ── */
 .osmo-hint {
   font-family: var(--mono);

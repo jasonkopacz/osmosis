@@ -7,7 +7,8 @@ export const MAX_TRANSLATION_PERCENTAGE = 90;
 export const DEFAULT_SETTINGS: UserSettings = {
   enabled: true,
   targetLang: "es",
-  percentage: 20
+  percentage: 20,
+  cefrMinLevel: 'all',
 };
 export const STORAGE_KEYS = {
   TOKEN: "osmosis_token",
