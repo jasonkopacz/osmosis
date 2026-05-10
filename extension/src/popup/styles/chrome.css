@@ -77,3 +77,55 @@
   transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
 }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
+
+/* ── Tab bar ── */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 4px 7px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--text-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: -1px;
+  position: relative;
+  transition: color var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out);
+}
+
+.tab-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; }
+.tab-btn:hover { color: var(--text-soft); }
+.tab-btn--active { color: var(--current); border-bottom-color: var(--current); }
+
+/* Due-count badge on Review tab */
+.tab-due-badge {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: var(--ember);
+  color: #2a1305;
+  font-size: 8px;
+  font-weight: 800;
+  min-width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+}

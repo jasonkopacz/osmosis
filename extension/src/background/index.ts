@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount } from './api'
+import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -251,6 +251,56 @@ async function handle(msg: Message): Promise<unknown> {
       console.warn('[osmosis:bg] DELETE_ACCOUNT failed', errMsg)
       return { error: errMsg }
     }
+  }
+
+  if (msg.type === 'SRS_RATE') {
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      const result = await srsRateWord(msg.word, msg.targetLang, msg.rating, token)
+      return result
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      console.warn('[osmosis:bg] SRS_RATE error', s)
+      return { error: 'API_ERROR' }
+    }
+  }
+
+  if (msg.type === 'SRS_GET_DUE') {
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      return await srsGetDue(msg.targetLang, token, msg.limit)
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      console.warn('[osmosis:bg] SRS_GET_DUE error', s)
+      return { error: 'API_ERROR' }
+    }
+  }
+
+  if (msg.type === 'SRS_GET_STATS') {
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      return await srsGetStats(msg.targetLang, token)
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      console.warn('[osmosis:bg] SRS_GET_STATS error', s)
+      return { error: 'API_ERROR' }
+    }
+  }
+
+  if (msg.type === 'SRS_REPORT_ENCOUNTERS') {
+    // Fire-and-forget: don't block, don't surface errors to caller
+    const token = await getToken()
+    if (token) {
+      void srsReportEncounters(msg.words, msg.targetLang, token)
+        .catch(err => console.warn('[osmosis:bg] SRS_REPORT_ENCOUNTERS failed', err))
+    }
+    return { ok: true }
   }
 
   return { error: 'UNKNOWN_MESSAGE' }

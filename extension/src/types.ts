@@ -29,3 +29,52 @@ export type Message =
   | { type: 'SESSION_FROM_VERIFY'; token: string }
   | { type: 'FORGOT_PASSWORD'; email: string }
   | { type: 'DELETE_ACCOUNT' }
+  | { type: 'SRS_RATE'; word: string; targetLang: string; rating: SrsRating }
+  | { type: 'SRS_GET_DUE'; targetLang: string; limit?: number }
+  | { type: 'SRS_GET_STATS'; targetLang: string }
+  | { type: 'SRS_REPORT_ENCOUNTERS'; words: string[]; targetLang: string }
+
+// 1=Again  2=Hard  3=Good  4=Easy
+export type SrsRating = 1 | 2 | 3 | 4
+
+export type SrsDueCard = {
+  word: string
+  targetLang: string
+  state: 'review' | 'relearning'
+  stability: number
+  difficulty: number
+  lapses: number
+  reps: number
+  dueAt: number
+  lastRatedAt?: number
+  translation: string
+  posTag?: string
+  alternatives?: ReadonlyArray<{ t: string; p: string }>
+}
+
+export type SrsStats = {
+  total: number
+  inReview: number
+  relearning: number
+  reviewedToday: number
+  dueCount: number
+}
+
+export type SrsRateResult = {
+  word: string
+  targetLang: string
+  state: 'review' | 'relearning'
+  intervalDays: number
+  dueAt: number
+  stability: number
+  difficulty: number
+  lapses: number
+  reps: number
+}
+
+// Encounter log stored in chrome.storage.local per language
+export type EncounterEntry = {
+  count: number
+  firstSeen: number  // unix ms
+  lastSeen: number   // unix ms
+}

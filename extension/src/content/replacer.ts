@@ -236,7 +236,39 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   pronounceRow.appendChild(pronounceButton)
   frag.appendChild(pronounceRow)
 
+  frag.appendChild(buildRatingRow(original, targetLang))
+
   return frag
+}
+
+function buildRatingRow(original: string, targetLang: string): HTMLDivElement {
+  const row = document.createElement('div')
+  row.className = 'osmo-tt-rate'
+
+  const knowBtn = document.createElement('button')
+  knowBtn.type = 'button'
+  knowBtn.className = 'osmo-tt-rate-btn osmo-tt-rate-btn--know'
+  knowBtn.textContent = '✓ Know it'
+
+  const learnBtn = document.createElement('button')
+  learnBtn.type = 'button'
+  learnBtn.className = 'osmo-tt-rate-btn osmo-tt-rate-btn--learn'
+  learnBtn.textContent = '↺ Learning'
+
+  function handleRating(rating: 1 | 4): void {
+    knowBtn.classList.add('osmo-tt-rate-btn--done')
+    learnBtn.classList.add('osmo-tt-rate-btn--done')
+    const activeBtn = rating === 4 ? knowBtn : learnBtn
+    activeBtn.textContent = rating === 4 ? '✓ Saved' : '↺ Got it'
+    void chrome.runtime.sendMessage({ type: 'SRS_RATE', word: original, targetLang, rating })
+      .catch(() => { /* fire-and-forget */ })
+  }
+
+  knowBtn.addEventListener('click', (ev) => { ev.stopPropagation(); handleRating(4) })
+  learnBtn.addEventListener('click', (ev) => { ev.stopPropagation(); handleRating(1) })
+
+  row.append(knowBtn, learnBtn)
+  return row
 }
 
 function bindTooltipSpan(span: HTMLSpanElement) {

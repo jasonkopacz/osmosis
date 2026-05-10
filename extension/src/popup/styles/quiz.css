@@ -1,0 +1,147 @@
+/* ── Quiz / flashcard view ── */
+
+.quiz-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.quiz-dots { display: flex; gap: 4px; align-items: center; }
+
+.quiz-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--shallow);
+  transition: background var(--d-2) var(--ease-out);
+}
+.quiz-dot--done    { background: var(--osmo); }
+.quiz-dot--current { background: var(--current); width: 8px; height: 8px; }
+
+/* ── Flashcard ── */
+.quiz-card {
+  background: linear-gradient(150deg, var(--mid) 0%, var(--deep) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-4);
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 186px;
+  justify-content: center;
+  transition: border-color var(--d-2) var(--ease-out);
+}
+
+.quiz-card--revealed { border-color: var(--line-strong); }
+
+.quiz-prompt {
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+}
+
+.quiz-word {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--osmo-bright);
+  line-height: 1.1;
+  text-align: center;
+}
+
+.quiz-pos {
+  display: inline-flex;
+  align-items: center;
+  background: var(--abyss);
+  border: 1px solid var(--line);
+  color: var(--text-mute);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.quiz-sep {
+  width: 36px;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+.quiz-answer {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+/* ── Actions ── */
+.quiz-actions { margin-top: 12px; }
+
+/* ── Rating buttons ── */
+.rating-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.rating-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 9px 4px;
+  border-radius: var(--r-2);
+  border: 1px solid var(--line);
+  background: var(--mid);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: background var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), transform var(--d-1) var(--ease-out);
+}
+
+.rating-btn:active:not(:disabled) { transform: translateY(1px); }
+.rating-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.rating-btn__label { font-weight: 700; color: var(--text-soft); }
+.rating-btn__days  { font-size: 9px; color: var(--text-mute); }
+
+.rating-btn--again { border-color: rgba(248,113,113,.28); }
+.rating-btn--again .rating-btn__label { color: var(--error); }
+.rating-btn--again:hover:not(:disabled) { background: rgba(248,113,113,.1); border-color: rgba(248,113,113,.5); }
+
+.rating-btn--hard { border-color: rgba(245,154,46,.28); }
+.rating-btn--hard .rating-btn__label { color: var(--ember); }
+.rating-btn--hard:hover:not(:disabled) { background: rgba(245,154,46,.08); border-color: rgba(245,154,46,.5); }
+
+.rating-btn--good { border-color: rgba(34,211,238,.28); }
+.rating-btn--good .rating-btn__label { color: var(--current); }
+.rating-btn--good:hover:not(:disabled) { background: rgba(34,211,238,.07); border-color: rgba(34,211,238,.5); }
+
+.rating-btn--easy { border-color: rgba(74,222,128,.28); }
+.rating-btn--easy .rating-btn__label { color: var(--signal); }
+.rating-btn--easy:hover:not(:disabled) { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.5); }
+
+/* ── Complete / empty states ── */
+.quiz-end {
+  text-align: center;
+  padding: 28px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.quiz-end__icon  { font-size: 38px; margin-bottom: 4px; }
+.quiz-end__title { font-weight: 800; font-size: 15px; letter-spacing: -0.02em; color: var(--text); }
+.quiz-end__sub   { font-family: var(--mono); font-size: 11px; color: var(--text-mute); line-height: 1.55; }

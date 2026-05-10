@@ -149,6 +149,54 @@ export async function fetchPopularTranslations(lang: string, token: string, limi
   )
 }
 
+export async function srsRateWord(
+  word: string, targetLang: string, rating: number, token: string
+): Promise<unknown> {
+  const res = await fetch(`${API_BASE_URL}/srs/rate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ word, targetLang, rating }),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
+  return res.json()
+}
+
+export async function srsGetDue(
+  targetLang: string, token: string, limit = 20
+): Promise<unknown> {
+  const res = await fetch(
+    `${API_BASE_URL}/srs/due?lang=${encodeURIComponent(targetLang)}&limit=${limit}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
+  return res.json()
+}
+
+export async function srsGetStats(targetLang: string, token: string): Promise<unknown> {
+  const res = await fetch(
+    `${API_BASE_URL}/srs/stats?lang=${encodeURIComponent(targetLang)}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
+  return res.json()
+}
+
+export async function srsReportEncounters(
+  words: string[], targetLang: string, token: string
+): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/srs/encounters`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ words, targetLang }),
+  })
+  if (!res.ok && res.status !== 401) {
+    console.warn(`[osmosis:api] srs/encounters failed: ${res.status}`)
+  }
+}
+
 function readJsonError(res: Response, bodyText: string): string {
   try {
     const j = JSON.parse(bodyText) as { error?: string }

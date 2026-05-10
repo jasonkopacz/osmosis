@@ -1,0 +1,170 @@
+import type { UserSettings, SrsStats, Message } from '../../types'
+
+export function renderProgress(
+  container: HTMLElement,
+  settings: UserSettings,
+  onStartReview: () => void,
+): void {
+  container.replaceChildren()
+
+  const hint = document.createElement('div')
+  hint.className = 'osmo-hint'
+  hint.style.padding = '28px 0'
+  hint.textContent = 'Loading…'
+  container.appendChild(hint)
+
+  void load(container, settings, onStartReview)
+}
+
+async function load(
+  container: HTMLElement,
+  settings: UserSettings,
+  onStartReview: () => void,
+): Promise<void> {
+  let stats: SrsStats & { error?: string }
+  try {
+    stats = (await chrome.runtime.sendMessage({
+      type: 'SRS_GET_STATS',
+      targetLang: settings.targetLang,
+    } as Message)) as SrsStats & { error?: string }
+  } catch {
+    renderError(container)
+    return
+  }
+  if (stats.error) { renderError(container); return }
+  paint(container, stats, settings, onStartReview)
+}
+
+function paint(
+  container: HTMLElement,
+  stats: SrsStats,
+  settings: UserSettings,
+  onStartReview: () => void,
+): void {
+  container.replaceChildren()
+
+  const body = document.createElement('div')
+  body.className = 'body'
+
+  // ── Section label
+  const topLabel = document.createElement('div')
+  topLabel.className = 'field-label'
+  topLabel.textContent = `${settings.targetLang.toUpperCase()} vocabulary`
+  body.appendChild(topLabel)
+
+  // ── Stat cards
+  const grid = document.createElement('div')
+  grid.className = 'stats-grid'
+
+  const dueCard = makeStatCard(
+    stats.dueCount.toString(),
+    'Due',
+    stats.dueCount > 0 ? 'stat-card--due stat-card--due-active' : 'stat-card--due',
+  )
+  const totalCard = makeStatCard(stats.total.toString(), 'Total', '')
+  const todayCard = makeStatCard(stats.reviewedToday.toString(), 'Today', 'stat-card--reviewed')
+
+  grid.append(dueCard, totalCard, todayCard)
+  body.appendChild(grid)
+
+  // ── State breakdown
+  if (stats.total > 0) {
+    const breakdownLabel = document.createElement('div')
+    breakdownLabel.className = 'field-label'
+    breakdownLabel.style.marginTop = '4px'
+    breakdownLabel.textContent = 'Status'
+    body.appendChild(breakdownLabel)
+
+    body.appendChild(makeBreakdownRow('Review', stats.inReview, stats.total, 'breakdown-fill--review'))
+    body.appendChild(makeBreakdownRow('Relearning', stats.relearning, stats.total, 'breakdown-fill--relearning'))
+  }
+
+  // ── CTA or empty state
+  if (stats.total === 0) {
+    body.appendChild(makeEmptyState())
+  } else if (stats.dueCount > 0) {
+    const cta = document.createElement('button')
+    cta.className = 'osmo-btn osmo-btn--primary'
+    cta.textContent = `Start Review — ${stats.dueCount} due`
+    cta.addEventListener('click', onStartReview)
+    body.appendChild(cta)
+  } else {
+    const allDone = document.createElement('div')
+    allDone.className = 'osmo-hint'
+    allDone.style.padding = '8px 0'
+    allDone.textContent = 'All caught up — check back later'
+    body.appendChild(allDone)
+  }
+
+  container.appendChild(body)
+}
+
+function makeStatCard(value: string, label: string, extraClass: string): HTMLDivElement {
+  const card = document.createElement('div')
+  card.className = `stat-card${extraClass ? ` ${extraClass}` : ''}`
+
+  const val = document.createElement('div')
+  val.className = 'stat-card__value'
+  val.textContent = value
+
+  const lbl = document.createElement('div')
+  lbl.className = 'stat-card__label'
+  lbl.textContent = label
+
+  card.append(val, lbl)
+  return card
+}
+
+function makeBreakdownRow(label: string, count: number, total: number, fillClass: string): HTMLDivElement {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0
+
+  const row = document.createElement('div')
+  row.className = 'breakdown-row'
+
+  const lbl = document.createElement('span')
+  lbl.className = 'breakdown-label'
+  lbl.textContent = label
+
+  const track = document.createElement('div')
+  track.className = 'breakdown-track'
+  const fill = document.createElement('div')
+  fill.className = `breakdown-fill ${fillClass}`
+  fill.style.width = `${pct}%`
+  track.appendChild(fill)
+
+  const cnt = document.createElement('span')
+  cnt.className = 'breakdown-count'
+  cnt.textContent = count.toString()
+
+  row.append(lbl, track, cnt)
+  return row
+}
+
+function makeEmptyState(): HTMLDivElement {
+  const wrap = document.createElement('div')
+  wrap.className = 'progress-empty'
+
+  const icon = document.createElement('div')
+  icon.className = 'progress-empty__icon'
+  icon.textContent = '🌊'
+
+  const title = document.createElement('div')
+  title.className = 'progress-empty__title'
+  title.textContent = 'No words tracked yet'
+
+  const body = document.createElement('div')
+  body.className = 'progress-empty__body'
+  body.textContent = 'Hover translated words on any page and tap "Know it" or "Learning" to build your vocabulary.'
+
+  wrap.append(icon, title, body)
+  return wrap
+}
+
+function renderError(container: HTMLElement): void {
+  container.replaceChildren()
+  const hint = document.createElement('div')
+  hint.className = 'osmo-hint'
+  hint.style.padding = '28px 0'
+  hint.textContent = 'Could not load — try again'
+  container.appendChild(hint)
+}

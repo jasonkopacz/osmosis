@@ -21,10 +21,11 @@ export type Env = {
 
 export type Variables = { userId: string; email: string; plan: 'free' | 'pro' }
 
+// Short keys match the runtime JSON sent to/from the extension.
 export type TranslationEntry = {
-  text: string                                    // primary translation text
-  partOfSpeech?: string                           // POS tag: VERB, NOUN, ADJ, ADV, etc.
-  alternative?: Array<{ text: string; partOfSpeech: string }> // top alternatives with a different POS
+  t: string                               // primary translation text
+  p?: string                              // POS tag: VERB, NOUN, ADJ, ADV, etc.
+  a?: Array<{ t: string; p: string }>    // top alternatives with a different POS
 }
 
 export type User = {
@@ -40,3 +41,44 @@ export type User = {
 
 // Safe subset for sending to clients — never includes password_hash
 export type PublicUser = Omit<User, 'password_hash'>
+
+// ── SRS types ────────────────────────────────────────────────────────────────
+
+export type SrsCard = {
+  userId: string
+  word: string
+  targetLang: string
+  state: 'review' | 'relearning'
+  stability: number
+  difficulty: number
+  lapses: number
+  reps: number
+  dueAt: number
+  lastRatedAt?: number
+  encounterCount: number
+  lastSeenAt: number
+  createdAt: number
+}
+
+export type DueCard = {
+  word: string
+  targetLang: string
+  state: 'review' | 'relearning'
+  stability: number
+  difficulty: number
+  lapses: number
+  reps: number
+  dueAt: number
+  lastRatedAt?: number
+  translation: string
+  posTag?: string
+  alternatives?: Array<{ t: string; p: string }>
+}
+
+export type SrsStats = {
+  total: number
+  inReview: number
+  relearning: number
+  reviewedToday: number
+  dueCount: number
+}

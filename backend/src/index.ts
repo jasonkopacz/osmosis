@@ -6,6 +6,7 @@ import { googleOAuthRouter } from './routes/google'
 import { translateRouter } from './routes/translate'
 import { userRouter } from './routes/user'
 import { stripeRouter } from './routes/stripe'
+import { srsRouter } from './routes/srs'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -34,6 +35,7 @@ app.route('/auth/google', googleOAuthRouter)
 app.route('/translate', translateRouter)
 app.route('/user', userRouter)
 app.route('/stripe', stripeRouter)
+app.route('/srs', srsRouter)
 app.get('/health', (c) => c.json({ ok: true }))
 
 export default app

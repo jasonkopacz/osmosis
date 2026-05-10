@@ -1,0 +1,107 @@
+/* ── Progress / vocabulary stats view ── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat-card {
+  background: var(--mid);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  padding: 14px 8px;
+  text-align: center;
+  transition: border-color var(--d-2) var(--ease-out), background var(--d-2) var(--ease-out);
+}
+
+.stat-card__value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-card__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-top: 5px;
+}
+
+.stat-card--due .stat-card__value { color: var(--ember); }
+.stat-card--due-active {
+  border-color: rgba(245,154,46,.35);
+  background: rgba(245,154,46,.06);
+}
+
+.stat-card--reviewed .stat-card__value { color: var(--signal); }
+
+/* ── State breakdown ── */
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.breakdown-row + .breakdown-row { margin-top: 6px; }
+
+.breakdown-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-soft);
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.breakdown-track {
+  flex: 1;
+  height: 5px;
+  background: var(--shallow);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.breakdown-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width var(--d-3) var(--ease-out);
+}
+
+.breakdown-fill--review    { background: linear-gradient(90deg, var(--droplet), var(--osmo)); }
+.breakdown-fill--relearning { background: linear-gradient(90deg, var(--ember), #c97817); }
+
+.breakdown-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Empty / onboarding state ── */
+.progress-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--text-mute);
+  font-size: 12px;
+  line-height: 1.65;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-3);
+}
+
+.progress-empty__icon { font-size: 28px; margin-bottom: 8px; }
+
+.progress-empty__title {
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+
+.progress-empty__body { color: var(--text-mute); }
