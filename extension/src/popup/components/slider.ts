@@ -4,16 +4,17 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
   const wrapper = document.createElement('div')
 
   const header = document.createElement('div')
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'
+  header.className = 'osmo-slider__header'
 
   const labelEl = document.createElement('span')
   labelEl.className = 'field-label'
   labelEl.style.margin = '0'
   labelEl.textContent = 'Words to translate'
 
-  const valueEl = document.createElement('span')
-  valueEl.style.cssText = 'font-size:15px;font-weight:700;color:#e2e8f0;'
   const clampedValue = Math.max(MIN_TRANSLATION_PERCENTAGE, Math.min(MAX_TRANSLATION_PERCENTAGE, value))
+
+  const valueEl = document.createElement('span')
+  valueEl.className = 'osmo-slider__value'
   valueEl.textContent = `${clampedValue}%`
 
   header.append(labelEl, valueEl)
@@ -24,16 +25,12 @@ export function createSlider(value: number, onChange: (v: number) => void): HTML
   input.max = String(MAX_TRANSLATION_PERCENTAGE)
   input.step = '1'
   input.value = String(clampedValue)
-  input.style.cssText = 'width:100%;accent-color:#3b82f6;cursor:pointer;'
-  input.addEventListener('input', () => {
-    valueEl.textContent = `${Number(input.value)}%`
-  })
-  input.addEventListener('change', () => {
-    onChange(Number(input.value))
-  })
+  input.className = 'osmo-range'
+  input.addEventListener('input', () => { valueEl.textContent = `${Number(input.value)}%` })
+  input.addEventListener('change', () => { onChange(Number(input.value)) })
 
   const rangeLabels = document.createElement('div')
-  rangeLabels.style.cssText = 'display:flex;justify-content:space-between;font-size:11px;color:#718096;margin-top:4px;'
+  rangeLabels.className = 'osmo-slider__labels'
   const minL = document.createElement('span')
   minL.textContent = `${MIN_TRANSLATION_PERCENTAGE}%`
   const maxL = document.createElement('span')

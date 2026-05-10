@@ -6,63 +6,42 @@ type Mode = 'signin' | 'signup'
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
 
-const C = {
-  border: 'rgba(45,212,191,0.35)',
-  borderFocus: '#22d3ee',
-  borderError: 'rgba(248,113,113,0.95)',
-  textMuted: 'rgba(165,243,252,0.75)',
-  glass: 'linear-gradient(165deg, rgba(6,78,95,0.55) 0%, rgba(2,6,23,0.72) 100%)',
-} as const
-
 export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   root.replaceChildren()
 
   let mode: Mode = 'signin'
 
   const wrap = document.createElement('div')
-  wrap.style.cssText =
-    'display:flex;flex-direction:column;flex:0 0 auto;' +
-    'background:linear-gradient(180deg, rgba(8,47,73,0.35) 0%, rgba(2,6,23,0.92) 55%, #020617 100%);'
+  wrap.className = 'login-wrap'
 
   const hero = document.createElement('div')
-  hero.style.cssText =
-    'position:relative;flex-shrink:0;overflow:hidden;border-bottom:1px solid rgba(34,211,238,0.2);background:rgba(2,6,23,0.7);'
+  hero.className = 'login-hero'
 
   const heroImg = document.createElement('img')
   heroImg.src = heroImage
   heroImg.alt = 'Osmosis — language learning'
-  heroImg.style.cssText =
-    'width:100%;height:76px;display:block;object-fit:cover;object-position:50% 28%;'
+  heroImg.className = 'login-hero__img'
 
   const heroOverlay = document.createElement('div')
-  heroOverlay.style.cssText =
-    'position:absolute;inset:0;' +
-    'background:linear-gradient(180deg, rgba(2,6,23,0.04) 0%, rgba(2,6,23,0.35) 70%, rgba(2,6,23,0.82) 100%);' +
-    'pointer-events:none;'
+  heroOverlay.className = 'login-hero__overlay'
 
   hero.append(heroImg, heroOverlay)
 
   const card = document.createElement('section')
-  card.style.cssText =
-    'display:flex;flex-direction:column;gap:5px;flex-shrink:0;margin:8px 10px 10px;padding:10px 12px 12px;border-radius:16px;' +
-    `background:${C.glass};` +
-    'border:1px solid rgba(103,232,249,0.22);' +
-    'box-shadow:0 18px 48px rgba(2,6,23,0.55), inset 0 1px 0 rgba(224,242,254,0.08);' +
-    'backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);'
+  card.className = 'login-card'
 
   const titleBlock = document.createElement('div')
-  titleBlock.style.cssText = 'display:flex;flex-direction:column;gap:2px;'
+  titleBlock.className = 'login-title-block'
   const title = document.createElement('h1')
-  title.style.cssText = 'margin:0;font-size:16px;font-weight:700;color:#f0fdfa;letter-spacing:-0.01em;'
+  title.className = 'login-title'
   title.textContent = 'Welcome'
   const subtitle = document.createElement('p')
-  subtitle.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.3;`
+  subtitle.className = 'login-subtitle'
   subtitle.textContent = 'Sign in to translate the web with Osmosis.'
   titleBlock.append(title, subtitle)
 
   const tabBar = document.createElement('div')
-  tabBar.style.cssText =
-    'display:flex;gap:3px;padding:3px;border-radius:12px;background:rgba(2,6,23,0.45);border:1px solid rgba(45,212,191,0.2);'
+  tabBar.className = 'login-tabs'
 
   const signinTab = makeTab('Sign in', true)
   const signupTab = makeTab('Create account', false)
@@ -73,15 +52,13 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
   const passwordInput = makeInput('password', '••••••••', 'password')
   const pwdShell = document.createElement('div')
-  pwdShell.style.cssText = 'position:relative;display:flex;align-items:center;'
-  passwordInput.style.paddingRight = '52px'
+  pwdShell.className = 'login-pwd-shell'
+  passwordInput.classList.add('osmo-input--pad-right')
   const pwdToggle = document.createElement('button')
   pwdToggle.type = 'button'
   pwdToggle.textContent = 'Show'
   pwdToggle.setAttribute('aria-label', 'Show password')
-  pwdToggle.style.cssText =
-    'position:absolute;right:10px;background:transparent;border:none;' +
-    `color:${C.borderFocus};font-size:11px;font-weight:700;cursor:pointer;padding:4px 2px;`
+  pwdToggle.className = 'login-pwd-toggle'
   pwdToggle.addEventListener('click', () => {
     const show = passwordInput.type === 'password'
     passwordInput.type = show ? 'text' : 'password'
@@ -94,15 +71,13 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const passwordConfirmInput = makeInput('passwordConfirm', 'Confirm password', 'password')
   passwordConfirmInput.autocomplete = 'new-password'
   const pwdConfirmShell = document.createElement('div')
-  pwdConfirmShell.style.cssText = 'position:relative;display:flex;align-items:center;'
-  passwordConfirmInput.style.paddingRight = '52px'
+  pwdConfirmShell.className = 'login-pwd-shell'
+  passwordConfirmInput.classList.add('osmo-input--pad-right')
   const pwdConfirmToggle = document.createElement('button')
   pwdConfirmToggle.type = 'button'
   pwdConfirmToggle.textContent = 'Show'
   pwdConfirmToggle.setAttribute('aria-label', 'Show confirm password')
-  pwdConfirmToggle.style.cssText =
-    'position:absolute;right:10px;background:transparent;border:none;' +
-    `color:${C.borderFocus};font-size:11px;font-weight:700;cursor:pointer;padding:4px 2px;`
+  pwdConfirmToggle.className = 'login-pwd-toggle'
   pwdConfirmToggle.addEventListener('click', () => {
     const show = passwordConfirmInput.type === 'password'
     passwordConfirmInput.type = show ? 'text' : 'password'
@@ -114,71 +89,56 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   passwordConfirmField.style.display = 'none'
 
   const hintEl = document.createElement('p')
-  hintEl.style.cssText = `font-size:10px;color:${C.textMuted};margin:0 2px;line-height:1.3;`
+  hintEl.className = 'login-hint'
   hintEl.textContent =
     `Password: at least ${PASSWORD_MIN_LENGTH} characters and one special character (!@#$%^&* …).`
 
   const errorEl = document.createElement('p')
-  errorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0 2px;line-height:1.3;'
+  errorEl.className = 'osmo-error'
 
   const submitBtn = document.createElement('button')
   submitBtn.type = 'button'
-  submitBtn.style.cssText =
-    'background:linear-gradient(92deg, #06b6d4 0%, #22d3ee 42%, #f59e0b 100%);' +
-    'color:#042f2e;border:none;border-radius:12px;padding:9px 10px;width:100%;' +
-    'font-size:13px;font-weight:800;cursor:pointer;letter-spacing:0.01em;' +
-    'box-shadow:0 10px 28px rgba(6,182,212,0.35);transition:transform .12s ease, filter .12s ease;'
+  submitBtn.className = 'osmo-btn osmo-btn--primary'
   submitBtn.textContent = 'Sign in'
-  submitBtn.addEventListener('mouseenter', () => {
-    if (!submitBtn.disabled) {
-      submitBtn.style.transform = 'translateY(-1px)'
-      submitBtn.style.filter = 'brightness(1.05)'
-    }
-  })
-  submitBtn.addEventListener('mouseleave', () => {
-    submitBtn.style.transform = 'translateY(0)'
-    submitBtn.style.filter = 'none'
-  })
 
-  const divider = document.createElement('div')
-  divider.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:0;'
-  const line = (): HTMLDivElement => {
-    const l = document.createElement('div')
-    l.style.cssText = 'flex:1;height:1px;background:rgba(103,232,249,0.22);'
-    return l
-  }
+  const loginDivider = document.createElement('div')
+  loginDivider.className = 'login-divider'
+  const divLine1 = document.createElement('div')
+  divLine1.className = 'login-divider__line'
+  const divLine2 = document.createElement('div')
+  divLine2.className = 'login-divider__line'
   const orSpan = document.createElement('span')
-  orSpan.style.cssText = `font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.textMuted};`
+  orSpan.className = 'login-divider__label'
   orSpan.textContent = 'or'
-  divider.append(line(), orSpan, line())
+  loginDivider.append(divLine1, orSpan, divLine2)
 
-  const googleBtn = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
-  const googleBtnAfterEmail = makeSocialButton('Continue with Google', '#f8fafc', '#0f172a', '#cbd5e1')
+  const googleBtn = makeSocialButton('Continue with Google')
+  const googleBtnAfterEmail = makeSocialButton('Continue with Google')
 
-  // --- Forgot-password panel ---
+  // Forgot-password panel
   const forgotPanel = document.createElement('div')
-  forgotPanel.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+  forgotPanel.className = 'login-panel login-panel--hidden'
   const forgotTitle = document.createElement('p')
-  forgotTitle.style.cssText = 'margin:0;font-size:14px;font-weight:700;color:#ecfeff;line-height:1.35;'
+  forgotTitle.className = 'login-email-sent__title'
   forgotTitle.textContent = 'Reset your password'
   const forgotDesc = document.createElement('p')
-  forgotDesc.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.45;`
+  forgotDesc.className = 'login-email-sent__body'
   forgotDesc.textContent = "Enter your email and we'll send a reset link. Check your spam folder if it doesn't arrive within a minute."
   const forgotEmailInput = makeInput('forgot-email', 'you@example.com', 'text')
   const forgotEmailField = makeLabeledField('Email', forgotEmailInput)
   const forgotErrorEl = document.createElement('p')
-  forgotErrorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0;line-height:1.3;'
+  forgotErrorEl.className = 'osmo-error'
   const forgotSubmitBtn = document.createElement('button')
   forgotSubmitBtn.type = 'button'
-  forgotSubmitBtn.style.cssText = submitBtn.style.cssText
+  forgotSubmitBtn.className = 'osmo-btn osmo-btn--primary'
   forgotSubmitBtn.textContent = 'Send reset link'
   const forgotSentMsg = document.createElement('p')
-  forgotSentMsg.style.cssText = 'display:none;font-size:12px;color:#6ee7b7;line-height:1.45;margin:0;'
+  forgotSentMsg.className = 'login-sent-msg'
   forgotSentMsg.textContent = 'If an account exists for that email, a reset link is on its way. Check your inbox (and spam).'
   const backFromForgotBtn = document.createElement('button')
   backFromForgotBtn.type = 'button'
   backFromForgotBtn.textContent = '← Back to sign in'
-  backFromForgotBtn.style.cssText = 'background:transparent;color:#94a3b8;border:none;font-size:11px;font-weight:600;cursor:pointer;padding:2px 0;text-align:left;'
+  backFromForgotBtn.className = 'login-back-btn'
   forgotPanel.append(forgotTitle, forgotDesc, forgotEmailField, forgotErrorEl, forgotSubmitBtn, forgotSentMsg, backFromForgotBtn)
 
   forgotSubmitBtn.addEventListener('click', async () => {
@@ -202,9 +162,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   forgotEmailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') forgotSubmitBtn.click() })
 
   function showForgotPanel(): void {
-    formPanel.style.display = 'none'
-    emailSentPanel.style.display = 'none'
-    forgotPanel.style.display = 'flex'
+    formPanel.classList.add('login-panel--hidden')
+    emailSentPanel.classList.add('login-panel--hidden')
+    forgotPanel.classList.remove('login-panel--hidden')
     forgotSentMsg.style.display = 'none'
     forgotSubmitBtn.style.display = ''
     forgotEmailField.style.display = ''
@@ -215,51 +175,49 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   }
 
   backFromForgotBtn.addEventListener('click', () => {
-    forgotPanel.style.display = 'none'
-    formPanel.style.display = 'flex'
+    forgotPanel.classList.add('login-panel--hidden')
+    formPanel.classList.remove('login-panel--hidden')
     title.textContent = 'Welcome'
     subtitle.textContent = 'Sign in to translate the web with Osmosis.'
   })
-  // --- end forgot-password panel ---
 
   const oauthSentErrorEl = document.createElement('p')
-  oauthSentErrorEl.style.cssText = 'color:#fecaca;font-size:11px;min-height:14px;margin:0;line-height:1.3;'
+  oauthSentErrorEl.className = 'osmo-error'
 
   const emailSentPanel = document.createElement('div')
-  emailSentPanel.style.cssText = 'display:none;flex-direction:column;gap:10px;'
+  emailSentPanel.className = 'login-panel login-panel--hidden'
   const emailSentTitle = document.createElement('p')
-  emailSentTitle.style.cssText = 'margin:0;font-size:14px;font-weight:700;color:#ecfeff;line-height:1.35;'
+  emailSentTitle.className = 'login-email-sent__title'
   emailSentTitle.textContent = 'Check your email'
   const emailSentBody = document.createElement('p')
-  emailSentBody.style.cssText = `margin:0;font-size:11px;color:${C.textMuted};line-height:1.45;`
+  emailSentBody.className = 'login-email-sent__body'
   emailSentBody.innerHTML =
     'We sent a confirmation link. Open your email and click <strong>Confirm email &amp; return to Osmosis</strong> — that activates your account.<br><br>' +
     'Once confirmed, click the Osmosis icon in your toolbar to sign in. Or skip the email and use Google below if your Google account shares the same address.'
+
   const sentDivider = document.createElement('div')
-  sentDivider.style.cssText = 'display:flex;align-items:center;gap:8px;padding-top:4px;'
-  const sl = (): HTMLDivElement => {
-    const l = document.createElement('div')
-    l.style.cssText = 'flex:1;height:1px;background:rgba(103,232,249,0.22);'
-    return l
-  }
+  sentDivider.className = 'login-divider'
+  const sentLine1 = document.createElement('div')
+  sentLine1.className = 'login-divider__line'
+  const sentLine2 = document.createElement('div')
+  sentLine2.className = 'login-divider__line'
   const sentOr = document.createElement('span')
-  sentOr.style.cssText = `font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.textMuted};`
+  sentOr.className = 'login-divider__label'
   sentOr.textContent = 'or'
-  sentDivider.append(sl(), sentOr, sl())
+  sentDivider.append(sentLine1, sentOr, sentLine2)
+
   const backToFormBtn = document.createElement('button')
   backToFormBtn.type = 'button'
   backToFormBtn.textContent = 'Use a different email'
-  backToFormBtn.style.cssText =
-    'background:transparent;color:#94a3b8;border:1px solid rgba(103,232,249,0.25);' +
-    'border-radius:10px;padding:8px;font-size:11px;font-weight:600;cursor:pointer;margin-top:4px;'
+  backToFormBtn.className = 'login-alt-btn'
   emailSentPanel.append(emailSentTitle, emailSentBody, oauthSentErrorEl, sentDivider, googleBtnAfterEmail, backToFormBtn)
 
   const formPanel = document.createElement('div')
-  formPanel.style.cssText = 'display:flex;flex-direction:column;gap:5px;'
+  formPanel.className = 'login-panel'
 
   function showFormChrome(): void {
-    emailSentPanel.style.display = 'none'
-    formPanel.style.display = 'flex'
+    emailSentPanel.classList.add('login-panel--hidden')
+    formPanel.classList.remove('login-panel--hidden')
     titleBlock.style.display = 'flex'
     const isSignin = mode === 'signin'
     title.textContent = 'Welcome'
@@ -270,8 +228,8 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
   function showEmailSentChrome(): void {
     oauthSentErrorEl.textContent = ''
-    formPanel.style.display = 'none'
-    emailSentPanel.style.display = 'flex'
+    formPanel.classList.add('login-panel--hidden')
+    emailSentPanel.classList.remove('login-panel--hidden')
     title.textContent = 'Almost there'
     subtitle.textContent = 'Confirm from your inbox to finish.'
     console.log('[osmosis:popup:login] email verification sent UI')
@@ -280,12 +238,10 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   function setFieldError(input: HTMLInputElement, on: boolean): void {
     if (on) {
       input.dataset.invalid = '1'
-      input.style.borderColor = C.borderError
-      input.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.18)'
+      input.classList.add('osmo-input--invalid')
     } else {
       delete input.dataset.invalid
-      input.style.borderColor = C.border
-      input.style.boxShadow = 'none'
+      input.classList.remove('osmo-input--invalid')
     }
   }
 
@@ -437,9 +393,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const forgotLink = document.createElement('button')
   forgotLink.type = 'button'
   forgotLink.textContent = 'Forgot password?'
-  forgotLink.style.cssText =
-    `background:transparent;border:none;color:${C.textMuted};font-size:10px;` +
-    'cursor:pointer;padding:0;text-align:right;align-self:flex-end;text-decoration:underline;'
+  forgotLink.className = 'login-forgot-link'
   forgotLink.addEventListener('click', showForgotPanel)
 
   formPanel.append(
@@ -451,7 +405,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     hintEl,
     errorEl,
     submitBtn,
-    divider,
+    loginDivider,
     googleBtn
   )
   card.append(titleBlock, formPanel, emailSentPanel, forgotPanel)
@@ -468,31 +422,20 @@ function makeTab(label: string, active: boolean): HTMLButtonElement {
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.textContent = label
-  btn.style.cssText =
-    'flex:1;padding:7px 6px;font-size:11px;font-weight:700;border:none;border-radius:10px;cursor:pointer;transition:all .15s ease;'
-  setActiveTab(btn, active)
+  btn.className = active ? 'login-tab login-tab--active' : 'login-tab'
   return btn
 }
 
 function setActiveTab(btn: HTMLButtonElement, active: boolean): void {
-  if (active) {
-    btn.style.background = 'linear-gradient(135deg, rgba(34,211,238,0.35), rgba(6,182,212,0.2))'
-    btn.style.color = '#ecfeff'
-    btn.style.boxShadow = 'inset 0 0 0 1px rgba(103,232,249,0.45), 0 8px 22px rgba(8,145,178,0.25)'
-  } else {
-    btn.style.background = 'transparent'
-    btn.style.color = 'rgba(165,243,252,0.55)'
-    btn.style.boxShadow = 'none'
-  }
+  btn.classList.toggle('login-tab--active', active)
 }
 
 function makeLabeledField(labelText: string, control: HTMLElement): HTMLDivElement {
   const wrap = document.createElement('div')
-  wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;'
+  wrap.className = 'login-field'
   const label = document.createElement('label')
   label.textContent = labelText
-  label.style.cssText =
-    `font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${C.textMuted};`
+  label.className = 'login-label'
   const id = `login-field-${labelText.toLowerCase().replace(/\s+/g, '-')}`
   label.htmlFor = id
   if (control instanceof HTMLInputElement) {
@@ -511,18 +454,9 @@ function makeInput(name: string, placeholder: string, type: string): HTMLInputEl
   input.name = name
   input.placeholder = placeholder
   input.autocomplete = name === 'email' ? 'email' : type === 'password' ? 'current-password' : 'off'
-  input.style.cssText =
-    `box-sizing:border-box;width:100%;background:rgba(2,6,23,0.35);color:#ecfeff;border:1px solid ${C.border};border-radius:10px;` +
-    'padding:9px 10px;font-size:13px;outline:none;transition:border-color .15s ease, box-shadow .15s ease;'
+  input.className = 'osmo-input'
   input.addEventListener('focus', () => {
-    if (input.dataset.invalid) return
-    input.style.borderColor = C.borderFocus
-    input.style.boxShadow = '0 0 0 3px rgba(34,211,238,0.22)'
-  })
-  input.addEventListener('blur', () => {
-    if (input.dataset.invalid) return
-    input.style.borderColor = C.border
-    input.style.boxShadow = 'none'
+    if (!input.dataset.invalid) input.classList.remove('osmo-input--invalid')
   })
   return input
 }
@@ -538,37 +472,25 @@ function googleIconSvg(): string {
   )
 }
 
-function makeSocialButton(
-  label: string,
-  bg: string,
-  fg: string,
-  border: string
-): HTMLButtonElement {
+function makeSocialButton(label: string): HTMLButtonElement {
   const btn = document.createElement('button')
   btn.type = 'button'
+  btn.className = 'login-social-btn'
   btn.dataset.oauthLabel = label
 
   const iconWrap = document.createElement('span')
-  iconWrap.style.cssText = 'display:flex;width:20px;height:20px;flex-shrink:0;align-items:center;justify-content:center;'
+  iconWrap.className = 'login-social-btn__icon'
   iconWrap.innerHTML = googleIconSvg()
 
   const text = document.createElement('span')
   text.dataset.oauthText = '1'
   text.textContent = label
-  text.style.cssText = `flex:1;text-align:center;color:${fg};`
+  text.className = 'login-social-btn__text'
 
   const balance = document.createElement('span')
-  balance.style.cssText = 'width:20px;flex-shrink:0;pointer-events:none;'
+  balance.className = 'login-social-btn__balance'
 
   btn.append(iconWrap, text, balance)
-  btn.style.cssText =
-    'display:flex;align-items:center;gap:0;' +
-    `background:${bg};color:${fg};border:1px solid ${border};border-radius:10px;padding:7px 10px;width:100%;` +
-    'font-size:12px;font-weight:700;cursor:pointer;transition:transform .12s ease, filter .12s ease;'
-  btn.addEventListener('mouseenter', () => {
-    if (!btn.disabled) btn.style.transform = 'translateY(-1px)'
-  })
-  btn.addEventListener('mouseleave', () => { btn.style.transform = 'translateY(0)' })
   return btn
 }
 

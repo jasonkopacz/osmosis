@@ -1,0 +1,38 @@
+/* Replaced word spans */
+.osmosis-word {
+  border-bottom: 1.5px dashed rgba(34,211,238,0.55);
+  color: inherit;
+  cursor: inherit;
+  position: relative;
+  z-index: 1;
+  display: inline;
+  vertical-align: baseline;
+  pointer-events: auto;
+  transition: border-bottom-color 220ms cubic-bezier(.2,.8,.2,1);
+}
+.osmosis-word[data-state="fresh"]  { border-bottom-color: rgba(245,154,46,0.55); }
+.osmosis-word[data-state="known"]  { border-bottom-color: rgba(74,222,128,0.45); }
+
+/* Tooltip host — static layout only; display/left/top/opacity stay inline */
+#osmosis-tooltip-host {
+  position: fixed;
+  z-index: 2147483647;
+  transform: translate(-50%, -100%);
+  background: linear-gradient(180deg, #0c2840 0%, #061a2c 100%);
+  color: #ecf6ff;
+  border: 1px solid rgba(110,180,220,.28);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  min-width: 180px;
+  max-width: 280px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 24px 60px -16px rgba(2,8,20,.85), 0 0 0 1px rgba(110,180,220,.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  box-sizing: border-box;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  transition: opacity 120ms cubic-bezier(.2,.8,.2,1);
+}

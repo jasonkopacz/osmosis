@@ -28,28 +28,28 @@ export function renderMain(
 
   let s: UserSettings = { ...settings }
 
-  // --- hint element (declared early so broadcast can reference it) ---
   const hintEl = document.createElement('div')
-  hintEl.style.cssText = 'font-size:10px;color:#718096;text-align:center;min-height:14px;margin-top:-6px;'
+  hintEl.className = 'osmo-hint'
 
   let broadcastTimer: ReturnType<typeof setTimeout> | null = null
 
   function broadcast(newSettings: UserSettings): void {
     s = newSettings
-    hintEl.textContent = 'Translating…'
-    hintEl.style.color = '#67e8f9'
     if (broadcastTimer) clearTimeout(broadcastTimer)
     void saveAndBroadcast(newSettings)
+    if (!newSettings.enabled) { hintEl.textContent = ''; return }
+    hintEl.textContent = 'Translating…'
+    hintEl.classList.add('osmo-hint--active')
     broadcastTimer = setTimeout(() => {
       void chrome.storage.local.get(STORAGE_KEYS.PAGE_STATS).then(r => {
         const stats = r[STORAGE_KEYS.PAGE_STATS] as PageStats | undefined
         hintEl.textContent = formatHint(stats, newSettings.targetLang)
-        hintEl.style.color = '#718096'
+        hintEl.classList.remove('osmo-hint--active')
       })
     }, 2000)
   }
 
-  // --- header ---
+  // Header
   const header = document.createElement('div')
   header.className = 'header'
 
@@ -61,29 +61,23 @@ export function renderMain(
   logoIcon.alt = 'Osmosis'
   logo.append(logoIcon, document.createTextNode(' Osmosis'))
 
-  const toggle = createToggle(s.enabled, enabled => {
-    broadcast({ ...s, enabled })
-  })
+  const toggle = createToggle(s.enabled, enabled => { broadcast({ ...s, enabled }) })
   header.append(logo, toggle)
 
-  // --- body ---
+  // Body
   const body = document.createElement('div')
   body.className = 'body'
 
-  // Limit-reached banner
+  // Limit banner
   const limitReached = user.plan === 'free' && user.usage.limit !== null && user.usage.used >= user.usage.limit
   if (limitReached) {
     const banner = document.createElement('div')
-    banner.style.cssText =
-      'background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:10px;' +
-      'padding:9px 12px;font-size:12px;color:#fca5a5;line-height:1.5;display:flex;flex-direction:column;gap:5px;'
+    banner.className = 'osmo-banner osmo-banner--limit'
     const bannerText = document.createElement('span')
     bannerText.textContent = 'Monthly limit reached — translations are paused until your usage resets.'
     const upgradeLink = document.createElement('button')
+    upgradeLink.className = 'osmo-banner__action'
     upgradeLink.textContent = 'Upgrade to Pro for unlimited translations →'
-    upgradeLink.style.cssText =
-      'background:none;border:none;color:#22d3ee;font-size:11px;font-weight:700;cursor:pointer;' +
-      'padding:0;text-align:left;text-decoration:underline;'
     upgradeLink.addEventListener('click', onSettings)
     banner.append(bannerText, upgradeLink)
     body.appendChild(banner)
@@ -94,28 +88,24 @@ export function renderMain(
   langLabel.className = 'field-label'
   langLabel.textContent = 'Translate to'
   const langWrapper = document.createElement('div')
-  langWrapper.append(
-    langLabel,
-    createLanguagePicker(s.targetLang, targetLang => {
-      broadcast({ ...s, targetLang })
-      showToast(`Translating to ${targetLang.toUpperCase()}`, 'info')
+  langWrapper.append(langLabel, createLanguagePicker(s.targetLang, targetLang => {
+    broadcast({ ...s, targetLang })
+    showToast(`Translating to ${targetLang.toUpperCase()}`, 'info')
+  }))
+
+  // Slider
+  const sliderEl = createSlider(s.percentage, percentage => { broadcast({ ...s, percentage }) })
+
+  if (s.enabled) {
+    void chrome.storage.local.get(STORAGE_KEYS.PAGE_STATS).then(r => {
+      const stats = r[STORAGE_KEYS.PAGE_STATS] as PageStats | undefined
+      hintEl.textContent = formatHint(stats, s.targetLang)
     })
-  )
-
-  // Slider + hint
-  const sliderEl = createSlider(s.percentage, percentage => {
-    broadcast({ ...s, percentage })
-  })
-
-  // Load initial hint from storage
-  void chrome.storage.local.get(STORAGE_KEYS.PAGE_STATS).then(r => {
-    const stats = r[STORAGE_KEYS.PAGE_STATS] as PageStats | undefined
-    hintEl.textContent = formatHint(stats, s.targetLang)
-  })
+  }
 
   body.append(langWrapper, sliderEl, hintEl)
 
-  // --- footer ---
+  // Footer
   const footer = document.createElement('div')
   footer.className = 'footer'
   const emailSpan = document.createElement('span')
@@ -134,29 +124,19 @@ export function renderMain(
 
   root.append(header, body, footer)
 
-  // --- first-time onboarding callout ---
+  // Onboarding callout
   void chrome.storage.local.get(STORAGE_KEYS.ONBOARDED).then(r => {
     if (r[STORAGE_KEYS.ONBOARDED]) return
     void chrome.storage.local.set({ [STORAGE_KEYS.ONBOARDED]: true })
-
     const callout = document.createElement('div')
-    callout.style.cssText =
-      'background:rgba(6,182,212,0.08);border:1px solid rgba(34,211,238,0.3);border-radius:10px;' +
-      'padding:10px 12px;font-size:12px;color:#a5f3fc;line-height:1.5;' +
-      'display:flex;flex-direction:column;gap:6px;'
+    callout.className = 'osmo-banner osmo-banner--onboard'
     const calloutText = document.createElement('span')
     calloutText.textContent = 'Open any webpage and Osmosis will start translating words for you. Hover over highlighted words to see the original.'
     const dismissBtn = document.createElement('button')
+    dismissBtn.className = 'osmo-banner__action'
     dismissBtn.textContent = 'Got it ✓'
-    dismissBtn.style.cssText =
-      'background:none;border:none;color:#22d3ee;font-size:11px;font-weight:700;' +
-      'cursor:pointer;padding:0;text-align:left;'
-    dismissBtn.addEventListener('click', () => {
-      callout.remove()
-      showToast('You\'re all set!')
-    })
+    dismissBtn.addEventListener('click', () => { callout.remove(); showToast("You're all set!") })
     callout.append(calloutText, dismissBtn)
-    // Insert at the top of body, after any limit banner
     body.insertBefore(callout, limitReached ? body.children[1] ?? null : body.firstChild)
   })
 }

@@ -1,6 +1,7 @@
 import type { WordEntry } from './walker'
 import type { TranslationEntry } from '../types'
 import { isEligible } from './filter'
+import replacerStyles from './styles/replacer.css?raw'
 
 const STYLE_ID = 'osmosis-styles'
 const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
@@ -80,30 +81,10 @@ function ensureTooltipHost(): HTMLDivElement {
     host = document.createElement('div')
     host.id = TOOLTIP_HOST_ID
     host.setAttribute('role', 'tooltip')
-    host.style.cssText = [
-      'display:none',
-      'position:fixed',
-      'left:0',
-      'top:0',
-      'z-index:2147483647',
-      'transform:translate(-50%,-100%)',
-      'background:linear-gradient(180deg,#0f172a 0%,#111827 100%)',
-      'color:#f8fafc',
-      'border:1px solid #334155',
-      'border-radius:10px',
-      'padding:8px 10px',
-      'font-size:12px',
-      'line-height:1.35',
-      'white-space:normal',
-      'min-width:170px',
-      'max-width:280px',
-      'box-shadow:0 10px 24px rgba(0,0,0,0.28),0 2px 8px rgba(0,0,0,0.2)',
-      'backdrop-filter:blur(4px)',
-      'pointer-events:auto',
-      'box-sizing:border-box',
-      'opacity:0',
-      'transition:opacity 120ms ease',
-    ].join(';')
+    host.style.display = 'none'
+    host.style.left = '0'
+    host.style.top = '0'
+    host.style.opacity = '0'
     host.addEventListener('mouseenter', () => clearTooltipHideTimer())
     host.addEventListener('mouseleave', () => scheduleTooltipHide())
     document.documentElement.appendChild(host)
@@ -129,7 +110,7 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   const headerRow = document.createElement('div')
   headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px'
   const originalWord = document.createElement('div')
-  originalWord.style.cssText = 'font-weight:700;font-size:13px;color:#ffffff;letter-spacing:0.01em'
+  originalWord.style.cssText = 'font-weight:700;font-size:14px;color:#ffffff;letter-spacing:0.005em'
   originalWord.textContent = original
   headerRow.appendChild(originalWord)
   if (pos) {
@@ -137,14 +118,14 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
     posTag.style.cssText = [
       'display:inline-flex',
       'align-items:center',
-      'border:1px solid #475569',
-      'background:#1e293b',
-      'color:#cbd5e1',
-      'padding:1px 6px',
-      'border-radius:999px',
+      'background:#0c2840',
+      'border:1px solid rgba(110,180,220,.14)',
+      'color:#b9cbe0',
+      'padding:2px 6px',
+      'border-radius:4px',
       'font-size:10px',
       'text-transform:uppercase',
-      'letter-spacing:0.04em',
+      'letter-spacing:0.14em',
       'white-space:nowrap',
     ].join(';')
     posTag.textContent = pos
@@ -153,14 +134,14 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   frag.appendChild(headerRow)
 
   const translatedWord = document.createElement('div')
-  translatedWord.style.cssText = 'margin-top:4px;color:#93c5fd;font-size:13px;font-weight:600'
+  translatedWord.style.cssText = 'margin-top:4px;color:#5cc6f5;font-size:14px;font-weight:600'
   translatedWord.textContent = translated
   frag.appendChild(translatedWord)
 
   if (alts) {
     const altsLabel = document.createElement('div')
-    altsLabel.style.cssText = 'color:#94a3b8;font-size:10px;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em'
-    altsLabel.textContent = 'Alternatives'
+    altsLabel.style.cssText = 'color:#6f8aa6;font-size:10px;margin-top:6px;text-transform:uppercase;letter-spacing:0.14em'
+    altsLabel.textContent = 'Alt translations'
     frag.appendChild(altsLabel)
 
     const chips = document.createElement('div')
@@ -174,11 +155,11 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
         'overflow:hidden',
         'text-overflow:ellipsis',
         'white-space:nowrap',
-        'padding:2px 6px',
-        'border-radius:999px',
-        'border:1px solid #475569',
-        'background:#0b1220',
-        'color:#dbeafe',
+        'padding:2px 8px',
+        'border-radius:4px',
+        'border:1px solid rgba(110,180,220,.14)',
+        'background:#03101c',
+        'color:#cdeaff',
         'font-size:10px',
       ].join(';')
       chip.textContent = alt
@@ -194,17 +175,19 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   pronounceButton.textContent = 'Play Pronunciation'
   pronounceButton.style.cssText = [
     'appearance:none',
-    'border:1px solid #2563eb',
-    'background:linear-gradient(180deg,#2563eb 0%,#1d4ed8 100%)',
-    'color:#eff6ff',
+    '-webkit-appearance:none',
+    'background:linear-gradient(180deg,#5cc6f5 0%,#2aa4e0 100%)',
+    'border:1px solid rgba(255,255,255,0.18)',
+    'color:#042033',
     'font-size:11px',
-    'font-weight:600',
+    'font-weight:700',
     'line-height:1.2',
-    'padding:4px 8px',
-    'border-radius:7px',
+    'padding:4px 10px',
+    'border-radius:8px',
     'cursor:pointer',
     'pointer-events:auto',
-    'box-shadow:0 2px 6px rgba(29,78,216,0.35)',
+    'box-shadow:0 0 0 1px rgba(42,164,224,.45),0 4px 12px -4px rgba(42,164,224,.55)',
+    'transition:filter 120ms cubic-bezier(.2,.8,.2,1)',
   ].join(';')
   pronounceButton.addEventListener('click', async (ev) => {
     ev.preventDefault()
@@ -289,17 +272,7 @@ export function injectTooltipStyles(): void {
   if (document.getElementById(STYLE_ID)) return
   const style = document.createElement('style')
   style.id = STYLE_ID
-  style.textContent = `
-    .osmosis-word {
-      border-bottom: 2px solid rgba(59,130,246,0.7);
-      cursor: inherit;
-      position: relative;
-      z-index: 1;
-      display: inline-block;
-      vertical-align: baseline;
-      pointer-events: auto;
-    }
-  `
+  style.textContent = replacerStyles
   document.head.appendChild(style)
 }
 

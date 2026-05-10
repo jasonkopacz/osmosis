@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Osmosis — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+:root {
+  /* CORE palette — Osmosis */
+  --abyss:        #03101c;   /* deepest ocean */
+  --deep:         #061a2c;   /* primary surface */
+  --mid:          #0c2840;   /* card surface */
+  --shallow:      #133a5a;   /* raised surface */
+  --shoal:        #1f5a82;   /* divider / outline */
+
+  --osmo:         #2aa4e0;   /* osmosis blue (logo wordmark) */
+  --osmo-deep:    #1e7fc0;   /* hover / pressed */
+  --osmo-bright:  #5cc6f5;   /* highlight */
+
+  --current:      #22d3ee;   /* current cyan — links, focus */
+  --current-soft: rgba(34,211,238,.18);
+
+  --droplet:      #2dd4bf;   /* droplet teal — gradient inside mark */
+  --droplet-deep: #0d8b7a;
+
+  --ember:        #f59a2e;   /* orange "A" accent */
+  --ember-soft:   rgba(245,154,46,.16);
+
+  --signal:       #4ade80;   /* success */
+  --warn:         #f59e0b;   /* caution */
+  --error:        #f87171;   /* danger */
+
+  /* Slate scale (cool, neutral, slightly blue) */
+  --slate-50:  #f1f6fb;
+  --slate-100: #dbe6f1;
+  --slate-200: #b9cbe0;
+  --slate-300: #8aa6c2;
+  --slate-400: #5d7c9b;
+  --slate-500: #3f5b78;
+  --slate-600: #2c4359;
+  --slate-700: #1f3145;
+  --slate-800: #142336;
+  --slate-900: #0a1726;
+
+  /* Semantic — dark theme defaults */
+  --bg:          var(--abyss);
+  --bg-grad:     radial-gradient(120% 80% at 50% -20%, #0c4a6e 0%, #042f2e 38%, #03101c 78%);
+  --surface:     var(--deep);
+  --surface-2:   var(--mid);
+  --surface-3:   var(--shallow);
+  --line:        rgba(110,180,220,.14);
+  --line-strong: rgba(110,180,220,.28);
+  --text:        #ecf6ff;
+  --text-soft:   #b9cbe0;
+  --text-mute:   #6f8aa6;
+
+  /* Type scale */
+  --display:  'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --mono:     'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Radii */
+  --r-1: 4px; --r-2: 8px; --r-3: 12px; --r-4: 16px; --r-5: 22px; --r-pill: 999px;
+
+  /* Spacing — 4px base */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px; --s-20: 80px;
+
+  /* Shadow / Elevation — water depth */
+  --shadow-1: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(2,8,20,.6);
+  --shadow-2: 0 1px 0 rgba(255,255,255,.04) inset, 0 8px 24px -8px rgba(2,8,20,.7);
+  --shadow-3: 0 1px 0 rgba(255,255,255,.05) inset, 0 24px 60px -16px rgba(2,8,20,.85), 0 0 0 1px rgba(110,180,220,.06);
+  --glow-osmo: 0 0 0 1px rgba(42,164,224,.45), 0 8px 36px -8px rgba(42,164,224,.55);
+  --glow-current: 0 0 0 1px rgba(34,211,238,.45), 0 0 36px -6px rgba(34,211,238,.55);
+
+  /* Motion */
+  --ease-out:   cubic-bezier(.2,.8,.2,1);
+  --ease-in:    cubic-bezier(.4,0,1,1);
+  --ease-soak:  cubic-bezier(.65,0,.35,1);    /* the "osmotic" ease — slow start, settled stop */
+  --d-1: 120ms; --d-2: 220ms; --d-3: 360ms; --d-4: 600ms;
+}
+
+/* Light "paper" theme */
+html[data-theme="light"]{
+  --bg:        #f3f8fc;
+  --bg-grad:   radial-gradient(140% 90% at 50% -20%, #d6ecf8 0%, #eaf3fa 50%, #f3f8fc 100%);
+  --surface:   #ffffff;
+  --surface-2: #f7fafd;
+  --surface-3: #eff5fa;
+  --line:        rgba(15,52,90,.10);
+  --line-strong: rgba(15,52,90,.20);
+  --text:        #082338;
+  --text-soft:   #2c4359;
+  --text-mute:   #5d7c9b;
+  --shadow-1: 0 1px 2px rgba(15,52,90,.08);
+  --shadow-2: 0 12px 32px -10px rgba(15,52,90,.18);
+  --shadow-3: 0 24px 60px -18px rgba(15,52,90,.22), 0 0 0 1px rgba(15,52,90,.06);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body{
+  font-family: var(--display);
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01","cv11";
+  letter-spacing: -0.005em;
+  min-height: 100vh;
+}
+
+/* Subtle "ripple" grid on dark theme to feel like water surface */
+body::before{
+  content:"";
+  position: fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    radial-gradient(rgba(110,180,220,.08) 1px, transparent 1px),
+    radial-gradient(rgba(110,180,220,.05) 1px, transparent 1px);
+  background-size: 36px 36px, 9px 9px;
+  background-position: 0 0, 18px 18px;
+  mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, #000 60%, transparent 100%);
+  opacity: .9;
+}
+html[data-theme="light"] body::before{
+  background-image:
+    radial-gradient(rgba(15,52,90,.10) 1px, transparent 1px),
+    radial-gradient(rgba(15,52,90,.06) 1px, transparent 1px);
+  opacity: .6;
+}
+
+main { position: relative; z-index: 1; }
+
+/* Layout */
+.shell{ max-width: 1240px; margin: 0 auto; padding: 0 var(--s-8); }
+@media (max-width: 720px){ .shell{ padding: 0 var(--s-5); } }
+
+/* ===== HERO ===== */
+.hero{
+  padding: 88px 0 72px; position: relative; overflow: hidden;
+}
+.hero-grid{ display: grid; grid-template-columns: 1.2fr .8fr; gap: var(--s-12); align-items: end; }
+@media (max-width: 920px){ .hero-grid{ grid-template-columns: 1fr; } }
+
+.eyebrow{
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--current);
+  display: inline-flex; align-items:center; gap: 10px;
+}
+.eyebrow::before{
+  content:""; width: 24px; height: 1px; background: linear-gradient(90deg, var(--current), transparent);
+}
+h1.title{
+  font-size: clamp(56px, 7vw, 112px); line-height: .94; letter-spacing: -.035em;
+  margin: var(--s-4) 0 var(--s-5); font-weight: 700;
+}
+h1.title em{ font-style: normal; color: var(--osmo); position: relative;
+  background: linear-gradient(180deg, var(--osmo-bright) 0%, var(--osmo) 60%, var(--osmo-deep) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lede{
+  max-width: 56ch; color: var(--text-soft); font-size: 19px; line-height: 1.55;
+  margin: 0 0 var(--s-6);
+}
+.meta-row{
+  display: flex; gap: var(--s-6); flex-wrap: wrap;
+  font-family: var(--mono); font-size: 12px; color: var(--text-mute);
+}
+.meta-row b{ color: var(--text); font-weight: 500; }
+.meta-row .sep{ color: var(--line-strong); }
+
+.hero-mark{
+  position: relative; aspect-ratio: 1/1; max-width: 360px; margin-left: auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(45,212,191,.28), transparent 60%),
+    radial-gradient(80% 80% at 50% 50%, rgba(42,164,224,.18), transparent 70%);
+  display: grid; place-items: center;
+}
+.hero-mark img{ width: 86%; height: auto; filter: drop-shadow(0 30px 50px rgba(0,0,0,.5)); }
+.hero-mark::after{
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  border: 1px dashed rgba(110,180,220,.25);
+  animation: spin 60s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== SECTION SCAFFOLDING ===== */
+section.sec{ padding: 96px 0; border-top: 1px solid var(--line); position: relative; }
+section.sec:first-of-type{ border-top: none; }
+.sec-head{ display:grid; grid-template-columns: 200px 1fr; gap: var(--s-12); margin-bottom: var(--s-10); align-items: start; }
+@media (max-width: 800px){ .sec-head{ grid-template-columns: 1fr; gap: var(--s-4); } }
+
+.sec-num{
+  font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-mute);
+}
+.sec-num b{ color: var(--current); font-weight: 500; margin-right: 8px; }
+.sec-title{
+  font-size: clamp(32px, 4vw, 52px); line-height: 1.04; letter-spacing: -.02em;
+  margin: 0 0 var(--s-4); font-weight: 600;
+}
+.sec-desc{ color: var(--text-soft); max-width: 64ch; font-size: 16px; line-height: 1.6; margin: 0; }
+
+/* ===== STICKY NAV ===== */
+.tocbar{
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.tocbar-inner{
+  display: flex; align-items: center; gap: var(--s-6);
+  padding: 12px 0; overflow-x: auto; scrollbar-width: none;
+}
+.tocbar-inner::-webkit-scrollbar { display: none; }
+.toc-brand{ display:flex; align-items:center; gap: 10px; flex-shrink: 0; padding-right: var(--s-4); border-right: 1px solid var(--line); }
+.toc-brand img{ width: 22px; height: 22px; }
+.toc-brand b{ font-weight: 700; letter-spacing: -.01em; font-size: 14px; }
+.toc-brand span{ color: var(--text-mute); font-size: 11px; font-family: var(--mono); }
+.toc-links{ display: flex; gap: var(--s-1); flex-shrink: 0; }
+.toc-links a{
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-mute); padding: 6px 10px; border-radius: var(--r-pill); text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
+}
+.toc-links a:hover{ color: var(--text); background: var(--surface-2); }
+
+/* ===== CARDS / TILES ===== */
+.card{
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-4); padding: var(--s-6);
+  box-shadow: var(--shadow-1);
+}
+.card.subtle{ background: var(--surface-2); }
+
+.card-label{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-mute); margin-bottom: var(--s-3); display:flex; justify-content: space-between; align-items: baseline;
+}
+.card-label b{ color: var(--text); font-weight: 500; }
+
+/* ===== BRAND SECTION ===== */
+.brand-grid{ display:grid; grid-template-columns: repeat(12,1fr); gap: var(--s-5); }
+.brand-grid > .lockup{ grid-column: span 7; }
+.brand-grid > .anatomy{ grid-column: span 5; }
+.brand-grid > .clearspace{ grid-column: span 7; }
+.brand-grid > .donts{ grid-column: span 5; }
+@media (max-width: 920px){ .brand-grid > *{ grid-column: span 12 !important; } }
+
+.lockup{
+  display:flex; flex-direction: column; align-items: stretch;
+  min-height: 280px; padding: 0; overflow: hidden;
+}
+.lockup-stage{
+  flex: 1; display:grid; place-items:center;
+  background:
+    radial-gradient(60% 60% at 30% 30%, rgba(45,212,191,.18), transparent 65%),
+    radial-gradient(60% 60% at 70% 70%, rgba(42,164,224,.18), transparent 65%),
+    var(--surface-2);
+  padding: var(--s-10); border-bottom: 1px solid var(--line);
+}
+.lockup-stage img{ max-width: 80%; height: auto; }
+.lockup-foot{
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-3); padding: var(--s-5);
+  font-family: var(--mono); font-size: 11px;
+}
+.lockup-foot div b{ display:block; color: var(--text); margin-bottom: 2px; }
+.lockup-foot div{ color: var(--text-mute); }
+
+.anatomy{
+  display: grid; grid-template-rows: 1fr auto; padding: 0; overflow:hidden;
+}
+.anatomy-stage{
+  display:grid; place-items: center; padding: var(--s-8);
+  background: radial-gradient(60% 60% at 50% 40%, rgba(45,212,191,.14), transparent 70%), var(--surface-2);
+  position: relative; border-bottom: 1px solid var(--line);
+}
+.anatomy-stage img{ width: 200px; height: auto; }
+.anatomy-line{ position:absolute; height:1px; background: var(--current); opacity:.6; }
+.anatomy-line::after{
+  content: attr(data-label); position: absolute; right: -2px; top: 6px;
+  font-family: var(--mono); font-size: 10px; color: var(--current); letter-spacing: .12em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.anatomy-line::before{
+  content:""; position:absolute; left: 0; top:-2px; width:5px; height:5px; border-radius: 50%; background: var(--current);
+}
+.anatomy-list{ padding: var(--s-5); display:grid; gap: var(--s-2); font-size: 13px; }
+.anatomy-list .row{ display: grid; grid-template-columns: 80px 1fr; gap: var(--s-3); align-items: baseline;}
+.anatomy-list .row b{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--current); font-weight: 500; }
+.anatomy-list .row span{ color: var(--text-soft); }
+
+.clearspace, .donts{ padding: 0; overflow: hidden; }
+.clearspace-stage, .donts-stage{ padding: var(--s-8); background: var(--surface-2); border-bottom: 1px solid var(--line); display:grid; place-items:center; min-height: 200px; }
+.clearspace-frame{ position: relative; padding: 36px; border: 1px dashed rgba(34,211,238,.45); border-radius: var(--r-3); }
+.clearspace-frame img{ height: 64px; width: auto; display: block; }
+.clearspace-frame::before, .clearspace-frame::after{
+  content: "x"; position: absolute; font-family: var(--mono); font-size: 11px; color: var(--current);
+}
+.clearspace-frame::before{ top: 4px; left: 50%; transform: translateX(-50%); }
+.clearspace-frame::after{ left: 4px; top: 50%; transform: translateY(-50%); }
+.clearspace-foot, .donts-foot{ padding: var(--s-5); font-size: 13px; color: var(--text-soft); line-height: 1.55; }
+
+.donts-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-2); width: 100%; padding: 0;}
+.dont{
+  display:grid; place-items: center; aspect-ratio: 1/1;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-2);
+  position: relative; overflow: hidden; padding: var(--s-3);
+}
+.dont .label{
+  position: absolute; left: 6px; right: 6px; bottom: 6px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--error); display: flex; align-items: center; gap: 5px;
+}
+.dont .label::before{ content: "✕"; font-size: 10px; }
+.dont img{ max-width: 70%; max-height: 70%; filter: hue-rotate(40deg) saturate(.5); opacity: .8;}
+.dont.shadow img{ filter: drop-shadow(0 0 8px #f00); }
+.dont.stretch img{ transform: scaleX(1.6) scaleY(.7); }
+.dont.tint img{ filter: hue-rotate(140deg) saturate(2); }
+
+/* ===== COLOR ===== */
+.palette-grid{ display:grid; grid-template-columns: repeat(12,1fr); gap: var(--s-3); }
+.swatch{
+  grid-column: span 3;
+  border-radius: var(--r-3); border: 1px solid var(--line);
+  background: var(--surface); overflow: hidden; display: flex; flex-direction: column;
+  min-height: 180px;
+}
+.swatch.lg{ grid-column: span 6; min-height: 220px; }
+.swatch.md{ grid-column: span 4; }
+@media (max-width: 920px){ .swatch{ grid-column: span 6 !important; } }
+@media (max-width: 560px){ .swatch{ grid-column: span 12 !important; } }
+
+.swatch .chip{ flex: 1; min-height: 110px; position: relative; }
+.swatch .chip::after{
+  content: attr(data-tag); position:absolute; top: 12px; left: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,.7); padding: 3px 7px; background: rgba(0,0,0,.25); border-radius: var(--r-pill);
+  backdrop-filter: blur(4px);
+}
+.swatch .chip.dark::after{ color: rgba(255,255,255,.85); background: rgba(0,0,0,.35);}
+.swatch .chip.light::after{ color: rgba(8,35,56,.85); background: rgba(255,255,255,.55);}
+.swatch .meta{
+  padding: var(--s-3) var(--s-4); display:grid; gap: 2px;
+  border-top: 1px solid var(--line); background: var(--surface);
+}
+.swatch .meta b{ font-size: 13px; font-weight: 600; }
+.swatch .meta code{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); }
+.swatch .meta .role{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-mute); margin-top: 2px; }
+
+.scale-grid{ display:grid; grid-template-columns: repeat(10,1fr); border-radius: var(--r-3); overflow:hidden; border: 1px solid var(--line); margin-top: var(--s-6); }
+.scale-grid .step{ aspect-ratio: 1.1/1; padding: var(--s-3); display:flex; flex-direction:column; justify-content: space-between; font-family: var(--mono); font-size: 10px; }
+.scale-grid .step b{ font-weight: 500; font-size: 11px; }
+@media (max-width: 720px){ .scale-grid{ grid-template-columns: repeat(5,1fr); } }
+
+/* ===== TYPE ===== */
+.type-pair{
+  display:grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-bottom: var(--s-6);
+}
+@media (max-width: 800px){ .type-pair{ grid-template-columns: 1fr; } }
+.type-card{ padding: var(--s-6); }
+.type-name{ display:flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-3); }
+.type-name b{ font-size: 14px; font-weight: 600; }
+.type-name span{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); }
+.type-aa{ font-size: 96px; line-height: 1; letter-spacing: -.04em; font-weight: 700; }
+.type-aa.mono{ font-family: var(--mono); font-weight: 500; letter-spacing: -.02em; }
+.type-glyphs{ font-family: inherit; font-size: 22px; color: var(--text-soft); margin-top: var(--s-3); letter-spacing: -.005em; line-height: 1.3; }
+.type-glyphs.mono{ font-family: var(--mono); }
+.type-weights{ display:flex; gap: var(--s-3); margin-top: var(--s-4); flex-wrap: wrap; font-size: 13px;}
+.type-weights span{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); }
+
+.scale-rows{ display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; }
+.scale-rows .row{
+  display: grid; grid-template-columns: 130px 1fr 220px; gap: var(--s-5); align-items: baseline;
+  padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line);
+}
+.scale-rows .row:first-child{ border-top: none; }
+.scale-rows .row .name{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); letter-spacing: .14em; text-transform: uppercase; }
+.scale-rows .row .name b{ display:block; color: var(--text); font-size: 12px; letter-spacing: 0; text-transform: none; font-family: var(--display); font-weight: 600; margin-top: 2px; }
+.scale-rows .row .specimen{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scale-rows .row .meta{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); text-align: right; }
+
+.scripts{ display:grid; grid-template-columns: repeat(2,1fr); gap: var(--s-3); margin-top: var(--s-6); }
+@media (max-width: 720px){ .scripts{ grid-template-columns: 1fr; } }
+.script{
+  padding: var(--s-5); display: grid; gap: var(--s-3);
+}
+.script .lang{ font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--current); display:flex; justify-content: space-between; }
+.script .text{ font-size: 22px; line-height: 1.5; }
+.script .lat{ font-family: var(--display); }
+.script .ja { font-family: 'Noto Sans JP', var(--display); }
+.script .ko { font-family: 'Noto Sans KR', var(--display); }
+.script .ar { font-family: 'Noto Naskh Arabic', var(--display); direction: rtl; text-align: right; }
+.script .hi { font-family: 'Noto Sans Devanagari', var(--display); }
+.script .gloss{ color: var(--text-mute); font-size: 12px; font-family: var(--mono); }
+
+/* ===== SPACING / RADIUS / SHADOW ===== */
+.tokens{ display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-5); }
+@media (max-width: 920px){ .tokens{ grid-template-columns: 1fr; } }
+
+.spacers{ display:flex; flex-direction:column; gap: var(--s-2); }
+.spacers .row{
+  display:grid; grid-template-columns: 56px 1fr 60px; gap: var(--s-3); align-items: center;
+  font-family: var(--mono); font-size: 11px; color: var(--text-mute);
+}
+.spacers .bar{ height: 12px; background: linear-gradient(90deg, var(--current) 0%, var(--osmo) 100%); border-radius: var(--r-pill); }
+.spacers .row b{ color: var(--text); }
+
+.radii{ display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-3); }
+.radii .item{ aspect-ratio: 1.4/1; background: var(--surface-3); display:flex; flex-direction: column; justify-content:flex-end; padding: var(--s-3);
+  border: 1px solid var(--line); position: relative; }
+.radii .item code{ font-family: var(--mono); font-size: 11px; color: var(--text); }
+.radii .item span{ font-family: var(--mono); font-size: 10px; color: var(--text-mute); }
+
+.elev{ display:grid; gap: var(--s-3); }
+.elev .item{
+  display:grid; grid-template-columns: 1.4fr 1fr; gap: var(--s-3); align-items:center;
+  padding: var(--s-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-3);
+}
+.elev .puck{
+  height: 56px; border-radius: var(--r-3); background: var(--surface);
+  border: 1px solid var(--line);
+}
+.elev .meta b{ font-size: 13px; font-weight: 600; }
+.elev .meta code{ font-family: var(--mono); font-size: 10px; color: var(--text-mute); display:block; margin-top: 2px; }
+
+/* Component playgrounds */
+.cmp-grid{ display:grid; grid-template-columns: repeat(12,1fr); gap: var(--s-5); }
+.cmp{ grid-column: span 6; padding: 0; overflow: hidden; }
+.cmp.full{ grid-column: span 12; }
+.cmp.third{ grid-column: span 4; }
+@media (max-width: 920px){ .cmp{ grid-column: span 12; } .cmp.third{ grid-column: span 12; } }
+.cmp-stage{ padding: var(--s-8); display:flex; align-items:center; justify-content: center; gap: var(--s-4); flex-wrap: wrap; min-height: 180px;
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(34,211,238,.05), transparent 60%),
+    var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.cmp-foot{ padding: var(--s-4) var(--s-5); display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3); flex-wrap: wrap; }
+.cmp-foot b{ font-size: 13px; font-weight: 600; }
+.cmp-foot span{ font-family: var(--mono); font-size: 11px; color: var(--text-mute); }
+
+/* Buttons */
+.btn{
+  font-family: var(--display); font-weight: 700; font-size: 13px;
+  border: 1px solid transparent; border-radius: var(--r-3); padding: 10px 16px;
+  cursor: pointer; display: inline-flex; align-items:center; gap: 8px;
+  transition: transform var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out), box-shadow var(--d-2) var(--ease-out), border-color var(--d-1);
+  letter-spacing: .005em;
+}
+.btn:active{ transform: translateY(1px); }
+.btn-primary{
+  background: linear-gradient(180deg, var(--osmo-bright) 0%, var(--osmo) 55%, var(--osmo-deep) 100%);
+  color: #042033; border-color: rgba(255,255,255,.18);
+  box-shadow: var(--glow-osmo);
+}
+.btn-primary:hover{ filter: brightness(1.08); }
+.btn-secondary{ background: var(--surface-3); color: var(--text); border-color: var(--line-strong); }
+.btn-secondary:hover{ border-color: var(--current); color: var(--text); }
+.btn-ghost{ background: transparent; color: var(--text-soft); border-color: var(--line); }
+.btn-ghost:hover{ color: var(--text); border-color: var(--line-strong); }
+.btn-danger{ background: rgba(248,113,113,.14); color: var(--error); border-color: rgba(248,113,113,.4); }
+.btn-ember{
+  background: linear-gradient(180deg, #fbb461 0%, var(--ember) 55%, #c97817 100%);
+  color: #2a1305; border-color: rgba(255,255,255,.2);
+}
+.btn-sm{ padding: 6px 11px; font-size: 12px; border-radius: var(--r-2); }
+.btn-lg{ padding: 14px 22px; font-size: 14px; border-radius: var(--r-4); }
+
+/* Toggle */
+.toggle{ width: 44px; height: 24px; border-radius: var(--r-pill); background: var(--surface-3); border: 1px solid var(--line); position: relative; cursor: pointer; transition: background var(--d-2) var(--ease-out); }
+.toggle::after{ content:""; position:absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left var(--d-2) var(--ease-soak); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.toggle.on{ background: linear-gradient(180deg, var(--osmo-bright), var(--osmo)); border-color: var(--osmo); }
+.toggle.on::after{ left: 22px; }
+
+/* Slider */
+.range{ width: 220px; appearance: none; height: 4px; border-radius: var(--r-pill); background: var(--surface-3); outline: none; }
+.range::-webkit-slider-thumb{ appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--osmo-bright), var(--osmo)); border: 2px solid var(--surface);
+  box-shadow: var(--glow-osmo); cursor: pointer;
+}
+.range::-moz-range-thumb{ width: 18px; height: 18px; border-radius: 50%; background: var(--osmo); border: 2px solid var(--surface); }
+
+/* Input */
+.input{
+  width: 220px; padding: 9px 12px; font-size: 13px; font-family: var(--display);
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-3);
+  outline: none; transition: border-color var(--d-1), box-shadow var(--d-2);
+}
+.input:focus{ border-color: var(--current); box-shadow: 0 0 0 3px var(--current-soft); }
+.input::placeholder{ color: var(--text-mute); }
+
+/* Badges / chips */
+.chip-l{
+  display:inline-flex; align-items:center; gap: 6px; padding: 4px 10px;
+  border-radius: var(--r-pill); background: var(--surface-3); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: var(--text-soft);
+}
+.chip-l .dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--current); box-shadow: 0 0 8px var(--current); }
+.chip-l.ember .dot{ background: var(--ember); box-shadow: 0 0 8px var(--ember); }
+.chip-l.osmo .dot{ background: var(--osmo); box-shadow: 0 0 8px var(--osmo); }
+.chip-l.signal .dot{ background: var(--signal); box-shadow: 0 0 8px var(--signal); }
+
+/* Usage meter */
+.usage{ width: 260px; }
+.usage-row{ display:flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; margin-bottom: 6px; color: var(--text-mute); }
+.usage-row b{ color: var(--text); font-weight: 500; }
+.usage-track{ height: 8px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; border: 1px solid var(--line); position: relative; }
+.usage-fill{
+  height: 100%; width: 64%;
+  background: linear-gradient(90deg, var(--droplet) 0%, var(--osmo) 60%, var(--ember) 100%);
+  border-radius: inherit;
+  box-shadow: 0 0 12px rgba(34,211,238,.5);
+}
+
+/* Tooltip preview */
+.tt{
+  display: inline-flex; flex-direction: column; gap: 6px;
+  background: linear-gradient(180deg, var(--mid) 0%, var(--deep) 100%);
+  border: 1px solid var(--line-strong); border-radius: var(--r-3);
+  padding: var(--s-3) var(--s-4); min-width: 180px; box-shadow: var(--shadow-3);
+}
+.tt-head{ display:flex; gap: 8px; align-items: baseline; }
+.tt-head b{ font-size: 14px; color: #fff; }
+.tt-head code{ font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: var(--r-1);
+  background: var(--surface-3); color: var(--text-soft); border: 1px solid var(--line); }
+.tt-tr{ font-size: 14px; color: var(--osmo-bright); font-weight: 600; }
+.tt-alt{ font-family: var(--mono); font-size: 10px; color: var(--text-mute); letter-spacing: .12em; text-transform: uppercase; margin-top: 4px;}
+.tt-row{ display:flex; gap: 6px; flex-wrap: wrap; }
+.tt-row span{ font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: var(--r-1);
+  background: var(--abyss); color: #cdeaff; border: 1px solid var(--line); }
+
+/* Language pill */
+.lang-pill{
+  display:inline-flex; align-items:center; gap: 8px; padding: 6px 12px 6px 6px;
+  background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-pill);
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+}
+.lang-pill .flag{ width: 22px; height: 22px; border-radius: 50%; display:grid; place-items:center;
+  font-size: 12px; font-family: var(--display); font-weight: 700; color: #042033;
+  background: linear-gradient(180deg, var(--osmo-bright), var(--osmo));
+}
+
+/* ===== FLAGSHIP — OSMOTIC SWAP ===== */
+.osmo-stage{
+  background:
+    radial-gradient(80% 80% at 50% 0%, rgba(34,211,238,.07), transparent 60%),
+    var(--surface-2);
+  padding: var(--s-10); border-bottom: 1px solid var(--line); position: relative;
+}
+.osmo-prose{ max-width: 60ch; margin: 0 auto; font-size: 18px; line-height: 1.85; color: var(--text-soft); }
+.osmo-prose h4{ color: var(--text); font-size: 24px; margin: 0 0 var(--s-3); font-weight: 600; letter-spacing: -.015em; }
+.osmo-prose p{ margin: 0 0 1em; }
+
+.swap{
+  display: inline-block; position: relative;
+  border-bottom: 1.5px dashed rgba(34,211,238,.55);
+  color: var(--osmo-bright); font-weight: 600;
+  cursor: help; padding: 0 1px;
+  transition: color var(--d-2) var(--ease-out);
+}
+.swap[data-state="fresh"]{ color: var(--ember); border-bottom-color: rgba(245,154,46,.55); }
+.swap[data-state="learning"]{ color: var(--osmo-bright); border-bottom-color: rgba(34,211,238,.55); }
+.swap[data-state="known"]{ color: var(--signal); border-bottom-color: rgba(74,222,128,.45); }
+
+.swap:hover::after{
+  content: attr(data-orig); position: absolute; left: 50%; top: -34px; transform: translateX(-50%);
+  font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text);
+  background: var(--mid); border: 1px solid var(--line-strong); border-radius: var(--r-2);
+  padding: 4px 10px; white-space: nowrap; box-shadow: var(--shadow-3); pointer-events: none;
+  animation: pop var(--d-2) var(--ease-soak);
+}
+@keyframes pop{ from{ opacity:0; transform: translate(-50%, 4px); } to{ opacity:1; transform: translate(-50%, 0); }}
+
+.osmo-controls{ margin-top: var(--s-6); display:flex; gap: var(--s-3); align-items: center; justify-content: center; flex-wrap: wrap; }
+.osmo-controls .legend{ display:flex; gap: var(--s-3); margin-left: auto; }
+
+.osmo-explain{
+  margin-top: var(--s-5); padding: var(--s-5); border: 1px solid var(--line); border-radius: var(--r-3);
+  background: var(--surface);
+  display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-5);
+}
+@media (max-width: 720px){ .osmo-explain{ grid-template-columns: 1fr; } }
+.osmo-explain h5{ margin: 0 0 var(--s-2); font-size: 13px; font-weight: 600; }
+.osmo-explain p{ margin: 0; font-size: 12px; color: var(--text-soft); line-height: 1.55;}
+.osmo-explain .step{
+  display: grid; gap: var(--s-2);
+  padding-left: var(--s-3); border-left: 2px solid var(--current);
+}
+
+/* ===== VOICE ===== */
+.voice{ display:grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+@media (max-width: 720px){ .voice{ grid-template-columns: 1fr; } }
+.voice-card{ padding: var(--s-5); display:grid; gap: var(--s-3); }
+.voice-card .head{ display:flex; gap: var(--s-3); align-items: baseline; }
+.voice-card .yes, .voice-card .no{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); }
+.voice-card .yes{ background: rgba(74,222,128,.14); color: var(--signal); border: 1px solid rgba(74,222,128,.4); }
+.voice-card .no { background: rgba(248,113,113,.12); color: var(--error); border: 1px solid rgba(248,113,113,.35); }
+.voice-card blockquote{ margin: 0; font-size: 17px; line-height: 1.5; color: var(--text); font-weight: 500; letter-spacing: -.005em; }
+.voice-card .why{ color: var(--text-mute); font-size: 12px; }
+
+/* ===== POPUP MOCK ===== */
+.popup-mock{
+  width: 320px; height: 480px; background:
+    radial-gradient(120% 80% at 50% 0%, #0c4a6e 0%, #042f2e 45%, #020617 100%);
+  border-radius: var(--r-4); border: 1px solid var(--line-strong); overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-3);
+  font-size: 12px;
+}
+.popup-mock .ph{ padding: 12px; border-bottom: 1px solid rgba(34,211,238,.16); display:flex; justify-content: space-between; align-items: center; }
+.popup-mock .ph .ti{ display:flex; gap: 8px; align-items: center; font-weight: 700; }
+.popup-mock .ph img{ width: 22px; height: 22px; }
+.popup-mock .ph .gear{ color: var(--text-mute); font-size: 16px; }
+.popup-mock .pb{ padding: 14px; display: grid; gap: 14px; }
+.popup-mock label{ font-family: var(--mono); font-size: 10px; color: var(--text-mute); letter-spacing: .14em; text-transform: uppercase; display:flex; justify-content: space-between; }
+.popup-mock label b{ color: var(--text); font-weight: 500; }
+
+/* ===== FOOTER ===== */
+footer{
+  border-top: 1px solid var(--line); padding: var(--s-12) 0; color: var(--text-mute);
+  display: grid; grid-template-columns: 1fr auto; gap: var(--s-5); align-items: center;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+}
+footer b{ color: var(--text); font-weight: 500; }
+footer a{ color: var(--current); text-decoration: none; }
+
+/* utility */
+.row { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: var(--s-3); }
+.muted { color: var(--text-mute); }
+.ramp{ height: 10px; border-radius: var(--r-pill); }
+
+</style>
+</head>
+<body>
+
+<!-- TOC sticky bar -->
+<nav class="tocbar" aria-label="Section navigation">
+  <div class="shell tocbar-inner">
+    <div class="toc-brand">
+      <img src="assets/mark-droplet-brain.png" alt="" />
+      <b>Osmosis</b><span>v3.0 · DS</span>
+    </div>
+    <div class="toc-links">
+      <a href="#brand">01 Brand</a>
+      <a href="#color">02 Color</a>
+      <a href="#type">03 Type</a>
+      <a href="#tokens">04 Tokens</a>
+      <a href="#components">05 Components</a>
+      <a href="#swap">06 Osmotic Swap</a>
+      <a href="#voice">07 Voice</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="shell hero-grid">
+    <div>
+      <span class="eyebrow">Osmosis · Design System · v3.0</span>
+      <h1 class="title">Learn a language by <em>soaking</em> in it.</h1>
+      <p class="lede">Osmosis quietly replaces words on the pages you already read with translations, and gets out of the way. This is the visual language behind that — the colors, type, tokens and components that make the soak feel natural.</p>
+      <div class="meta-row">
+        <span><b>Updated</b> May 2026</span>
+        <span class="sep">·</span>
+        <span><b>Theme</b> Deep ocean (default)</span>
+        <span class="sep">·</span>
+        <span><b>Surface</b> Chrome MV3 popup &amp; in-page DOM</span>
+        <span class="sep">·</span>
+        <span><b>Languages</b> 50+</span>
+      </div>
+    </div>
+    <div class="hero-mark" aria-hidden="true">
+      <img src="assets/mark-droplet-brain.png" alt="" />
+    </div>
+  </div>
+</header>
+
+<!-- 01 BRAND -->
+<section class="sec" id="brand">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>01</b>Brand</div>
+      <div>
+        <h2 class="sec-title">A droplet on a synapse.</h2>
+        <p class="sec-desc">The mark is two metaphors fused: a translation droplet — carrying glyphs from many scripts — landing on a brain wired as a network. Together they say <i>passive intake, active connection</i>. Always render the mark in full color on a dark surface; the light variant exists only for printed correspondence.</p>
+      </div>
+    </div>
+
+    <div class="brand-grid">
+
+      <article class="card lockup">
+        <div class="lockup-stage">
+          <img src="assets/logo-horizontal.png" alt="Osmosis horizontal lockup" />
+        </div>
+        <div class="lockup-foot">
+          <div><b>Primary lockup</b>Wordmark + mark, horizontal</div>
+          <div><b>Min width</b>120px digital · 24mm print</div>
+          <div><b>File</b>logo-horizontal.png · 1664×512</div>
+        </div>
+      </article>
+
+      <article class="card anatomy">
+        <div class="anatomy-stage">
+          <img src="assets/mark-droplet-brain.png" alt="Mark anatomy" />
+          <span class="anatomy-line" data-label="droplet" style="top:24%;left:24%;width:48%"></span>
+          <span class="anatomy-line" data-label="glyphs"  style="top:36%;left:34%;width:40%"></span>
+          <span class="anatomy-line" data-label="cortex"  style="top:54%;left:46%;width:34%"></span>
+          <span class="anatomy-line" data-label="synapse" style="top:74%;left:50%;width:30%"></span>
+        </div>
+        <div class="anatomy-list">
+          <div class="row"><b>Droplet</b><span>Carrier — translation in transit</span></div>
+          <div class="row"><b>Glyphs</b><span>A · あ · 문 · abc — multi-script payload</span></div>
+          <div class="row"><b>Cortex</b><span>Soft-blue brain — ambient host</span></div>
+          <div class="row"><b>Synapse</b><span>Glowing nodes — the moment a word sticks</span></div>
+        </div>
+      </article>
+
+      <article class="card clearspace">
+        <div class="clearspace-stage">
+          <div class="clearspace-frame"><img src="assets/logo-horizontal.png" alt="" /></div>
+        </div>
+        <div class="clearspace-foot">
+          <b>Clear space.</b> Reserve a margin equal to the height of the lowercase <code style="font-family:var(--mono);color:var(--ember)">o</code> on every side. Never crowd the lockup with copy, frames, or other marks.
+        </div>
+      </article>
+
+      <article class="card donts">
+        <div class="donts-stage" style="padding:12px;">
+          <div class="donts-grid">
+            <div class="dont stretch"><img src="assets/mark-droplet-brain.png" alt=""><span class="label">Stretch</span></div>
+            <div class="dont tint"><img src="assets/mark-droplet-brain.png" alt=""><span class="label">Recolor</span></div>
+            <div class="dont shadow"><img src="assets/mark-droplet-brain.png" alt=""><span class="label">Glow / shadow</span></div>
+          </div>
+        </div>
+        <div class="donts-foot">
+          <b>Don't.</b> Distort the proportions, recolor the droplet outside the brand palette, or add effects to the mark. The droplet's gradient is doing the work — don't add a halo.
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- 02 COLOR -->
+<section class="sec" id="color">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>02</b>Color</div>
+      <div>
+        <h2 class="sec-title">Deep water, with two embers.</h2>
+        <p class="sec-desc">Osmosis lives mostly on cold blue: ocean depth and a luminous current. Two warm-orange accents — the droplet's "A" — break that cold for the things users actually act on (primary CTA, streaks, learning highlights). Saturation goes <i>up</i> with depth: surfaces are quietly cool, signals are hot.</p>
+      </div>
+    </div>
+
+    <h3 class="card-label" style="margin-bottom:var(--s-4)"><span>Brand</span><b>Core 6</b></h3>
+    <div class="palette-grid">
+      <div class="swatch lg">
+        <div class="chip dark" style="background: linear-gradient(140deg, var(--droplet) 0%, var(--osmo) 50%, var(--osmo-deep) 100%);" data-tag="signature gradient"></div>
+        <div class="meta"><b>Osmotic Gradient</b><code>linear-gradient(140deg, #2dd4bf → #2aa4e0 → #1e7fc0)</code><span class="role">primary CTA · brand surfaces</span></div>
+      </div>
+      <div class="swatch md"><div class="chip dark" style="background:#2aa4e0" data-tag="osmo"></div><div class="meta"><b>Osmosis Blue</b><code>#2aa4e0 · oklch(.71 .14 233)</code><span class="role">wordmark · primary</span></div></div>
+      <div class="swatch md"><div class="chip dark" style="background:#22d3ee" data-tag="current"></div><div class="meta"><b>Current</b><code>#22d3ee · oklch(.81 .13 200)</code><span class="role">links · focus · highlight</span></div></div>
+      <div class="swatch md"><div class="chip" style="background:#2dd4bf" data-tag="droplet"></div><div class="meta"><b>Droplet</b><code>#2dd4bf · oklch(.79 .12 178)</code><span class="role">progress · success-warm</span></div></div>
+      <div class="swatch md"><div class="chip" style="background:#f59a2e" data-tag="ember"></div><div class="meta"><b>Ember</b><code>#f59a2e · oklch(.77 .15 65)</code><span class="role">streaks · "fresh" word state</span></div></div>
+      <div class="swatch md"><div class="chip dark" style="background:#03101c" data-tag="abyss"></div><div class="meta"><b>Abyss</b><code>#03101c</code><span class="role">canvas / page background</span></div></div>
+      <div class="swatch md"><div class="chip dark" style="background:#061a2c" data-tag="deep"></div><div class="meta"><b>Deep</b><code>#061a2c</code><span class="role">primary surface</span></div></div>
+    </div>
+
+    <h3 class="card-label" style="margin-top:var(--s-10);margin-bottom:var(--s-4)"><span>Neutral · Cool slate</span><b>50 → 900</b></h3>
+    <div class="scale-grid">
+      <div class="step" style="background:#f1f6fb;color:#0a1726;"><span>50</span><b>#f1f6fb</b></div>
+      <div class="step" style="background:#dbe6f1;color:#0a1726;"><span>100</span><b>#dbe6f1</b></div>
+      <div class="step" style="background:#b9cbe0;color:#0a1726;"><span>200</span><b>#b9cbe0</b></div>
+      <div class="step" style="background:#8aa6c2;color:#0a1726;"><span>300</span><b>#8aa6c2</b></div>
+      <div class="step" style="background:#5d7c9b;color:#fff;"><span>400</span><b>#5d7c9b</b></div>
+      <div class="step" style="background:#3f5b78;color:#fff;"><span>500</span><b>#3f5b78</b></div>
+      <div class="step" style="background:#2c4359;color:#fff;"><span>600</span><b>#2c4359</b></div>
+      <div class="step" style="background:#1f3145;color:#fff;"><span>700</span><b>#1f3145</b></div>
+      <div class="step" style="background:#142336;color:#fff;"><span>800</span><b>#142336</b></div>
+      <div class="step" style="background:#0a1726;color:#fff;"><span>900</span><b>#0a1726</b></div>
+    </div>
+
+    <h3 class="card-label" style="margin-top:var(--s-10);margin-bottom:var(--s-4)"><span>Semantic</span><b>State signaling</b></h3>
+    <div class="palette-grid">
+      <div class="swatch md"><div class="chip" style="background:#4ade80" data-tag="signal"></div><div class="meta"><b>Signal</b><code>#4ade80</code><span class="role">success · word marked "known"</span></div></div>
+      <div class="swatch md"><div class="chip" style="background:#f59e0b" data-tag="warn"></div><div class="meta"><b>Warn</b><code>#f59e0b</code><span class="role">approaching usage limit</span></div></div>
+      <div class="swatch md"><div class="chip" style="background:#f87171" data-tag="error"></div><div class="meta"><b>Error</b><code>#f87171</code><span class="role">limit reached · auth failure</span></div></div>
+    </div>
+
+    <h3 class="card-label" style="margin-top:var(--s-10);margin-bottom:var(--s-4)"><span>Word-state palette</span><b>The osmotic spectrum</b></h3>
+    <p class="muted" style="margin: 0 0 var(--s-4); font-size: 13px; max-width: 60ch;">Replaced words pass through three states as the user encounters them. The palette telegraphs that arc — warm when novel, cool when known, fading toward neutral as memory stabilizes.</p>
+    <div class="ramp" style="background: linear-gradient(90deg, #f59a2e 0%, #22d3ee 50%, #4ade80 100%); margin-bottom: var(--s-3);"></div>
+    <div style="display:grid;grid-template-columns: repeat(3,1fr); gap: var(--s-3);">
+      <div class="card subtle"><div class="card-label"><span>State</span><b>Fresh</b></div><div class="row"><span class="chip-l ember"><span class="dot"></span>ember</span><span class="muted" style="font-family:var(--mono); font-size:11px;">first 1–2 sightings</span></div></div>
+      <div class="card subtle"><div class="card-label"><span>State</span><b>Learning</b></div><div class="row"><span class="chip-l"><span class="dot"></span>current</span><span class="muted" style="font-family:var(--mono); font-size:11px;">3–9 sightings</span></div></div>
+      <div class="card subtle"><div class="card-label"><span>State</span><b>Known</b></div><div class="row"><span class="chip-l signal"><span class="dot"></span>signal</span><span class="muted" style="font-family:var(--mono); font-size:11px;">10+ sightings · fades to neutral</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 TYPE -->
+<section class="sec" id="type">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>03</b>Type</div>
+      <div>
+        <h2 class="sec-title">Round display, technical mono.</h2>
+        <p class="sec-desc">Manrope brings the same softness as the wordmark — the geometric, friendly <i>o</i>. IBM Plex Mono labels the technical surface (counts, codes, tokens). For target-language specimens we render Noto for non-Latin scripts so a Korean reader sees Korean correctly out of the box.</p>
+      </div>
+    </div>
+
+    <div class="type-pair">
+      <div class="card type-card">
+        <div class="type-name"><b>Manrope</b><span>Display · UI · Body</span></div>
+        <div class="type-aa">Aa</div>
+        <div class="type-glyphs">The quick brown fox soaks slowly. 0123456789 → ø æ å · ¿ — “”</div>
+        <div class="type-weights">
+          <span>300 Light</span><span>400 Regular</span><span>500 Medium</span><span>600 Semibold</span><span>700 Bold</span><span>800 Extrabold</span>
+        </div>
+      </div>
+      <div class="card type-card">
+        <div class="type-name"><b>IBM Plex Mono</b><span>Labels · Code · Counters</span></div>
+        <div class="type-aa mono">Aa</div>
+        <div class="type-glyphs mono">/translate { words: 17 } → 200 OK · 84.2% · v3.0.0</div>
+        <div class="type-weights">
+          <span>400 Regular</span><span>500 Medium</span><span>600 Semibold</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="card-label" style="margin-bottom:var(--s-3)"><span>Scale</span><b>Eight steps</b></h3>
+    <div class="scale-rows">
+      <div class="row"><div class="name">display-xl<b>Display XL</b></div><div class="specimen" style="font-size:88px;line-height:.95;letter-spacing:-.035em;font-weight:700;">Soak it in</div><div class="meta">88 / 84 · -0.035em · 700</div></div>
+      <div class="row"><div class="name">display-l<b>Display L</b></div><div class="specimen" style="font-size:64px;line-height:1;letter-spacing:-.03em;font-weight:700;">Soak it in</div><div class="meta">64 / 64 · -0.030em · 700</div></div>
+      <div class="row"><div class="name">title<b>Title</b></div><div class="specimen" style="font-size:36px;line-height:1.1;letter-spacing:-.02em;font-weight:600;">Translate as you read</div><div class="meta">36 / 40 · -0.020em · 600</div></div>
+      <div class="row"><div class="name">heading<b>Heading</b></div><div class="specimen" style="font-size:22px;line-height:1.3;letter-spacing:-.012em;font-weight:600;">Replacement frequency</div><div class="meta">22 / 28 · -0.012em · 600</div></div>
+      <div class="row"><div class="name">body-l<b>Body L</b></div><div class="specimen" style="font-size:17px;line-height:1.55;">Hover any replaced word to reveal the original.</div><div class="meta">17 / 26 · 0 · 400</div></div>
+      <div class="row"><div class="name">body<b>Body</b></div><div class="specimen" style="font-size:14px;line-height:1.5;">Settings sync across devices via chrome.storage.sync.</div><div class="meta">14 / 21 · 0 · 400</div></div>
+      <div class="row"><div class="name">caption<b>Caption</b></div><div class="specimen" style="font-size:12px;line-height:1.45;color:var(--text-soft);">Free tier · 50,000 characters / month</div><div class="meta">12 / 18 · 0 · 400</div></div>
+      <div class="row"><div class="name">label<b>Label · mono</b></div><div class="specimen" style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--current);">Target language</div><div class="meta">11 / 14 · 0.16em · 500</div></div>
+    </div>
+
+    <h3 class="card-label" style="margin-top: var(--s-10); margin-bottom:var(--s-3)"><span>Multi-script specimens</span><b>Noto fallbacks</b></h3>
+    <div class="scripts">
+      <div class="card script">
+        <div class="lang"><span>ja · Japanese</span><span class="muted">Noto Sans JP</span></div>
+        <div class="text ja">読みながら、自然に言葉を吸収する。</div>
+        <div class="gloss">→ "Read, and absorb words naturally."</div>
+      </div>
+      <div class="card script">
+        <div class="lang"><span>ko · Korean</span><span class="muted">Noto Sans KR</span></div>
+        <div class="text ko">읽으면서 자연스럽게 단어를 흡수하세요.</div>
+        <div class="gloss">→ "Absorb words naturally as you read."</div>
+      </div>
+      <div class="card script">
+        <div class="lang"><span>ar · Arabic · RTL</span><span class="muted">Noto Naskh</span></div>
+        <div class="text ar">امتص المفردات بشكل طبيعي أثناء القراءة.</div>
+        <div class="gloss">→ Right-to-left layout flips automatically</div>
+      </div>
+      <div class="card script">
+        <div class="lang"><span>hi · Hindi</span><span class="muted">Noto Sans Devanagari</span></div>
+        <div class="text hi">पढ़ते-पढ़ते शब्दों को सहज रूप से सोखें।</div>
+        <div class="gloss">→ Devanagari with proper conjuncts</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 TOKENS -->
+<section class="sec" id="tokens">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>04</b>Tokens</div>
+      <div>
+        <h2 class="sec-title">A 4-pixel grid, water-soft corners, ocean shadow.</h2>
+        <p class="sec-desc">Every spacing value is a multiple of 4. Radii lean generous (8 / 12 / 16) — the brand has zero hard corners. Shadows mimic looking down into water: tighter at the surface, broad and cool at depth. Motion uses one signature curve: <code style="font-family:var(--mono); color:var(--current)">soak</code>.</p>
+      </div>
+    </div>
+
+    <div class="tokens">
+
+      <article class="card">
+        <div class="card-label"><span>Spacing</span><b>4-pt grid</b></div>
+        <div class="spacers">
+          <div class="row"><b>s-1</b><div class="bar" style="width:4px"></div><span>4 px</span></div>
+          <div class="row"><b>s-2</b><div class="bar" style="width:8px"></div><span>8 px</span></div>
+          <div class="row"><b>s-3</b><div class="bar" style="width:12px"></div><span>12 px</span></div>
+          <div class="row"><b>s-4</b><div class="bar" style="width:16px"></div><span>16 px</span></div>
+          <div class="row"><b>s-5</b><div class="bar" style="width:20px"></div><span>20 px</span></div>
+          <div class="row"><b>s-6</b><div class="bar" style="width:24px"></div><span>24 px</span></div>
+          <div class="row"><b>s-8</b><div class="bar" style="width:32px"></div><span>32 px</span></div>
+          <div class="row"><b>s-10</b><div class="bar" style="width:40px"></div><span>40 px</span></div>
+          <div class="row"><b>s-12</b><div class="bar" style="width:48px"></div><span>48 px</span></div>
+          <div class="row"><b>s-16</b><div class="bar" style="width:64px"></div><span>64 px</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-label"><span>Radii</span><b>No hard corners</b></div>
+        <div class="radii">
+          <div class="item" style="border-radius:4px"><code>r-1</code><span>4 px · chips · code</span></div>
+          <div class="item" style="border-radius:8px"><code>r-2</code><span>8 px · inputs sm</span></div>
+          <div class="item" style="border-radius:12px"><code>r-3</code><span>12 px · buttons · cards</span></div>
+          <div class="item" style="border-radius:16px"><code>r-4</code><span>16 px · panels</span></div>
+          <div class="item" style="border-radius:22px"><code>r-5</code><span>22 px · hero</span></div>
+          <div class="item" style="border-radius:999px"><code>r-pill</code><span>fully round</span></div>
+        </div>
+        <div class="card-label" style="margin-top:var(--s-5)"><span>Motion</span><b>Soak curve</b></div>
+        <div class="row" style="font-family:var(--mono); font-size: 11px;">
+          <span class="chip-l osmo"><span class="dot"></span>soak · cubic-bezier(.65,0,.35,1)</span>
+          <span class="chip-l"><span class="dot"></span>out · cubic-bezier(.2,.8,.2,1)</span>
+        </div>
+        <div class="row" style="font-family:var(--mono); font-size: 11px; margin-top: var(--s-2);">
+          <span>120ms</span><span class="muted">·</span>
+          <span>220ms</span><span class="muted">·</span>
+          <span>360ms</span><span class="muted">·</span>
+          <span>600ms</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-label"><span>Elevation</span><b>Three depths</b></div>
+        <div class="elev">
+          <div class="item">
+            <div class="puck" style="box-shadow: var(--shadow-1)"></div>
+            <div class="meta"><b>Surface · z1</b><code>tooltip · chip · inline cell</code></div>
+          </div>
+          <div class="item">
+            <div class="puck" style="box-shadow: var(--shadow-2)"></div>
+            <div class="meta"><b>Floating · z2</b><code>popover · dropdown · usage card</code></div>
+          </div>
+          <div class="item">
+            <div class="puck" style="box-shadow: var(--shadow-3)"></div>
+            <div class="meta"><b>Deep · z3</b><code>popup window · modal</code></div>
+          </div>
+          <div class="item">
+            <div class="puck" style="box-shadow: var(--glow-osmo); background: linear-gradient(180deg, var(--osmo-bright), var(--osmo));"></div>
+            <div class="meta"><b>Glow · brand</b><code>primary CTA · focus state</code></div>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- 05 COMPONENTS -->
+<section class="sec" id="components">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>05</b>Components</div>
+      <div>
+        <h2 class="sec-title">Built for two surfaces — popup &amp; page.</h2>
+        <p class="sec-desc">Components live in a 320-pixel Chrome popup and inside any webpage's DOM. They have to feel native to both: small, opinionated, with strong contrast and tight hit targets. Default sizes are tuned for the popup; an <code style="font-family:var(--mono);color:var(--current)">.btn-lg</code> variant exists for marketing surfaces.</p>
+      </div>
+    </div>
+
+    <div class="cmp-grid">
+
+      <article class="card cmp">
+        <div class="cmp-stage">
+          <button class="btn btn-primary">Translate page</button>
+          <button class="btn btn-ember">Upgrade to Pro</button>
+          <button class="btn btn-secondary">Settings</button>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Buttons · Primary set</b><div class="muted" style="font-size:12px;margin-top:2px;">Primary uses the osmotic gradient. Ember reserved for billing &amp; streaks.</div></div>
+          <span>.btn-primary · .btn-ember · .btn-secondary</span>
+        </div>
+      </article>
+
+      <article class="card cmp">
+        <div class="cmp-stage">
+          <button class="btn btn-ghost btn-sm">Cancel</button>
+          <button class="btn btn-secondary btn-sm">Sign in</button>
+          <button class="btn btn-primary btn-sm">Continue</button>
+          <button class="btn btn-danger btn-sm">Delete account</button>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Buttons · Small &amp; danger</b><div class="muted" style="font-size:12px;margin-top:2px;">Small variant fills the popup; danger only for destructive flows.</div></div>
+          <span>.btn-sm · .btn-danger · .btn-ghost</span>
+        </div>
+      </article>
+
+      <article class="card cmp">
+        <div class="cmp-stage" style="gap: var(--s-6); flex-direction: column;">
+          <div class="row" style="gap: var(--s-5);">
+            <div class="col" style="gap:6px;align-items:center;"><div class="toggle on" id="t1"></div><span class="muted" style="font-size:11px;font-family:var(--mono);">on</span></div>
+            <div class="col" style="gap:6px;align-items:center;"><div class="toggle" id="t2"></div><span class="muted" style="font-size:11px;font-family:var(--mono);">off</span></div>
+          </div>
+          <div class="col" style="gap:8px;width:100%;align-items:center;">
+            <input class="range" type="range" min="0" max="100" value="42" />
+            <span class="muted" style="font-size:11px;font-family:var(--mono);">replacement %</span>
+          </div>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Toggle · Slider</b><div class="muted" style="font-size:12px;margin-top:2px;">The two controls that drive 95% of popup interaction.</div></div>
+          <span>.toggle · .range</span>
+        </div>
+      </article>
+
+      <article class="card cmp">
+        <div class="cmp-stage" style="gap: var(--s-3); flex-direction: column;">
+          <input class="input" placeholder="you@osmosis.app" />
+          <div class="row" style="justify-content:center;">
+            <span class="lang-pill"><span class="flag">DE</span>German · Deutsch</span>
+            <span class="lang-pill"><span class="flag" style="background:linear-gradient(180deg,#fbb461,#f59a2e)">JA</span>日本語</span>
+          </div>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Input · Language pill</b><div class="muted" style="font-size:12px;margin-top:2px;">Language pill shows the flag-as-monogram in osmotic gradient.</div></div>
+          <span>.input · .lang-pill</span>
+        </div>
+      </article>
+
+      <article class="card cmp">
+        <div class="cmp-stage" style="flex-direction:column; gap:var(--s-3);">
+          <div class="usage">
+            <div class="usage-row"><span>This month</span><span><b>32,148</b> / 50,000 chars</span></div>
+            <div class="usage-track"><div class="usage-fill"></div></div>
+          </div>
+          <div class="row" style="gap: 6px;">
+            <span class="chip-l signal"><span class="dot"></span>3 known</span>
+            <span class="chip-l"><span class="dot"></span>27 learning</span>
+            <span class="chip-l ember"><span class="dot"></span>12 fresh</span>
+          </div>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Usage meter · State chips</b><div class="muted" style="font-size:12px;margin-top:2px;">Fill picks up the osmotic ramp; warns at 85%, errors at 100%.</div></div>
+          <span>.usage · .chip-l</span>
+        </div>
+      </article>
+
+      <article class="card cmp">
+        <div class="cmp-stage">
+          <div class="tt">
+            <div class="tt-head"><b>Wasser</b><code>de · noun</code></div>
+            <div class="tt-tr">water</div>
+            <div class="tt-alt">alt translations</div>
+            <div class="tt-row"><span>aqua</span><span>liquid</span><span>H₂O</span></div>
+          </div>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Replacement tooltip</b><div class="muted" style="font-size:12px;margin-top:2px;">Lives inside the host page — needs a hard z-index and shadow to survive any background.</div></div>
+          <span>.tt</span>
+        </div>
+      </article>
+
+      <article class="card cmp full" style="grid-column: span 12;">
+        <div class="cmp-stage" style="padding: var(--s-6); align-items: stretch; gap: var(--s-5); justify-content: flex-start;">
+          <div class="popup-mock">
+            <div class="ph">
+              <div class="ti"><img src="assets/mark-droplet-brain.png" alt=""/>Osmosis</div>
+              <span class="gear">⚙</span>
+            </div>
+            <div class="pb">
+              <div class="row" style="justify-content:space-between;">
+                <label><span>Active</span></label>
+                <div class="toggle on"></div>
+              </div>
+              <div>
+                <label style="margin-bottom:8px;"><span>Target language</span><b>Deutsch</b></label>
+                <span class="lang-pill" style="font-size:11px"><span class="flag" style="width:18px;height:18px;font-size:10px">DE</span>German · 50k chars left</span>
+              </div>
+              <div>
+                <label style="margin-bottom:6px;"><span>Replacement</span><b>42%</b></label>
+                <input class="range" style="width:100%" type="range" min="0" max="100" value="42" />
+              </div>
+              <div>
+                <label style="margin-bottom:6px;"><span>Usage · this month</span><b>32,148</b></label>
+                <div class="usage" style="width:100%;">
+                  <div class="usage-track"><div class="usage-fill" style="width:64%"></div></div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" style="margin-top:auto;">Translate this page</button>
+            </div>
+          </div>
+
+          <div style="flex:1; display:flex; flex-direction:column; gap: var(--s-3); min-width: 280px;">
+            <div class="card-label"><span>Surface</span><b>Popup · 320 × 480</b></div>
+            <p style="margin:0;color:var(--text-soft);font-size:14px;line-height:1.55;">Every component above composes into the extension popup. The surface is small (320×480) so density matters: 12px caption type, 24px toggle, 8px gaps. The popup uses the deep-ocean radial gradient as its canvas — content sits on transparent surfaces so the depth carries through.</p>
+            <div style="border-top: 1px solid var(--line); padding-top: var(--s-3); display:grid; grid-template-columns: repeat(2,1fr); gap: var(--s-2); font-family:var(--mono); font-size: 11px;">
+              <div><span class="muted">width</span><br><b>320 px</b></div>
+              <div><span class="muted">height</span><br><b>480 px</b></div>
+              <div><span class="muted">gutter</span><br><b>14 px</b></div>
+              <div><span class="muted">row gap</span><br><b>14 px</b></div>
+              <div><span class="muted">font min</span><br><b>11 px (mono labels)</b></div>
+              <div><span class="muted">hit target</span><br><b>22 × 22 min</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="cmp-foot">
+          <div><b>Composition · Extension popup</b></div>
+          <span>views/main.ts · views/settings.ts</span>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- 06 OSMOTIC SWAP — flagship -->
+<section class="sec" id="swap">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>06</b>Flagship</div>
+      <div>
+        <h2 class="sec-title">The Osmotic Swap.</h2>
+        <p class="sec-desc">The single defining behavior of the product: a real word, in real prose, replaced inline. Hover reveals the original. Color marks how new the swap is. The treatment must read as <i>a deliberate part of the page</i> — not a Chrome extension overlay.</p>
+      </div>
+    </div>
+
+    <article class="card" style="padding:0; overflow:hidden;">
+      <div class="osmo-stage">
+        <div class="osmo-prose" id="osmo-prose">
+          <h4>From "How language soaks in"</h4>
+          <p>You don't <span class="swap" data-state="learning" data-orig="learn">apprendre</span> a language by sitting down to study it. You learn it the way you learned your first one: by repeatedly bumping into the same <span class="swap" data-state="fresh" data-orig="words">mots</span> in different <span class="swap" data-state="learning" data-orig="contexts">contextes</span>, each time with just enough scaffolding to guess.</p>
+          <p>Osmosis takes that idea and runs it on every <span class="swap" data-state="known" data-orig="page">page</span> you already <span class="swap" data-state="fresh" data-orig="read">lis</span>. We pick a small percentage of <span class="swap" data-state="learning" data-orig="eligible">éligibles</span> words, swap them for translations, and step <span class="swap" data-state="known" data-orig="aside">à part</span>. Hover anything to recover the original; the rest of the page is untouched.</p>
+          <p>Over weeks, the same <span class="swap" data-state="known" data-orig="word">mot</span> shows up in dozens of <span class="swap" data-state="learning" data-orig="sentences">phrases</span>. Your brain does what it always does — it builds meaning from <span class="swap" data-state="fresh" data-orig="repetition">répétition</span>.</p>
+        </div>
+
+        <div class="osmo-controls">
+          <span class="muted" style="font-family:var(--mono);font-size:11px;">density</span>
+          <input class="range" id="osmo-density" type="range" min="10" max="100" value="65" style="width:160px" />
+          <span class="muted" style="font-family:var(--mono);font-size:11px;" id="osmo-density-val">65%</span>
+          <span style="display:inline-block;width:1px;height:20px;background:var(--line);margin:0 var(--s-2);"></span>
+          <div class="legend">
+            <span class="chip-l ember"><span class="dot"></span>fresh</span>
+            <span class="chip-l"><span class="dot"></span>learning</span>
+            <span class="chip-l signal"><span class="dot"></span>known</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="osmo-explain">
+        <div class="step">
+          <h5>1 · Tokenize</h5>
+          <p>Walker traverses the DOM, skipping form fields, code, and editable nodes. Eligible words are scored by frequency rank.</p>
+        </div>
+        <div class="step">
+          <h5>2 · Sample</h5>
+          <p>A configurable percentage (the slider) is sampled — biased toward words the user hasn't seen yet, weighted by rarity.</p>
+        </div>
+        <div class="step">
+          <h5>3 · Swap</h5>
+          <p>Each chosen node is replaced with a <code style="font-family:var(--mono);color:var(--current)">.swap</code> span carrying both translation and original. Color encodes recency.</p>
+        </div>
+      </div>
+
+      <div class="cmp-foot">
+        <div><b>Try it.</b><div class="muted" style="font-size:12px;margin-top:2px;">Hover any colored word to reveal the original — that's the entire interaction surface.</div></div>
+        <span>.swap[data-state]</span>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- 07 VOICE -->
+<section class="sec" id="voice">
+  <div class="shell">
+    <div class="sec-head">
+      <div class="sec-num"><b>07</b>Voice</div>
+      <div>
+        <h2 class="sec-title">Quiet, confident, never gamified.</h2>
+        <p class="sec-desc">Osmosis is the opposite of streak-fire flashcard apps. We don't shout, we don't shame, we don't guilt. The product disappears into the user's day; the copy does the same. Speak like the ocean, not the alarm clock.</p>
+      </div>
+    </div>
+
+    <div class="voice">
+      <div class="card voice-card">
+        <div class="head"><span class="yes">Do</span><span class="muted" style="font-family:var(--mono);font-size:11px;">tone · steady</span></div>
+        <blockquote>"You read 8,400 words this week. We translated 412 of them."</blockquote>
+        <div class="why">Plain numbers, past tense, no exclamation. The user is the subject of the verb.</div>
+      </div>
+      <div class="card voice-card">
+        <div class="head"><span class="no">Don't</span><span class="muted" style="font-family:var(--mono);font-size:11px;">tone · gamified</span></div>
+        <blockquote>"🔥 8-day streak! Don't lose it — translate 100 more words today!"</blockquote>
+        <div class="why">Streaks, fire emoji, urgency. We are not Duolingo. The whole point is no pressure.</div>
+      </div>
+
+      <div class="card voice-card">
+        <div class="head"><span class="yes">Do</span><span class="muted" style="font-family:var(--mono);font-size:11px;">copy · feature</span></div>
+        <blockquote>"Replacement frequency — how often we swap words on the pages you read."</blockquote>
+        <div class="why">Names the setting and what it does in one sentence. No "easy", "simple", or "powerful".</div>
+      </div>
+      <div class="card voice-card">
+        <div class="head"><span class="no">Don't</span><span class="muted" style="font-family:var(--mono);font-size:11px;">copy · feature</span></div>
+        <blockquote>"Unlock smart, AI-powered word substitutions — effortlessly!"</blockquote>
+        <div class="why">Adjective stack, hidden mechanic, marketing voice. The user can't tell what changes when they move the slider.</div>
+      </div>
+
+      <div class="card voice-card">
+        <div class="head"><span class="yes">Do</span><span class="muted" style="font-family:var(--mono);font-size:11px;">error · limit</span></div>
+        <blockquote>"You've hit the free monthly cap (50,000 chars). Replacements pause until June 1, or you can upgrade."</blockquote>
+        <div class="why">States the fact, names the date, gives the option without pushing it.</div>
+      </div>
+      <div class="card voice-card">
+        <div class="head"><span class="no">Don't</span><span class="muted" style="font-family:var(--mono);font-size:11px;">error · limit</span></div>
+        <blockquote>"Oh no! You've run out of translations 😢 Upgrade to keep learning!"</blockquote>
+        <div class="why">Emoji, performative sympathy, vague "keep learning" instead of "replacements pause."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="shell" style="display:flex;justify-content: space-between; align-items: baseline; gap: var(--s-5); flex-wrap: wrap;">
+    <div><b>Osmosis</b> · Design System · v3.0 · May 2026</div>
+    <div>Maintained alongside <a href="#">extension/src/popup</a> &amp; <a href="#">backend/src/routes</a></div>
+  </div>
+</footer>
+
+</main>
+
+<!-- ===== TWEAKS ===== -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "dark",
+  "accentRole": "current",
+  "density": "regular",
+  "wordHeat": true,
+  "fontSize": 16
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = t.theme;
+  }, [t.theme]);
+
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--page-fz', t.fontSize + 'px');
+    document.body.style.fontSize = t.fontSize + 'px';
+  }, [t.fontSize]);
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (t.accentRole === 'current') {
+      root.style.setProperty('--accent', 'var(--current)');
+    } else if (t.accentRole === 'osmo') {
+      root.style.setProperty('--accent', 'var(--osmo)');
+    } else if (t.accentRole === 'ember') {
+      root.style.setProperty('--accent', 'var(--ember)');
+    }
+  }, [t.accentRole]);
+
+  React.useEffect(() => {
+    const heat = t.wordHeat;
+    document.querySelectorAll('.swap').forEach(el => {
+      el.style.opacity = heat ? '1' : '.85';
+      el.style.borderBottomStyle = heat ? 'dashed' : 'dotted';
+      if (!heat) {
+        el.style.color = 'var(--osmo)';
+        el.style.borderBottomColor = 'rgba(42,164,224,.5)';
+      } else {
+        el.style.color = '';
+        el.style.borderBottomColor = '';
+      }
+    });
+  }, [t.wordHeat]);
+
+  return (
+    <TweaksPanel title="Osmosis · Tweaks">
+      <TweakSection label="Theme" />
+      <TweakRadio  label="Mode"     value={t.theme}      options={['dark','light']}
+                   onChange={(v) => setTweak('theme', v)} />
+      <TweakRadio  label="Accent role" value={t.accentRole} options={['current','osmo','ember']}
+                   onChange={(v) => setTweak('accentRole', v)} />
+      <TweakSection label="Reading" />
+      <TweakSlider label="Body size" value={t.fontSize} min={14} max={20} unit="px"
+                   onChange={(v) => setTweak('fontSize', v)} />
+      <TweakToggle label="Word heat-state colors" value={t.wordHeat}
+                   onChange={(v) => setTweak('wordHeat', v)} />
+    </TweaksPanel>
+  );
+}
+
+const tweakRoot = document.createElement('div');
+document.body.appendChild(tweakRoot);
+ReactDOM.createRoot(tweakRoot).render(<App />);
+</script>
+
+<!-- toggle demo + density slider -->
+<script>
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+
+const dens = document.getElementById('osmo-density');
+const densVal = document.getElementById('osmo-density-val');
+const prose = document.getElementById('osmo-prose');
+if (dens && prose) {
+  const swaps = [...prose.querySelectorAll('.swap')];
+  const update = () => {
+    const pct = +dens.value;
+    densVal.textContent = pct + '%';
+    // Show fewer swaps as density goes down
+    const showCount = Math.round(swaps.length * (pct / 100));
+    swaps.forEach((s, i) => {
+      const visible = i < showCount;
+      if (visible) {
+        s.style.borderBottomWidth = '1.5px';
+        s.style.fontWeight = '600';
+        // restore class color
+        s.style.color = '';
+        s.style.borderBottomStyle = 'dashed';
+        s.style.opacity = '';
+      } else {
+        // unswap — show original word
+        s.style.borderBottomWidth = '0';
+        s.style.fontWeight = '400';
+        s.style.color = 'var(--text-soft)';
+        s.style.opacity = '.7';
+      }
+    });
+    // Replace text content based on visibility
+    swaps.forEach((s, i) => {
+      const visible = i < showCount;
+      const orig = s.dataset.orig;
+      const tr = s.dataset.tr || s.textContent;
+      if (!s.dataset.tr) s.dataset.tr = s.textContent.trim();
+      s.textContent = visible ? s.dataset.tr : orig;
+    });
+  };
+  update();
+  dens.addEventListener('input', update);
+}
+</script>
+
+</body>
+</html>

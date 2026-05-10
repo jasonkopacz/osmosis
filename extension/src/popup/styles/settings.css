@@ -1,0 +1,45 @@
+/* ── Account row ── */
+.settings-account-row { display: flex; justify-content: space-between; align-items: center; }
+.settings-account-email {
+  font-size: 13px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* ── Section title ── */
+.settings-title { font-weight: 600; font-size: 14px; color: var(--text); letter-spacing: -0.01em; }
+
+/* ── Errors ── */
+.settings-error { color: var(--error); font-size: 11px; text-align: center; margin-top: 4px; display: none; }
+
+/* ── Danger zone ── */
+.settings-danger-toggle {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0;
+}
+.settings-danger-chevron {
+  font-size: 14px;
+  display: inline-block;
+  transition: transform var(--d-1) var(--ease-out);
+}
+.settings-danger-section { display: none; flex-direction: column; gap: 6px; margin-top: 6px; }
+.settings-danger-section--open { display: flex; }
+
+/* ── Confirm row ── */
+.settings-confirm-row { display: none; flex-direction: column; gap: 6px; }
+.settings-confirm-row--open { display: flex; }
+.settings-confirm-msg { margin: 0; font-size: 11px; color: var(--error); line-height: 1.4; }
+.settings-confirm-btns { display: flex; gap: 6px; }

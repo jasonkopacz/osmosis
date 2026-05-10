@@ -4,15 +4,16 @@ export function createLanguagePicker(selected: string, onChange: (code: string) 
   const wrapper = document.createElement('div')
   wrapper.style.position = 'relative'
 
-  const input = document.createElement('input')
-  input.type = 'text'
-  input.style.cssText = 'width:100%;background:#2d3748;border:1px solid #4a5568;border-radius:8px;padding:7px 10px;color:#e2e8f0;font-size:13px;outline:none;cursor:pointer;'
   const cur = LANGUAGES.find(l => l.code === selected)
   let selectedDisplay = cur ? `${cur.flag} ${cur.name}` : selected
+
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'osmo-lang-input'
   input.value = selectedDisplay
 
   const dropdown = document.createElement('div')
-  dropdown.style.cssText = 'display:none;position:absolute;background:#2d3748;border:1px solid #4a5568;border-radius:8px;max-height:160px;overflow-y:auto;z-index:999;width:100%;margin-top:2px;'
+  dropdown.className = 'osmo-lang-dropdown'
 
   function renderList(query: string) {
     dropdown.replaceChildren()
@@ -22,34 +23,29 @@ export function createLanguagePicker(selected: string, onChange: (code: string) 
     )
     filtered.forEach(lang => {
       const item = document.createElement('div')
-      item.style.cssText = 'padding:7px 10px;cursor:pointer;font-size:13px;'
+      item.className = 'osmo-lang-item'
       item.textContent = `${lang.flag} ${lang.name}`
-      item.addEventListener('mouseover', () => { item.style.background = '#374151' })
-      item.addEventListener('mouseout', () => { item.style.background = '' })
       item.addEventListener('mousedown', () => {
         selectedDisplay = `${lang.flag} ${lang.name}`
         input.value = selectedDisplay
-        input.placeholder = ''
-        dropdown.style.display = 'none'
+        dropdown.classList.remove('osmo-lang-dropdown--open')
         onChange(lang.code)
       })
       dropdown.appendChild(item)
     })
-    dropdown.style.display = filtered.length > 0 ? 'block' : 'none'
+    dropdown.classList.toggle('osmo-lang-dropdown--open', filtered.length > 0)
   }
 
   input.addEventListener('focus', () => {
     input.value = ''
     input.placeholder = selectedDisplay
-    input.style.cursor = 'text'
     renderList('')
   })
   input.addEventListener('input', () => renderList(input.value))
   input.addEventListener('blur', () => setTimeout(() => {
-    dropdown.style.display = 'none'
+    dropdown.classList.remove('osmo-lang-dropdown--open')
     input.value = selectedDisplay
     input.placeholder = ''
-    input.style.cursor = 'pointer'
   }, 150))
 
   wrapper.append(input, dropdown)

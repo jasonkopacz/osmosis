@@ -1,0 +1,43 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { width: 360px; max-height: 600px; }
+
+body {
+  width: 360px;
+  max-height: 600px;
+  padding-bottom: 8px;
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01","cv11";
+  border: 1px solid var(--line-strong);
+  background: radial-gradient(120% 80% at 50% 0%, #0c4a6e 0%, #042f2e 45%, #03101c 100%);
+  color: var(--text);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(rgba(110,180,220,.08) 1px, transparent 1px),
+    radial-gradient(rgba(110,180,220,.05) 1px, transparent 1px);
+  background-size: 36px 36px, 9px 9px;
+  background-position: 0 0, 18px 18px;
+  mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, #000 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, #000 60%, transparent 100%);
+  opacity: .6;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
