@@ -146,3 +146,9 @@ const LEGACY_TARGET_LANG: Record<string, string> = { no: 'nb' }
 export function normalizeTargetLang(code: string): string {
   return LEGACY_TARGET_LANG[code] ?? code
 }
+
+const LANG_NAME_MAP: Map<string, string> = new Map(LANGUAGES.map(l => [l.code, l.name]))
+
+export function langName(code: string): string {
+  return LANG_NAME_MAP.get(code) ?? LANG_NAME_MAP.get(normalizeTargetLang(code)) ?? code.toUpperCase()
+}

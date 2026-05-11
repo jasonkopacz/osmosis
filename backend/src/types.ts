@@ -26,6 +26,7 @@ export type TranslationEntry = {
   t: string                               // primary translation text
   p?: string                              // POS tag: VERB, NOUN, ADJ, ADV, etc.
   a?: Array<{ t: string; p: string }>    // top alternatives with a different POS
+  n?: string                              // normalizedSource: base/lemma form of the English word
 }
 
 export type User = {

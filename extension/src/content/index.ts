@@ -15,6 +15,7 @@ import { collectPhrases, uniquePhrases } from './phraseScanner'
 import { applyPhraseReplacements } from './replacer'
 import { normalizeTargetLang } from '../languages'
 import { log, warn } from '../logger'
+import { saveWordContext } from '../utils/contextStore'
 
 let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
@@ -167,15 +168,6 @@ async function runPipeline(): Promise<void> {
       wordsBySentence.get(sentence)!.add(word)
     }
 
-    void chrome.storage.local.set({
-      [STORAGE_KEYS.PAGE_STATS]: {
-        sampled: sampledWords.length,
-        eligible: cefrFiltered.length,
-        phrases: uniquePhraseCandidates.length,
-        lang: settings.targetLang,
-        cefr: cefrMin,
-      },
-    })
     log('[osmosis:content] pipeline', {
       phrases: uniquePhraseCandidates.length,
       uniqueEligibleWords: cefrFiltered.length,
@@ -210,8 +202,18 @@ async function runPipeline(): Promise<void> {
     applyPhraseReplacements(translationMap, allPhraseEntries, settings.targetLang)
     applyReplacements(translationMap, nonOverlappingWordEntries, settings.targetLang)
 
-    // ── Phase 7: Encounter tracking ────────────────────────────────────────
+    // ── Phase 7: Encounter tracking + final PAGE_STATS ───────────────────────
     const translatedItems = Object.keys(res.translations)
+    // Write actual translated count now that we know it — popup listens for this
+    void chrome.storage.local.set({
+      [STORAGE_KEYS.PAGE_STATS]: {
+        sampled: translatedItems.length,
+        eligible: cefrFiltered.length,
+        phrases: uniquePhraseCandidates.length,
+        lang: settings.targetLang,
+        cefr: cefrMin,
+      },
+    })
     if (translatedItems.length > 0) {
       void recordLocalEncounters(translatedItems, settings.targetLang)
       void chrome.runtime.sendMessage({
@@ -219,6 +221,13 @@ async function runPipeline(): Promise<void> {
         words: translatedItems,
         targetLang: settings.targetLang,
       } as Message)
+    }
+
+    // ── Phase 8: Persist sentence context for fill-in-the-blank quiz ─────────
+    for (const [word, sentence] of Object.entries(contextsByWord)) {
+      if (res.translations[word]) {
+        void saveWordContext(word, settings.targetLang, sentence)
+      }
     }
   } finally {
     pipelineRunning = false

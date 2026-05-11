@@ -4,6 +4,7 @@ export type TranslationEntry = {
   t: string                               // primary translation text
   p?: string                              // POS tag from Azure: VERB, NOUN, ADJ, ADV, etc.
   a?: ReadonlyArray<{ t: string; p: string }> // top alternatives with a different POS
+  n?: string                              // normalizedSource: base/lemma form of the English word
 }
 
 export type UserSettings = {
@@ -54,6 +55,10 @@ export type SrsDueCard = {
   translation: string
   posTag?: string
   alternatives?: ReadonlyArray<{ t: string; p: string }>
+  lemma?: string      // base/lemma form of the English word from Azure normalizedSource
+  // Present when card has enough context for a fill-in-the-blank question
+  context?: string    // sentence containing the word (UI blanks it)
+  choices?: string[]  // shuffled [correct, distractor, distractor, distractor]
 }
 
 export type SrsStats = {

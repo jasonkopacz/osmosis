@@ -1,5 +1,6 @@
 import type { UserSettings, SrsStats, StreakInfo, Message } from '../../types'
 import { renderStreakSection } from '../components/streakDisplay'
+import { langName } from '../../languages'
 
 export function renderProgress(
   container: HTMLElement,
@@ -55,7 +56,7 @@ function paint(
   // ── Vocabulary section label
   const topLabel = document.createElement('div')
   topLabel.className = 'field-label'
-  topLabel.textContent = `${settings.targetLang.toUpperCase()} vocabulary`
+  topLabel.textContent = `${langName(settings.targetLang)} vocabulary`
   body.appendChild(topLabel)
 
   // ── Stat cards

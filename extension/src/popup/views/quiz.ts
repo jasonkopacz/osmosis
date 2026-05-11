@@ -1,5 +1,4 @@
 import type { UserSettings, SrsDueCard, SrsRating, SrsRateResult, Message } from '../../types'
-
 import { POS_LABELS } from '../../utils/pos'
 
 function formatInterval(days: number): string {
@@ -8,6 +7,14 @@ function formatInterval(days: number): string {
   if (days < 30) return `${days}d`
   if (days < 365) return `${Math.round(days / 30)}mo`
   return `${Math.round(days / 365)}yr`
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function isContextCard(card: SrsDueCard): card is SrsDueCard & { context: string; choices: string[] } {
+  return !!card.context && Array.isArray(card.choices) && card.choices.length > 0
 }
 
 export function renderQuiz(container: HTMLElement, settings: UserSettings): void {
@@ -39,7 +46,7 @@ async function load(container: HTMLElement, settings: UserSettings): Promise<voi
 
   const cards = result.cards
   if (cards.length === 0) {
-    renderEmpty(container, settings)
+    renderEmpty(container)
     return
   }
 
@@ -50,50 +57,49 @@ function runSession(container: HTMLElement, settings: UserSettings, cards: SrsDu
   let index = 0
   let phase: 'question' | 'answer' = 'question'
 
+  function advance(result: SrsRateResult): void {
+    index++
+    phase = 'question'
+    if (index >= cards.length) {
+      void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
+      renderComplete(container, cards.length, result)
+    } else {
+      renderCurrent()
+    }
+  }
+
   function renderCurrent(): void {
     container.replaceChildren()
 
     const body = document.createElement('div')
     body.className = 'body'
 
-    // ── Meta row
     const meta = document.createElement('div')
     meta.className = 'quiz-meta'
     const counter = document.createElement('span')
     counter.textContent = `${index + 1} of ${cards.length}`
-    const dots = buildDots(index, cards.length)
-    meta.append(counter, dots)
+    meta.append(counter, buildDots(index, cards.length))
     body.appendChild(meta)
 
-    // ── Card
     const card = cards[index]!
-    const cardEl = buildCard(card, phase)
-    body.appendChild(cardEl)
-
-    // ── Actions
     const actions = document.createElement('div')
     actions.className = 'quiz-actions'
 
-    if (phase === 'question') {
-      const revealBtn = document.createElement('button')
-      revealBtn.className = 'osmo-btn osmo-btn--secondary'
-      revealBtn.textContent = 'Show Answer'
-      revealBtn.addEventListener('click', () => {
-        phase = 'answer'
-        renderCurrent()
-      })
-      actions.appendChild(revealBtn)
+    if (isContextCard(card)) {
+      body.appendChild(buildContextCard(card))
+      actions.appendChild(buildChoiceGrid(card, settings, advance))
     } else {
-      actions.appendChild(buildRatingGrid(card, settings, (result) => {
-        index++
-        phase = 'question'
-        if (index >= cards.length) {
-          void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
-          renderComplete(container, cards.length, result)
-        } else {
-          renderCurrent()
-        }
-      }))
+      body.appendChild(buildFlashcard(card, phase))
+
+      if (phase === 'question') {
+        const revealBtn = document.createElement('button')
+        revealBtn.className = 'osmo-btn osmo-btn--secondary'
+        revealBtn.textContent = 'Show Answer'
+        revealBtn.addEventListener('click', () => { phase = 'answer'; renderCurrent() })
+        actions.appendChild(revealBtn)
+      } else {
+        actions.appendChild(buildRatingGrid(card, settings, advance))
+      }
     }
 
     body.appendChild(actions)
@@ -103,30 +109,17 @@ function runSession(container: HTMLElement, settings: UserSettings, cards: SrsDu
   renderCurrent()
 }
 
-function buildDots(current: number, total: number): HTMLDivElement {
-  const wrap = document.createElement('div')
-  wrap.className = 'quiz-dots'
-  // Cap display at 8 dots to avoid overflow
-  const show = Math.min(total, 8)
-  for (let i = 0; i < show; i++) {
-    const dot = document.createElement('div')
-    dot.className = i < current ? 'quiz-dot quiz-dot--done' : i === current ? 'quiz-dot quiz-dot--current' : 'quiz-dot'
-    wrap.appendChild(dot)
-  }
-  return wrap
-}
+// ── Flashcard (existing) ────────────────────────────────────────────────────
 
-function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
+function buildFlashcard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
   const el = document.createElement('div')
   el.className = phase === 'answer' ? 'quiz-card quiz-card--revealed' : 'quiz-card'
 
-  // The translated word (question)
   const word = document.createElement('div')
   word.className = 'quiz-word'
   word.textContent = card.translation
   el.appendChild(word)
 
-  // POS tag under the word
   if (card.posTag) {
     const pos = document.createElement('span')
     pos.className = 'quiz-pos'
@@ -134,16 +127,9 @@ function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivEleme
     el.appendChild(pos)
   }
 
-  // Revealed answer
   if (phase === 'answer') {
-    const sep = document.createElement('div')
-    sep.className = 'quiz-sep'
-    el.appendChild(sep)
-
-    const answer = document.createElement('div')
-    answer.className = 'quiz-answer'
-    answer.textContent = card.word
-    el.appendChild(answer)
+    el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-sep' }))
+    el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-answer', textContent: card.word }))
   }
 
   return el
@@ -179,7 +165,6 @@ function buildRatingGrid(
     btn.append(lbl, days)
 
     btn.addEventListener('click', async () => {
-      // Disable all buttons immediately
       grid.querySelectorAll<HTMLButtonElement>('.rating-btn').forEach(b => { b.disabled = true })
       try {
         const res = (await chrome.runtime.sendMessage({
@@ -188,10 +173,7 @@ function buildRatingGrid(
           targetLang: settings.targetLang,
           rating,
         } as Message)) as SrsRateResult & { error?: string }
-        if (!res.error) {
-          days.textContent = formatInterval(res.intervalDays)
-        }
-        // Brief pause so user can see the interval before advancing
+        if (!res.error) days.textContent = formatInterval(res.intervalDays)
         await new Promise(resolve => setTimeout(resolve, 350))
         onRated(res)
       } catch {
@@ -205,54 +187,130 @@ function buildRatingGrid(
   return grid
 }
 
-function renderComplete(container: HTMLElement, count: number, lastResult: SrsRateResult): void {
-  container.replaceChildren()
+// ── Context fill-in-the-blank ───────────────────────────────────────────────
 
+function buildContextCard(card: SrsDueCard & { context: string }): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'quiz-card'
+
+  const sentenceEl = document.createElement('div')
+  sentenceEl.className = 'quiz-context-sentence'
+
+  // Replace the English word with the target-language translation shown inline
+  const re = new RegExp(`\\b${escapeRegExp(card.word)}\\w*`, 'gi')
+  const sentence = card.context
+  const match = re.exec(sentence)
+
+  if (match) {
+    if (match.index > 0) sentenceEl.appendChild(document.createTextNode(sentence.slice(0, match.index)))
+    const highlight = document.createElement('span')
+    highlight.className = 'quiz-context-word'
+    highlight.textContent = card.translation
+    sentenceEl.appendChild(highlight)
+    const after = sentence.slice(match.index + match[0].length)
+    if (after) sentenceEl.appendChild(document.createTextNode(after))
+  } else {
+    sentenceEl.textContent = sentence
+  }
+
+  el.appendChild(sentenceEl)
+
+  return el
+}
+
+function buildChoiceGrid(
+  card: SrsDueCard & { choices: string[] },
+  settings: UserSettings,
+  onRated: (result: SrsRateResult) => void,
+): HTMLDivElement {
+  const grid = document.createElement('div')
+  grid.className = 'context-choices'
+
+  for (const choice of card.choices) {
+    const btn = document.createElement('button')
+    btn.className = 'context-choice-btn'
+    btn.textContent = choice
+
+    btn.addEventListener('click', async () => {
+      const correct = choice.toLowerCase() === card.word.toLowerCase()
+
+      grid.querySelectorAll<HTMLButtonElement>('.context-choice-btn').forEach(b => {
+        b.disabled = true
+        if (b.textContent?.toLowerCase() === card.word.toLowerCase()) {
+          b.classList.add('context-choice-btn--correct')
+        } else if (b === btn && !correct) {
+          b.classList.add('context-choice-btn--wrong')
+        }
+      })
+
+      const rating: SrsRating = correct ? 3 : 1
+      let rateResult: SrsRateResult = {
+        word: card.word, targetLang: settings.targetLang, state: 'review',
+        intervalDays: correct ? 4 : 0, dueAt: Date.now(),
+        stability: card.stability, difficulty: card.difficulty,
+        lapses: card.lapses, reps: card.reps + 1,
+      }
+
+      try {
+        const res = (await chrome.runtime.sendMessage({
+          type: 'SRS_RATE',
+          word: card.word,
+          targetLang: settings.targetLang,
+          rating,
+        } as Message)) as SrsRateResult & { error?: string }
+        if (!res.error) rateResult = res
+      } catch { /* use defaults */ }
+
+      await new Promise(resolve => setTimeout(resolve, 900))
+      onRated(rateResult)
+    })
+
+    grid.appendChild(btn)
+  }
+
+  return grid
+}
+
+// ── Shared helpers ──────────────────────────────────────────────────────────
+
+function buildDots(current: number, total: number): HTMLDivElement {
+  const wrap = document.createElement('div')
+  wrap.className = 'quiz-dots'
+  const show = Math.min(total, 8)
+  for (let i = 0; i < show; i++) {
+    const dot = document.createElement('div')
+    dot.className = i < current ? 'quiz-dot quiz-dot--done' : i === current ? 'quiz-dot quiz-dot--current' : 'quiz-dot'
+    wrap.appendChild(dot)
+  }
+  return wrap
+}
+
+function renderComplete(container: HTMLElement, count: number, _lastResult: SrsRateResult): void {
+  container.replaceChildren()
   const body = document.createElement('div')
   body.className = 'body'
-
   const end = document.createElement('div')
   end.className = 'quiz-end'
-
-  const icon = document.createElement('div')
-  icon.className = 'quiz-end__icon'
-  icon.textContent = '🎉'
-
-  const title = document.createElement('div')
-  title.className = 'quiz-end__title'
-  title.textContent = 'Session complete!'
-
-  const sub = document.createElement('div')
-  sub.className = 'quiz-end__sub'
-  sub.textContent = `${count} card${count === 1 ? '' : 's'} reviewed. Keep browsing to unlock your next session.`
-
-  end.append(icon, title, sub)
+  end.append(
+    Object.assign(document.createElement('div'), { className: 'quiz-end__icon', textContent: '🎉' }),
+    Object.assign(document.createElement('div'), { className: 'quiz-end__title', textContent: 'Session complete!' }),
+    Object.assign(document.createElement('div'), { className: 'quiz-end__sub', textContent: `${count} card${count === 1 ? '' : 's'} reviewed. Keep browsing to unlock your next session.` }),
+  )
   body.appendChild(end)
   container.appendChild(body)
 }
 
-function renderEmpty(container: HTMLElement, settings: UserSettings): void {
+function renderEmpty(container: HTMLElement): void {
   container.replaceChildren()
-
   const body = document.createElement('div')
   body.className = 'body'
-
   const end = document.createElement('div')
   end.className = 'quiz-end'
-
-  const icon = document.createElement('div')
-  icon.className = 'quiz-end__icon'
-  icon.textContent = '✅'
-
-  const title = document.createElement('div')
-  title.className = 'quiz-end__title'
-  title.textContent = 'All caught up'
-
-  const sub = document.createElement('div')
-  sub.className = 'quiz-end__sub'
-  sub.textContent = `Browse a few more pages and your first review session will unlock automatically.`
-
-  end.append(icon, title, sub)
+  end.append(
+    Object.assign(document.createElement('div'), { className: 'quiz-end__icon', textContent: '✅' }),
+    Object.assign(document.createElement('div'), { className: 'quiz-end__title', textContent: 'All caught up' }),
+    Object.assign(document.createElement('div'), { className: 'quiz-end__sub', textContent: 'Browse a few more pages and your first review session will unlock automatically.' }),
+  )
   body.appendChild(end)
   container.appendChild(body)
 }

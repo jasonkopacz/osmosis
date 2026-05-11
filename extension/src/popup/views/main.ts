@@ -7,6 +7,7 @@ import { createCefrPicker } from '../components/cefrPicker'
 import { showToast } from '../components/toast'
 import { renderProgress } from './progress'
 import { renderQuiz } from './quiz'
+import { langName } from '../../languages'
 
 type TabId = 'home' | 'progress' | 'quiz'
 type PageStats = { sampled: number; eligible: number; lang: string; cefr?: string }
@@ -149,6 +150,15 @@ export function renderMain(
   hintEl.className = 'osmo-hint'
   let broadcastTimer: ReturnType<typeof setTimeout> | null = null
 
+  // Clear loading state the instant the content script writes final PAGE_STATS
+  chrome.storage.local.onChanged.addListener((changes) => {
+    if (!changes[STORAGE_KEYS.PAGE_STATS]) return
+    if (broadcastTimer) { clearTimeout(broadcastTimer); broadcastTimer = null }
+    const stats = changes[STORAGE_KEYS.PAGE_STATS].newValue as PageStats | undefined
+    hintEl.textContent = formatHint(stats, s.targetLang)
+    hintEl.classList.remove('osmo-hint--active')
+  })
+
   function broadcast(newSettings: UserSettings): void {
     s = newSettings
     if (broadcastTimer) clearTimeout(broadcastTimer)
@@ -156,13 +166,12 @@ export function renderMain(
     if (!newSettings.enabled) { hintEl.textContent = ''; return }
     hintEl.textContent = 'Translating…'
     hintEl.classList.add('osmo-hint--active')
+    // Fallback: clear loading state if content script never responds (e.g. no eligible words on page)
     broadcastTimer = setTimeout(() => {
-      void chrome.storage.local.get(STORAGE_KEYS.PAGE_STATS).then(r => {
-        const stats = r[STORAGE_KEYS.PAGE_STATS] as PageStats | undefined
-        hintEl.textContent = formatHint(stats, newSettings.targetLang)
-        hintEl.classList.remove('osmo-hint--active')
-      })
-    }, 2000)
+      broadcastTimer = null
+      hintEl.textContent = ''
+      hintEl.classList.remove('osmo-hint--active')
+    }, 6000)
   }
 
   function renderHomeTab(
@@ -199,7 +208,7 @@ export function renderMain(
     const langWrapper = document.createElement('div')
     langWrapper.append(langLabel, createLanguagePicker(s.targetLang, targetLang => {
       broadcast({ ...s, targetLang })
-      showToast(`Translating to ${targetLang.toUpperCase()}`, 'info')
+      showToast(`Translating to ${langName(targetLang)}`, 'info')
     }))
 
     // CEFR level picker

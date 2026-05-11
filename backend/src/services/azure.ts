@@ -112,6 +112,7 @@ export async function lookupWords(
         const sorted = [...row.translations].sort((a, b) => b.confidence - a.confidence)
         const primary = sorted[0]!
         const entry: TranslationEntry = { t: primary.displayTarget, p: primary.posTag }
+        if (row.normalizedSource && row.normalizedSource !== chunk[i]) entry.n = row.normalizedSource
         const alts = sorted
           .slice(1)
           .filter(alt => alt.posTag !== primary.posTag)

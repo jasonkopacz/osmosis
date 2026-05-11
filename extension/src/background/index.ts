@@ -4,6 +4,7 @@ import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, REVIEW_THRESHOLD } from './reviewSession'
+import { getWordContexts } from '../utils/contextStore'
 import type { Message, UserProfile, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
 
@@ -62,6 +63,23 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
   return true
 })
 
+
+function fisherYates<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j]!, a[i]!]
+  }
+  return a
+}
+
+function verbFormBucket(word: string): 'ing' | 'ed' | 's' | 'base' {
+  const w = word.toLowerCase()
+  if (w.endsWith('ing') && w.length > 4) return 'ing'
+  if (w.endsWith('ed')  && w.length > 3) return 'ed'
+  if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return 's'
+  return 'base'
+}
 
 async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'TRANSLATE') {
@@ -330,6 +348,7 @@ async function handle(msg: Message): Promise<unknown> {
           translation: entry.t,
           posTag: entry.p,
           alternatives: entry.a ? [...entry.a] : undefined,
+          lemma: entry.n,
           state: 'review',
           stability: 0,
           difficulty: 5,
@@ -347,7 +366,51 @@ async function handle(msg: Message): Promise<unknown> {
         if (i < sessionCards.length && combined.length < limit) combined.push(sessionCards[i]!)
       }
 
-      return { cards: combined }
+      // Enrich cards that have saved context with fill-in-the-blank data
+      const allWords = combined.map(c => c.word)
+      const contexts = await getWordContexts(allWords, msg.targetLang)
+
+      const enriched = combined.map(card => {
+        const ctx = contexts.get(card.word.toLowerCase())
+        if (!ctx) return card
+
+        const others = combined.filter(c => c.word.toLowerCase() !== card.word.toLowerCase())
+        if (others.length < 3) return card
+
+        // Determine the "form" of the correct word for matching distractors.
+        // If Azure normalizedSource (lemma) is available it's definitive:
+        //   word === lemma  → already base/infinitive form
+        //   word !== lemma  → inflected; use verbFormBucket to identify which inflection
+        // Fall back to heuristic bucket when lemma is absent (due cards, /translate fallback words).
+        const correctLemma = card.lemma ?? null
+        const correctIsBase = correctLemma !== null
+          ? card.word.toLowerCase() === correctLemma.toLowerCase()
+          : null  // unknown
+        const correctBucket = card.posTag === 'VERB' ? verbFormBucket(card.word) : null
+
+        const sameForm = (c: typeof card): boolean => {
+          if (c.posTag !== card.posTag) return false
+          if (correctLemma !== null && c.lemma !== undefined) {
+            // Both have definitive lemma data — compare base-form status
+            const cIsBase = c.word.toLowerCase() === c.lemma.toLowerCase()
+            return cIsBase === correctIsBase
+          }
+          // Fallback: heuristic bucket matching
+          return correctBucket !== null && verbFormBucket(c.word) === correctBucket
+        }
+
+        const tier1 = others.filter(sameForm)
+        const tier2 = others.filter(c => c.posTag === card.posTag && !tier1.includes(c))
+        const tier3 = others.filter(c => !tier1.includes(c) && !tier2.includes(c))
+        const distractors = [...fisherYates(tier1), ...fisherYates(tier2), ...fisherYates(tier3)]
+          .slice(0, 3)
+          .map(c => c.word)
+
+        const choices = fisherYates([card.word, ...distractors])
+        return { ...card, context: ctx, choices }
+      })
+
+      return { cards: enriched }
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }

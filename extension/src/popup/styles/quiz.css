@@ -132,6 +132,59 @@
 .rating-btn--easy .rating-btn__label { color: var(--signal); }
 .rating-btn--easy:hover:not(:disabled) { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.5); }
 
+/* ── Context fill-in-the-blank ── */
+.quiz-context-sentence {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: -0.01em;
+  padding: 0 4px;
+}
+
+.quiz-context-word {
+  color: var(--current);
+  font-weight: 700;
+  font-style: italic;
+}
+
+.context-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.context-choice-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 8px;
+  border-radius: var(--r-3);
+  border: 1px solid var(--line-strong);
+  background: var(--mid);
+  color: var(--text);
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: background var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), color var(--d-1) var(--ease-out);
+}
+
+.context-choice-btn:hover:not(:disabled) {
+  background: var(--shallow);
+  border-color: var(--current);
+}
+
+.context-choice-btn--correct {
+  background: rgba(74,222,128,.12) !important;
+  border-color: var(--signal) !important;
+  color: var(--signal) !important;
+}
+
+.context-choice-btn--wrong {
+  background: rgba(248,113,113,.12) !important;
+  border-color: var(--error) !important;
+  color: var(--error) !important;
+}
+
 /* ── Complete / empty states ── */
 .quiz-end {
   text-align: center;
