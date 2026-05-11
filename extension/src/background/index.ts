@@ -2,6 +2,7 @@ import { SessionCache } from './cache'
 import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
+import { updateStreakLog, getStreakInfo } from './streak'
 import type { Message, UserProfile, TranslationEntry } from '../types'
 
 const cache = new SessionCache()
@@ -294,13 +295,24 @@ async function handle(msg: Message): Promise<unknown> {
   }
 
   if (msg.type === 'SRS_REPORT_ENCOUNTERS') {
-    // Fire-and-forget: don't block, don't surface errors to caller
     const token = await getToken()
     if (token) {
       void srsReportEncounters(msg.words, msg.targetLang, token)
         .catch(err => console.warn('[osmosis:bg] SRS_REPORT_ENCOUNTERS failed', err))
     }
+    // Update reading streak with the number of words encountered (local, no token needed)
+    void updateStreakLog(msg.words.length)
+      .catch(err => console.warn('[osmosis:bg] streak update failed', err))
     return { ok: true }
+  }
+
+  if (msg.type === 'SRS_GET_STREAK') {
+    try {
+      return await getStreakInfo()
+    } catch (err) {
+      console.warn('[osmosis:bg] SRS_GET_STREAK error', err)
+      return { error: 'API_ERROR' }
+    }
   }
 
   return { error: 'UNKNOWN_MESSAGE' }

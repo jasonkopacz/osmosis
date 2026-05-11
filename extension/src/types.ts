@@ -34,6 +34,7 @@ export type Message =
   | { type: 'SRS_GET_DUE'; targetLang: string; limit?: number }
   | { type: 'SRS_GET_STATS'; targetLang: string }
   | { type: 'SRS_REPORT_ENCOUNTERS'; words: string[]; targetLang: string }
+  | { type: 'SRS_GET_STREAK' }
 
 // 1=Again  2=Hard  3=Good  4=Easy
 export type SrsRating = 1 | 2 | 3 | 4
@@ -60,6 +61,9 @@ export type SrsStats = {
   reviewedToday: number
   dueCount: number
 }
+
+// Re-export from streak module so popup views don't need a deep import
+export type { StreakInfo } from './background/streak'
 
 export type SrsRateResult = {
   word: string

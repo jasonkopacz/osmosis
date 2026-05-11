@@ -1,4 +1,5 @@
-import type { UserSettings, SrsStats, Message } from '../../types'
+import type { UserSettings, SrsStats, StreakInfo, Message } from '../../types'
+import { renderStreakSection } from '../components/streakDisplay'
 
 export function renderProgress(
   container: HTMLElement,
@@ -21,23 +22,29 @@ async function load(
   settings: UserSettings,
   onStartReview: () => void,
 ): Promise<void> {
+  // Fetch vocab stats and streak in parallel
   let stats: SrsStats & { error?: string }
+  let streak: StreakInfo & { error?: string }
+
   try {
-    stats = (await chrome.runtime.sendMessage({
-      type: 'SRS_GET_STATS',
-      targetLang: settings.targetLang,
-    } as Message)) as SrsStats & { error?: string }
+    ;[stats, streak] = await Promise.all([
+      chrome.runtime.sendMessage({ type: 'SRS_GET_STATS', targetLang: settings.targetLang } as Message) as Promise<SrsStats & { error?: string }>,
+      chrome.runtime.sendMessage({ type: 'SRS_GET_STREAK' } as Message) as Promise<StreakInfo & { error?: string }>,
+    ])
   } catch {
     renderError(container)
     return
   }
+
   if (stats.error) { renderError(container); return }
-  paint(container, stats, settings, onStartReview)
+
+  paint(container, stats, streak, settings, onStartReview)
 }
 
 function paint(
   container: HTMLElement,
   stats: SrsStats,
+  streak: StreakInfo & { error?: string },
   settings: UserSettings,
   onStartReview: () => void,
 ): void {
@@ -46,7 +53,7 @@ function paint(
   const body = document.createElement('div')
   body.className = 'body'
 
-  // ── Section label
+  // ── Vocabulary section label
   const topLabel = document.createElement('div')
   topLabel.className = 'field-label'
   topLabel.textContent = `${settings.targetLang.toUpperCase()} vocabulary`
@@ -62,7 +69,7 @@ function paint(
     stats.dueCount > 0 ? 'stat-card--due stat-card--due-active' : 'stat-card--due',
   )
   const totalCard = makeStatCard(stats.total.toString(), 'Total', '')
-  const todayCard = makeStatCard(stats.reviewedToday.toString(), 'Today', 'stat-card--reviewed')
+  const todayCard = makeStatCard(stats.reviewedToday.toString(), 'Reviewed', 'stat-card--reviewed')
 
   grid.append(dueCard, totalCard, todayCard)
   body.appendChild(grid)
@@ -77,6 +84,11 @@ function paint(
 
     body.appendChild(makeBreakdownRow('Review', stats.inReview, stats.total, 'breakdown-fill--review'))
     body.appendChild(makeBreakdownRow('Relearning', stats.relearning, stats.total, 'breakdown-fill--relearning'))
+  }
+
+  // ── Reading streak (always shown, even with no vocab history)
+  if (!streak.error) {
+    body.appendChild(renderStreakSection(streak))
   }
 
   // ── CTA or empty state

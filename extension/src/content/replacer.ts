@@ -1,4 +1,5 @@
 import type { WordEntry } from './walker'
+import type { PhraseEntry } from './phraseScanner'
 import type { TranslationEntry } from '../types'
 import { isEligible } from './filter'
 import replacerStyles from './styles/replacer.css?raw'
@@ -353,6 +354,60 @@ export function applyReplacements(
       bindTooltipSpan(span)
       fragment.appendChild(span)
       cursor = idx + word.length
+    }
+
+    if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)))
+    node.parentNode.replaceChild(fragment, node)
+  }
+}
+
+/**
+ * Replace matched phrase spans with translated versions.
+ * Phrases are matched case-insensitively; the translation replaces the original surface text.
+ * Works identically to applyReplacements but uses PhraseEntry (start/end offsets) instead
+ * of WordEntry (single-word offset).
+ */
+export function applyPhraseReplacements(
+  translationMap: Map<string, TranslationEntry | string>,
+  entries: PhraseEntry[],
+  targetLang: string,
+): void {
+  if (translationMap.size === 0) return
+
+  // Group entries by text node; filter to those that have a translation
+  const byNode = new Map<Text, Array<{ surface: string; phrase: string; start: number; end: number; entry: TranslationEntry }>>()
+
+  for (const { phrase, surface, node, start, end } of entries) {
+    const rawEntry = translationMap.get(phrase) ?? translationMap.get(phrase.toLowerCase())
+    if (!rawEntry) continue
+    const entry = coerceEntry(rawEntry)
+    if (!byNode.has(node)) byNode.set(node, [])
+    byNode.get(node)!.push({ surface, phrase, start, end, entry })
+  }
+
+  for (const [node, matches] of byNode) {
+    if (!node.parentNode) continue
+    const text = node.textContent ?? ''
+    matches.sort((a, b) => a.start - b.start)
+
+    const fragment = document.createDocumentFragment()
+    let cursor = 0
+
+    for (const { surface, start, end, entry } of matches) {
+      if (start < cursor) continue  // skip if overlapping (shouldn't happen after scan dedup)
+
+      if (start > cursor) fragment.appendChild(document.createTextNode(text.slice(cursor, start)))
+
+      const span = document.createElement('span')
+      span.className = 'osmosis-word'
+      span.setAttribute('data-original', surface)
+      span.setAttribute('data-translation', entry.t)
+      span.setAttribute('data-target-lang', targetLang)
+      // Preserve the original casing of the first word for natural reading
+      span.textContent = matchCase(surface, entry.t)
+      bindTooltipSpan(span)
+      fragment.appendChild(span)
+      cursor = end
     }
 
     if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)))

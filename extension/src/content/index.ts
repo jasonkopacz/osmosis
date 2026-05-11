@@ -11,6 +11,8 @@ import {
 } from '../constants'
 import { recordLocalEncounters } from './encounters'
 import { passesCefrFilter } from './cefr'
+import { collectPhrases, uniquePhrases } from './phraseScanner'
+import { applyPhraseReplacements } from './replacer'
 import { normalizeTargetLang } from '../languages'
 
 let settings: UserSettings = DEFAULT_SETTINGS
@@ -108,117 +110,131 @@ async function runPipeline(): Promise<void> {
     clearReplacements()
     injectTooltipStyles()
 
-    const allEntries = collectWords(document.body)
-    const eligibleEntries = allEntries.filter(({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? ''))
-    if (eligibleEntries.length === 0) {
-      console.log('[osmosis:content] no eligible words')
-      return
+    // ── Phase 1: Collect all candidates before any DOM changes ────────────
+    // Phrases run first and always show 100% of matches — the list is curated
+    // and sparse enough that full coverage doesn't create visual noise.
+    const allPhraseEntries = collectPhrases(document.body)
+    const uniquePhraseCandidates = uniquePhrases(allPhraseEntries)
+
+    // Words — collected before DOM changes so offsets are stable.
+    const allWordEntries = collectWords(document.body)
+    const eligibleWordEntries = allWordEntries.filter(
+      ({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? '')
+    )
+
+    // ── Phase 2: Exclude words whose offsets fall inside a phrase match ────
+    // Prevents "of course" being phrase-replaced while "course" is also
+    // individually replaced inside the same span.
+    const phraseNodeCoverage = new Map<Text, Array<[number, number]>>()
+    for (const e of allPhraseEntries) {
+      if (!phraseNodeCoverage.has(e.node)) phraseNodeCoverage.set(e.node, [])
+      phraseNodeCoverage.get(e.node)!.push([e.start, e.end])
     }
+    const nonOverlappingWordEntries = eligibleWordEntries.filter(({ node, offset }) => {
+      const ranges = phraseNodeCoverage.get(node)
+      return !ranges?.some(([start, end]) => offset >= start && offset < end)
+    })
 
-    // Deduplicate before sampling so percentage applies to unique words, not occurrences.
-    // Without this, a long article (e.g. 3000 occurrences, 20% → 600) always hits MAX_WORDS
-    // at any percentage, making the slider appear stuck.
-    const allUnique = [...new Set(eligibleEntries.map(e => e.word))]
-
-    // CEFR filter: exclude words below the user's selected minimum level.
+    // ── Phase 3: CEFR filter + word sampling ──────────────────────────────
+    const allUnique = [...new Set(nonOverlappingWordEntries.map(e => e.word))]
     const cefrMin = settings.cefrMinLevel ?? 'all'
-    const uniqueEligible = cefrMin === 'all'
+    const cefrFiltered = cefrMin === 'all'
       ? allUnique
       : allUnique.filter(w => passesCefrFilter(w, cefrMin))
+    const sampledWords = sampleWords(cefrFiltered, settings.percentage, location.href)
+    const sampledWordSet = new Set(sampledWords)
 
-    if (uniqueEligible.length === 0) {
-      console.log('[osmosis:content] no words pass CEFR filter', cefrMin)
+    if (sampledWords.length === 0 && uniquePhraseCandidates.length === 0) {
+      console.log('[osmosis:content] nothing to translate after filtering')
       void chrome.storage.local.set({
-        [STORAGE_KEYS.PAGE_STATS]: { sampled: 0, eligible: allUnique.length, lang: settings.targetLang, cefr: cefrMin },
+        [STORAGE_KEYS.PAGE_STATS]: { sampled: 0, eligible: cefrFiltered.length, lang: settings.targetLang, cefr: cefrMin },
       })
       return
     }
 
-    const unique = sampleWords(uniqueEligible, settings.percentage, location.href)
-    const sampledSet = new Set(unique)
+    // ── Phase 4: Context extraction for sampled words ─────────────────────
     const contextsByWord: Record<string, string> = {}
     const wordsBySentence = new Map<string, Set<string>>()
     const wordsWithoutContext = new Set<string>()
-    for (const { word, node, offset } of eligibleEntries) {
-      if (!sampledSet.has(word)) continue
-      if (contextsByWord[word]) continue
+    for (const { word, node, offset } of nonOverlappingWordEntries) {
+      if (!sampledWordSet.has(word) || contextsByWord[word]) continue
       const sentence = sentenceAroundOffset(node.textContent ?? '', offset)
-      if (!sentence) {
-        wordsWithoutContext.add(word)
-        continue
-      }
+      if (!sentence) { wordsWithoutContext.add(word); continue }
       contextsByWord[word] = sentence
       if (!wordsBySentence.has(sentence)) wordsBySentence.set(sentence, new Set())
       wordsBySentence.get(sentence)!.add(word)
     }
     if (LOG_CONTEXT_PREVIEW) {
       const contextEntries = Object.entries(contextsByWord)
-      const preview = contextEntries
-        .slice(0, CONTEXT_PREVIEW_LIMIT)
-        .map(([word, context]) => ({ word, context }))
+      const preview = contextEntries.slice(0, CONTEXT_PREVIEW_LIMIT).map(([word, context]) => ({ word, context }))
       const sentenceGroups = Array.from(wordsBySentence.entries()).map(([sentence, words]) => ({
-        sentence,
-        words: Array.from(words.values()),
+        sentence, words: Array.from(words.values()),
       }))
-      console.log('[osmosis:content] context extraction details', {
-        sampledWords: unique.length,
+      console.log('[osmosis:content] context extraction', {
+        sampledWords: sampledWords.length,
         wordsWithContext: contextEntries.length,
         wordsWithoutContext: wordsWithoutContext.size,
-        contextCoveragePct: unique.length > 0 ? Number(((contextEntries.length / unique.length) * 100).toFixed(1)) : 0,
+        contextCoveragePct: sampledWords.length > 0 ? Number(((contextEntries.length / sampledWords.length) * 100).toFixed(1)) : 0,
         uniqueSentenceCount: wordsBySentence.size,
-        contextsByWord,
-        sentenceGroups,
+        contextsByWord, sentenceGroups,
         wordsMissingContext: Array.from(wordsWithoutContext.values()),
         preview,
       })
     }
+
     void chrome.storage.local.set({
-      [STORAGE_KEYS.PAGE_STATS]: { sampled: unique.length, eligible: uniqueEligible.length, lang: settings.targetLang, cefr: cefrMin },
+      [STORAGE_KEYS.PAGE_STATS]: {
+        sampled: sampledWords.length,
+        eligible: cefrFiltered.length,
+        phrases: uniquePhraseCandidates.length,
+        lang: settings.targetLang,
+        cefr: cefrMin,
+      },
     })
     console.log('[osmosis:content] pipeline', {
-      eligible: eligibleEntries.length,
-      uniqueEligible: uniqueEligible.length,
-      sampled: unique.length,
-      contextWords: Object.keys(contextsByWord).length,
-      contextSentences: wordsBySentence.size,
+      phrases: uniquePhraseCandidates.length,
+      uniqueEligibleWords: cefrFiltered.length,
+      sampledWords: sampledWords.length,
       lang: settings.targetLang,
     })
 
+    // ── Phase 5: Single translate batch (phrases + words, deduped) ────────
+    const allToTranslate = [...new Set([...uniquePhraseCandidates, ...sampledWords])]
+
     const res = (await chrome.runtime.sendMessage({
       type: 'TRANSLATE',
-      words: unique,
+      words: allToTranslate,
       targetLang: settings.targetLang,
       contextsByWord,
     } as Message)) as { translations?: Record<string, import('../types').TranslationEntry>; error?: string } | undefined
 
-    if (!res) return // service worker inactive
+    if (!res) return
 
     if (res.error === 'LIMIT_REACHED') {
       await chrome.storage.local.set({ osmosis_limit_reached: true })
       console.warn('[osmosis:content] monthly limit reached')
       return
     }
-    if (res.error === 'NOT_LOGGED_IN') {
-      return
-    }
-    if (res.error || !res.translations) {
-      if (res.error) console.warn('[osmosis:content] translate error', res.error)
+    if (res.error === 'NOT_LOGGED_IN' || res.error || !res.translations) {
+      if (res.error && res.error !== 'NOT_LOGGED_IN') console.warn('[osmosis:content] translate error', res.error)
       return
     }
 
-    const translatedWords = Object.keys(res.translations)
-    if (translatedWords.length > 0) {
-      // Local encounter log (sync, used for quiz candidate selection)
-      void recordLocalEncounters(translatedWords, settings.targetLang)
-      // Remote encounter report (fire-and-forget, used for backend SRS stats)
+    // ── Phase 6: Apply phrase spans first, then word spans ─────────────────
+    const translationMap = new Map(Object.entries(res.translations))
+    applyPhraseReplacements(translationMap, allPhraseEntries, settings.targetLang)
+    applyReplacements(translationMap, nonOverlappingWordEntries, settings.targetLang)
+
+    // ── Phase 7: Encounter tracking ────────────────────────────────────────
+    const translatedItems = Object.keys(res.translations)
+    if (translatedItems.length > 0) {
+      void recordLocalEncounters(translatedItems, settings.targetLang)
       void chrome.runtime.sendMessage({
         type: 'SRS_REPORT_ENCOUNTERS',
-        words: translatedWords,
+        words: translatedItems,
         targetLang: settings.targetLang,
       } as Message)
     }
-
-    applyReplacements(new Map(Object.entries(res.translations)), eligibleEntries, settings.targetLang)
   } finally {
     resumeObserver() // resume watching for new dynamic content
   }
