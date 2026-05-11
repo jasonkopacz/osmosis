@@ -1,5 +1,6 @@
 import type { UserSettings, SrsDueCard, SrsRating, SrsRateResult, Message } from '../../types'
 import { POS_LABELS } from '../../utils/pos'
+import { REVIEW_THRESHOLD } from '../../constants'
 
 function formatInterval(days: number): string {
   if (days < 1) return '<1d'
@@ -17,6 +18,36 @@ function isContextCard(card: SrsDueCard): card is SrsDueCard & { context: string
   return !!card.context && Array.isArray(card.choices) && card.choices.length > 0
 }
 
+// ── Session persistence ──────────────────────────────────────────────────────
+
+const SESSION_KEY = 'osmosis_quiz_session'
+
+type SavedSession = {
+  cards: SrsDueCard[]
+  index: number
+  phase: 'question' | 'answer'
+  lang: string
+}
+
+function saveQuizSession(cards: SrsDueCard[], index: number, phase: 'question' | 'answer', lang: string): void {
+  void chrome.storage.session.set({ [SESSION_KEY]: { cards, index, phase, lang } }).catch(() => {})
+}
+
+function clearQuizSession(): void {
+  void chrome.storage.session.remove(SESSION_KEY).catch(() => {})
+}
+
+async function getSavedSession(lang: string): Promise<SavedSession | null> {
+  try {
+    const r = await chrome.storage.session.get(SESSION_KEY)
+    const s = r[SESSION_KEY] as SavedSession | undefined
+    if (s && s.lang === lang && s.index < s.cards.length) return s
+  } catch { /* chrome.storage.session unavailable on older Chrome */ }
+  return null
+}
+
+// ── Entry point ──────────────────────────────────────────────────────────────
+
 export function renderQuiz(container: HTMLElement, settings: UserSettings): void {
   container.replaceChildren()
 
@@ -26,6 +57,15 @@ export function renderQuiz(container: HTMLElement, settings: UserSettings): void
   hint.textContent = 'Loading…'
   container.appendChild(hint)
 
+  void restore(container, settings)
+}
+
+async function restore(container: HTMLElement, settings: UserSettings): Promise<void> {
+  const saved = await getSavedSession(settings.targetLang)
+  if (saved) {
+    runSession(container, settings, saved.cards, saved.index, saved.phase)
+    return
+  }
   void load(container, settings)
 }
 
@@ -35,7 +75,7 @@ async function load(container: HTMLElement, settings: UserSettings): Promise<voi
     result = (await chrome.runtime.sendMessage({
       type: 'SRS_GET_REVIEW_SESSION',
       targetLang: settings.targetLang,
-      limit: 20,
+      limit: REVIEW_THRESHOLD,
     } as Message)) as { cards?: SrsDueCard[]; error?: string }
   } catch {
     renderError(container)
@@ -53,14 +93,21 @@ async function load(container: HTMLElement, settings: UserSettings): Promise<voi
   runSession(container, settings, cards)
 }
 
-function runSession(container: HTMLElement, settings: UserSettings, cards: SrsDueCard[]): void {
-  let index = 0
-  let phase: 'question' | 'answer' = 'question'
+function runSession(
+  container: HTMLElement,
+  settings: UserSettings,
+  cards: SrsDueCard[],
+  startIndex = 0,
+  startPhase: 'question' | 'answer' = 'question',
+): void {
+  let index = startIndex
+  let phase: 'question' | 'answer' = startPhase
 
   function advance(result: SrsRateResult): void {
     index++
     phase = 'question'
     if (index >= cards.length) {
+      clearQuizSession()
       void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
       renderComplete(container, cards.length, result)
     } else {
@@ -69,6 +116,7 @@ function runSession(container: HTMLElement, settings: UserSettings, cards: SrsDu
   }
 
   function renderCurrent(): void {
+    saveQuizSession(cards, index, phase, settings.targetLang)
     container.replaceChildren()
 
     const body = document.createElement('div')

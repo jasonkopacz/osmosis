@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   percentage: 20,
   cefrMinLevel: 'all',
 };
+export const REVIEW_THRESHOLD = 25
+
 export const STORAGE_KEYS = {
   TOKEN: "osmosis_token",
   SETTINGS: "osmosis_settings",

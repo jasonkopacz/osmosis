@@ -3,7 +3,7 @@ import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
-import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, REVIEW_THRESHOLD } from './reviewSession'
+import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
 import type { Message, UserProfile, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
@@ -329,7 +329,7 @@ async function handle(msg: Message): Promise<unknown> {
     const token = await getToken()
     if (!token) return { error: 'NOT_LOGGED_IN' }
     try {
-      const limit = msg.limit ?? 20
+      const limit = msg.limit ?? REVIEW_THRESHOLD
       const [dueResult, sessionWords] = await Promise.all([
         srsGetDue(msg.targetLang, token, limit) as Promise<{ cards?: SrsDueCard[] }>,
         getSessionWords(msg.targetLang),
@@ -409,6 +409,11 @@ async function handle(msg: Message): Promise<unknown> {
         const choices = fisherYates([card.word, ...distractors])
         return { ...card, context: ctx, choices }
       })
+
+      // Mark session as active so new encounters are held back until this session completes
+      if (enriched.length > 0) {
+        void markSessionActive(msg.targetLang).catch(() => {})
+      }
 
       return { cards: enriched }
     } catch (err) {

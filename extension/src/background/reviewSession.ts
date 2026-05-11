@@ -1,15 +1,24 @@
-import { STORAGE_KEYS } from '../constants'
+import { STORAGE_KEYS, REVIEW_THRESHOLD } from '../constants'
 
-export const REVIEW_THRESHOLD = 25
+export { REVIEW_THRESHOLD }
 
 interface SessionStore { words: string[] }
 
-function key(lang: string): string {
+function pendingKey(lang: string): string {
   return `${STORAGE_KEYS.SESSION_WORDS}::${lang}`
 }
 
+function activeKey(lang: string): string {
+  return `${STORAGE_KEYS.SESSION_WORDS}_active::${lang}`
+}
+
+// ── Pending word accumulation ─────────────────────────────────────────────────
+// Words accumulate here while no review session is in progress.
+// Once a session starts, new encounters are held back until it completes.
+
 export async function addEncounteredWords(words: string[], lang: string): Promise<void> {
-  const k = key(lang)
+  if (await isSessionActive(lang)) return  // hold new words until current session completes
+  const k = pendingKey(lang)
   const r = await chrome.storage.local.get(k)
   const existing = (r[k] ?? { words: [] }) as SessionStore
   const wordSet = new Set(existing.words)
@@ -18,15 +27,29 @@ export async function addEncounteredWords(words: string[], lang: string): Promis
 }
 
 export async function getSessionWords(lang: string): Promise<string[]> {
-  const k = key(lang)
-  const r = await chrome.storage.local.get(k)
-  return ((r[k] ?? { words: [] }) as SessionStore).words
+  const r = await chrome.storage.local.get(pendingKey(lang))
+  return ((r[pendingKey(lang)] ?? { words: [] }) as SessionStore).words
 }
 
 export async function getSessionCount(lang: string): Promise<number> {
   return (await getSessionWords(lang)).length
 }
 
+// ── Active session flag ───────────────────────────────────────────────────────
+// Set when a review session starts so new encounters are held back.
+// Cleared when the session completes, at which point the pending pool resets.
+
+export async function markSessionActive(lang: string): Promise<void> {
+  await chrome.storage.local.set({ [activeKey(lang)]: true })
+}
+
+export async function isSessionActive(lang: string): Promise<boolean> {
+  const r = await chrome.storage.local.get(activeKey(lang))
+  return r[activeKey(lang)] === true
+}
+
+// Clears both the pending word pool and the active flag.
+// Call this when a review session is fully completed.
 export async function clearSession(lang: string): Promise<void> {
-  await chrome.storage.local.remove(key(lang))
+  await chrome.storage.local.remove([pendingKey(lang), activeKey(lang)])
 }
