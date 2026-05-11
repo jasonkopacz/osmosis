@@ -62,10 +62,11 @@ function paint(
   const grid = document.createElement('div')
   grid.className = 'stats-grid'
 
+  const readyCount = (stats.sessionCount ?? 0) + stats.dueCount
   const dueCard = makeStatCard(
-    stats.dueCount.toString(),
-    'Due',
-    stats.dueCount > 0 ? 'stat-card--due stat-card--due-active' : 'stat-card--due',
+    readyCount.toString(),
+    'Ready',
+    readyCount > 0 ? 'stat-card--due stat-card--due-active' : 'stat-card--due',
   )
   const totalCard = makeStatCard(stats.total.toString(), 'Total', '')
   const todayCard = makeStatCard(stats.reviewedToday.toString(), 'Reviewed', 'stat-card--reviewed')
@@ -92,16 +93,23 @@ function paint(
   // ── CTA or empty state
   if (stats.total === 0) {
     body.appendChild(makeEmptyState())
-  } else if (stats.dueCount > 0) {
+  } else if (stats.reviewReady) {
+    const parts: string[] = []
+    if (stats.sessionCount && stats.sessionCount > 0) parts.push(`${stats.sessionCount} from browsing`)
+    if (stats.dueCount > 0) parts.push(`${stats.dueCount} scheduled`)
     const cta = document.createElement('button')
     cta.className = 'osmo-btn osmo-btn--primary'
-    cta.textContent = `Start Review — ${stats.dueCount} due`
+    cta.textContent = `Start Review${parts.length ? ` — ${parts.join(', ')}` : ''}`
     cta.addEventListener('click', onStartReview)
     body.appendChild(cta)
   } else {
+    const sessionCount = stats.sessionCount ?? 0
+    const remaining = Math.max(0, 25 - sessionCount)
     const allDone = document.createElement('div')
     allDone.className = 'osmo-hint progress-all-done'
-    allDone.textContent = 'All caught up — check back later'
+    allDone.textContent = remaining > 0
+      ? `Browse ${remaining} more word${remaining === 1 ? '' : 's'} to unlock your next review`
+      : 'All caught up — keep browsing!'
     body.appendChild(allDone)
   }
 

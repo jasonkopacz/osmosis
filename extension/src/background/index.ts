@@ -3,7 +3,8 @@ import { getToken, setToken, clearToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
-import type { Message, UserProfile, TranslationEntry } from '../types'
+import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, REVIEW_THRESHOLD } from './reviewSession'
+import type { Message, UserProfile, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
 
 const cache = new SessionCache()
@@ -289,7 +290,15 @@ async function handle(msg: Message): Promise<unknown> {
     const token = await getToken()
     if (!token) return { error: 'NOT_LOGGED_IN' }
     try {
-      return await srsGetStats(msg.targetLang, token)
+      const [stats, sessionCount] = await Promise.all([
+        srsGetStats(msg.targetLang, token) as Promise<Record<string, unknown>>,
+        getSessionCount(msg.targetLang),
+      ])
+      return {
+        ...stats,
+        sessionCount,
+        reviewReady: sessionCount >= REVIEW_THRESHOLD || (stats['dueCount'] as number) > 0,
+      }
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
@@ -298,13 +307,69 @@ async function handle(msg: Message): Promise<unknown> {
     }
   }
 
+  if (msg.type === 'SRS_GET_REVIEW_SESSION') {
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      const limit = msg.limit ?? 20
+      const [dueResult, sessionWords] = await Promise.all([
+        srsGetDue(msg.targetLang, token, limit) as Promise<{ cards?: SrsDueCard[] }>,
+        getSessionWords(msg.targetLang),
+      ])
+      const dueCards: SrsDueCard[] = dueResult.cards ?? []
+      const dueWordSet = new Set(dueCards.map(c => c.word.toLowerCase()))
+
+      const sessionCards: SrsDueCard[] = []
+      for (const word of sessionWords) {
+        if (dueWordSet.has(word)) continue
+        const entry = cache.get(word, msg.targetLang)
+        if (!entry) continue
+        sessionCards.push({
+          word,
+          targetLang: msg.targetLang,
+          translation: entry.t,
+          posTag: entry.p,
+          alternatives: entry.a ? [...entry.a] : undefined,
+          state: 'review',
+          stability: 0,
+          difficulty: 5,
+          lapses: 0,
+          reps: 0,
+          dueAt: Date.now(),
+        })
+      }
+
+      // Interleave due and session cards so the session feels varied
+      const combined: SrsDueCard[] = []
+      const max = Math.max(dueCards.length, sessionCards.length)
+      for (let i = 0; i < max && combined.length < limit; i++) {
+        if (i < dueCards.length) combined.push(dueCards[i]!)
+        if (i < sessionCards.length && combined.length < limit) combined.push(sessionCards[i]!)
+      }
+
+      return { cards: combined }
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      warn('[osmosis:bg] SRS_GET_REVIEW_SESSION error', s)
+      return { error: 'API_ERROR' }
+    }
+  }
+
+  if (msg.type === 'SRS_SESSION_COMPLETE') {
+    void clearSession(msg.targetLang)
+      .catch(err => warn('[osmosis:bg] clear session failed', err))
+    return { ok: true }
+  }
+
   if (msg.type === 'SRS_REPORT_ENCOUNTERS') {
     const token = await getToken()
     if (token) {
       void srsReportEncounters(msg.words, msg.targetLang, token)
         .catch(err => warn('[osmosis:bg] SRS_REPORT_ENCOUNTERS failed', err))
     }
-    // Update reading streak with the number of words encountered (local, no token needed)
+    void addEncounteredWords(msg.words, msg.targetLang)
+      .catch(err => warn('[osmosis:bg] session words update failed', err))
     void updateStreakLog(msg.words.length)
       .catch(err => warn('[osmosis:bg] streak update failed', err))
     return { ok: true }

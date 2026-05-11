@@ -136,6 +136,7 @@ export function renderMain(
     tabButtons.forEach((btn, tabId) => {
       btn.classList.toggle('tab-btn--active', tabId === id)
     })
+    if (id === 'quiz' && dueBadgeEl) dueBadgeEl.style.display = 'none'
     switch (id) {
       case 'home':     renderHomeTab(content, s, user); break
       case 'progress': renderProgress(content, s, () => switchTab('quiz')); break
@@ -243,7 +244,7 @@ export function renderMain(
   // ── Initial render
   switchTab('home')
 
-  // ── Load due count for the badge (non-blocking)
+  // ── Load review badge (non-blocking)
   void chrome.runtime.sendMessage({
     type: 'SRS_GET_STATS',
     targetLang: s.targetLang,
@@ -251,8 +252,10 @@ export function renderMain(
     .then(res => {
       const stats = res as (SrsStats & { error?: string }) | undefined
       if (!stats || stats.error || !dueBadgeEl) return
-      if (stats.dueCount > 0) {
-        dueBadgeEl.textContent = stats.dueCount > 99 ? '99+' : stats.dueCount.toString()
+      if (stats.reviewReady) {
+        dueBadgeEl.textContent = stats.dueCount > 0
+          ? (stats.dueCount > 99 ? '99+' : stats.dueCount.toString())
+          : '!'
         dueBadgeEl.style.display = 'flex'
       }
     })

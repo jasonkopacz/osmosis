@@ -25,8 +25,8 @@
 
 .stat-card__label {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-mute);
   margin-top: 5px;
@@ -51,7 +51,7 @@
 
 .breakdown-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-soft);
   width: 70px;
   flex-shrink: 0;
@@ -76,7 +76,7 @@
 
 .breakdown-count {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-mute);
   width: 24px;
   text-align: right;
@@ -115,8 +115,8 @@
 
 .streak-card__label {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-mute);
   margin-top: 5px;
@@ -148,7 +148,7 @@
   justify-content: space-between;
   align-items: baseline;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .streak-today__label { color: var(--text-mute); letter-spacing: 0.08em; }

@@ -26,7 +26,7 @@ async function load(container: HTMLElement, settings: UserSettings): Promise<voi
   let result: { cards?: SrsDueCard[]; error?: string }
   try {
     result = (await chrome.runtime.sendMessage({
-      type: 'SRS_GET_DUE',
+      type: 'SRS_GET_REVIEW_SESSION',
       targetLang: settings.targetLang,
       limit: 20,
     } as Message)) as { cards?: SrsDueCard[]; error?: string }
@@ -88,6 +88,7 @@ function runSession(container: HTMLElement, settings: UserSettings, cards: SrsDu
         index++
         phase = 'question'
         if (index >= cards.length) {
+          void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
           renderComplete(container, cards.length, result)
         } else {
           renderCurrent()
@@ -118,12 +119,6 @@ function buildDots(current: number, total: number): HTMLDivElement {
 function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
   const el = document.createElement('div')
   el.className = phase === 'answer' ? 'quiz-card quiz-card--revealed' : 'quiz-card'
-
-  // Prompt line
-  const prompt = document.createElement('div')
-  prompt.className = 'quiz-prompt'
-  prompt.textContent = 'What does this mean?'
-  el.appendChild(prompt)
 
   // The translated word (question)
   const word = document.createElement('div')
@@ -163,10 +158,10 @@ function buildRatingGrid(
   grid.className = 'rating-grid'
 
   const ratings: Array<{ rating: SrsRating; cls: string; label: string }> = [
-    { rating: 1, cls: 'rating-btn--again', label: 'Again' },
-    { rating: 2, cls: 'rating-btn--hard',  label: 'Hard'  },
-    { rating: 3, cls: 'rating-btn--good',  label: 'Good'  },
-    { rating: 4, cls: 'rating-btn--easy',  label: 'Easy'  },
+    { rating: 1, cls: 'rating-btn--again', label: 'New'      },
+    { rating: 2, cls: 'rating-btn--hard',  label: 'Almost'   },
+    { rating: 3, cls: 'rating-btn--good',  label: 'Got it'   },
+    { rating: 4, cls: 'rating-btn--easy',  label: 'Nailed it'},
   ]
 
   for (const { rating, cls, label } of ratings) {
@@ -229,7 +224,7 @@ function renderComplete(container: HTMLElement, count: number, lastResult: SrsRa
 
   const sub = document.createElement('div')
   sub.className = 'quiz-end__sub'
-  sub.textContent = `${count} card${count === 1 ? '' : 's'} reviewed.\nLast word next in ${formatInterval(lastResult.intervalDays)}.`
+  sub.textContent = `${count} card${count === 1 ? '' : 's'} reviewed. Keep browsing to unlock your next session.`
 
   end.append(icon, title, sub)
   body.appendChild(end)
@@ -255,7 +250,7 @@ function renderEmpty(container: HTMLElement, settings: UserSettings): void {
 
   const sub = document.createElement('div')
   sub.className = 'quiz-end__sub'
-  sub.textContent = `No ${settings.targetLang.toUpperCase()} cards due right now.\nKeep browsing to build your vocabulary.`
+  sub.textContent = `Browse a few more pages and your first review session will unlock automatically.`
 
   end.append(icon, title, sub)
   body.appendChild(end)

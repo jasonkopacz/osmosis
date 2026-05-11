@@ -3,7 +3,7 @@ import type { TranslationEntry } from '../types'
 import { log, warn } from '../logger'
 
 const TTL_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
-const MAX_ENTRIES = 10_000
+const MAX_ENTRIES = 2_000
 
 interface StoredEntry { v: TranslationEntry | string; t: number }
 
@@ -20,6 +20,7 @@ export class SessionCache {
   private readyPromise: Promise<void>
   private resolveReady!: () => void
   private pendingWrites = new Map<string, StoredEntry>()
+  private pendingDeletes = new Set<string>()
   private flushScheduled = false
 
   constructor() {
@@ -67,17 +68,27 @@ export class SessionCache {
   }
 
   get(word: string, lang: string): TranslationEntry | null {
-    return this.store.get(this.makeKey(word, lang)) ?? null
+    const k = this.makeKey(word, lang)
+    const entry = this.store.get(k)
+    if (!entry) return null
+    // Promote to most-recently-used position
+    this.store.delete(k)
+    this.store.set(k, entry)
+    return entry
   }
 
   set(word: string, lang: string, entry: TranslationEntry): void {
     const k = this.makeKey(word, lang)
-    // Evict oldest entry when at capacity (Map preserves insertion order)
     if (!this.store.has(k) && this.store.size >= MAX_ENTRIES) {
-      const oldest = this.store.keys().next().value
-      if (oldest !== undefined) this.store.delete(oldest)
+      const lru = this.store.keys().next().value
+      if (lru !== undefined) {
+        this.store.delete(lru)
+        this.pendingDeletes.add(lru)
+        this.pendingWrites.delete(lru)
+      }
     }
     this.store.set(k, entry)
+    this.pendingDeletes.delete(k)
     this.pendingWrites.set(k, { v: entry, t: Date.now() })
     if (!this.flushScheduled) {
       this.flushScheduled = true
@@ -90,10 +101,13 @@ export class SessionCache {
     if (!local) return
     this.flushScheduled = false
     const writes = new Map(this.pendingWrites)
+    const deletes = new Set(this.pendingDeletes)
     this.pendingWrites.clear()
+    this.pendingDeletes.clear()
     try {
       const r = await local.get(STORAGE_KEYS.TRANSLATION_CACHE)
       const stored = (r[STORAGE_KEYS.TRANSLATION_CACHE] ?? {}) as Record<string, StoredEntry>
+      deletes.forEach(key => { delete stored[key] })
       writes.forEach((entry, key) => { stored[key] = entry })
       await local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: stored })
     } catch (err) {
@@ -104,6 +118,7 @@ export class SessionCache {
   clear(): void {
     this.store.clear()
     this.pendingWrites.clear()
+    this.pendingDeletes.clear()
     this.flushScheduled = false
     const local = storageLocal()
     if (!local) return

@@ -32,6 +32,8 @@ export type Message =
   | { type: 'DELETE_ACCOUNT' }
   | { type: 'SRS_RATE'; word: string; targetLang: string; rating: SrsRating }
   | { type: 'SRS_GET_DUE'; targetLang: string; limit?: number }
+  | { type: 'SRS_GET_REVIEW_SESSION'; targetLang: string; limit?: number }
+  | { type: 'SRS_SESSION_COMPLETE'; targetLang: string }
   | { type: 'SRS_GET_STATS'; targetLang: string }
   | { type: 'SRS_REPORT_ENCOUNTERS'; words: string[]; targetLang: string }
   | { type: 'SRS_GET_STREAK' }
@@ -60,6 +62,8 @@ export type SrsStats = {
   relearning: number
   reviewedToday: number
   dueCount: number
+  sessionCount?: number   // words seen since last review session
+  reviewReady?: boolean   // sessionCount >= threshold OR dueCount > 0
 }
 
 // Re-export from streak module so popup views don't need a deep import
