@@ -456,7 +456,7 @@ function makeInput(name: string, placeholder: string, type: string): HTMLInputEl
   input.autocomplete = name === 'email' ? 'email' : type === 'password' ? 'current-password' : 'off'
   input.className = 'osmo-input'
   input.addEventListener('focus', () => {
-    if (!input.dataset.invalid) input.classList.remove('osmo-input--invalid')
+    if (input.dataset.invalid) input.classList.remove('osmo-input--invalid')
   })
   return input
 }

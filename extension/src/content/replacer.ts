@@ -15,14 +15,7 @@ function matchCase(original: string, translation: string): string {
   return translation.toLowerCase()
 }
 
-const POS_LABELS: Record<string, string> = {
-  VERB: 'verb', NOUN: 'noun', ADJ: 'adj.', ADV: 'adv.',
-  PRON: 'pron.', PREP: 'prep.', DET: 'det.', CONJ: 'conj.', INTJ: 'interj.',
-}
-
-function posLabel(tag: string): string {
-  return POS_LABELS[tag] ?? tag.toLowerCase()
-}
+import { posLabel } from '../utils/pos'
 
 function coerceEntry(entry: TranslationEntry | string): TranslationEntry {
   return typeof entry === 'string' ? { t: entry } : entry
@@ -82,10 +75,9 @@ function ensureTooltipHost(): HTMLDivElement {
     host = document.createElement('div')
     host.id = TOOLTIP_HOST_ID
     host.setAttribute('role', 'tooltip')
-    host.style.display = 'none'
+    // Initial position is arbitrary — positionTooltip overwrites before show
     host.style.left = '0'
     host.style.top = '0'
-    host.style.opacity = '0'
     host.addEventListener('mouseenter', () => clearTooltipHideTimer())
     host.addEventListener('mouseleave', () => scheduleTooltipHide())
     document.documentElement.appendChild(host)
@@ -109,60 +101,35 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   const alts = span.getAttribute('data-alts') ?? ''
 
   const headerRow = document.createElement('div')
-  headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px'
+  headerRow.className = 'osmo-tt-header'
   const originalWord = document.createElement('div')
-  originalWord.style.cssText = 'font-weight:700;font-size:14px;color:#ffffff;letter-spacing:0.005em'
+  originalWord.className = 'osmo-tt-word'
   originalWord.textContent = original
   headerRow.appendChild(originalWord)
   if (pos) {
     const posTag = document.createElement('span')
-    posTag.style.cssText = [
-      'display:inline-flex',
-      'align-items:center',
-      'background:#0c2840',
-      'border:1px solid rgba(110,180,220,.14)',
-      'color:#b9cbe0',
-      'padding:2px 6px',
-      'border-radius:4px',
-      'font-size:10px',
-      'text-transform:uppercase',
-      'letter-spacing:0.14em',
-      'white-space:nowrap',
-    ].join(';')
+    posTag.className = 'osmo-tt-pos'
     posTag.textContent = pos
     headerRow.appendChild(posTag)
   }
   frag.appendChild(headerRow)
 
   const translatedWord = document.createElement('div')
-  translatedWord.style.cssText = 'margin-top:4px;color:#5cc6f5;font-size:14px;font-weight:600'
+  translatedWord.className = 'osmo-tt-translation'
   translatedWord.textContent = translated
   frag.appendChild(translatedWord)
 
   if (alts) {
     const altsLabel = document.createElement('div')
-    altsLabel.style.cssText = 'color:#6f8aa6;font-size:10px;margin-top:6px;text-transform:uppercase;letter-spacing:0.14em'
+    altsLabel.className = 'osmo-tt-alts-label'
     altsLabel.textContent = 'Alt translations'
     frag.appendChild(altsLabel)
 
     const chips = document.createElement('div')
-    chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:4px'
+    chips.className = 'osmo-tt-chips'
     for (const alt of alts.split(' · ')) {
       const chip = document.createElement('span')
-      chip.style.cssText = [
-        'display:inline-flex',
-        'align-items:center',
-        'max-width:100%',
-        'overflow:hidden',
-        'text-overflow:ellipsis',
-        'white-space:nowrap',
-        'padding:2px 8px',
-        'border-radius:4px',
-        'border:1px solid rgba(110,180,220,.14)',
-        'background:#03101c',
-        'color:#cdeaff',
-        'font-size:10px',
-      ].join(';')
+      chip.className = 'osmo-tt-chip'
       chip.textContent = alt
       chips.appendChild(chip)
     }
@@ -170,26 +137,11 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   }
 
   const pronounceRow = document.createElement('div')
-  pronounceRow.style.cssText = 'margin-top:8px;display:flex;align-items:center;justify-content:flex-end'
+  pronounceRow.className = 'osmo-tt-pronounce-row'
   const pronounceButton = document.createElement('button')
   pronounceButton.type = 'button'
+  pronounceButton.className = 'osmo-tt-play-btn'
   pronounceButton.textContent = 'Play Pronunciation'
-  pronounceButton.style.cssText = [
-    'appearance:none',
-    '-webkit-appearance:none',
-    'background:linear-gradient(180deg,#5cc6f5 0%,#2aa4e0 100%)',
-    'border:1px solid rgba(255,255,255,0.18)',
-    'color:#042033',
-    'font-size:11px',
-    'font-weight:700',
-    'line-height:1.2',
-    'padding:4px 10px',
-    'border-radius:8px',
-    'cursor:pointer',
-    'pointer-events:auto',
-    'box-shadow:0 0 0 1px rgba(42,164,224,.45),0 4px 12px -4px rgba(42,164,224,.55)',
-    'transition:filter 120ms cubic-bezier(.2,.8,.2,1)',
-  ].join(';')
   pronounceButton.addEventListener('click', async (ev) => {
     ev.preventDefault()
     ev.stopPropagation()
@@ -280,14 +232,12 @@ function bindTooltipSpan(span: HTMLSpanElement) {
     detachActiveTooltip?.()
     currentTooltipSpan = span
     host.replaceChildren(buildTooltipContent(span))
-    host.style.display = 'block'
-    host.style.opacity = '1'
     positionTooltip(span, host)
+    host.classList.add('osmosis-tooltip--visible')
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
     detachActiveTooltip = () => {
-      host.style.opacity = '0'
-      host.style.display = 'none'
+      host.classList.remove('osmosis-tooltip--visible')
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)
       currentTooltipSpan = null
@@ -320,7 +270,7 @@ export function applyReplacements(
 
   for (const { word, node, offset } of entries) {
     if (!isEligible(word, node.textContent?.slice(0, offset) ?? '')) continue
-    const rawEntry = translationMap.get(word) ?? translationMap.get(word.toLowerCase())
+    const rawEntry = translationMap.get(word.toLowerCase())
     if (!rawEntry) continue
     const entry = coerceEntry(rawEntry)
     if (!byNode.has(node)) byNode.set(node, [])

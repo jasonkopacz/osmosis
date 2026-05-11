@@ -93,20 +93,3 @@ export function uniquePhrases(entries: PhraseEntry[]): string[] {
   return [...new Set(entries.map(e => e.phrase))]
 }
 
-/** Sample `pct` percent of unique phrases (deterministic per-page seed). */
-export function samplePhrases(candidates: string[], percentage: number, pageUrl: string): Set<string> {
-  const count = Math.max(1, Math.round(candidates.length * (percentage / 100)))
-  // Simple deterministic shuffle using URL hash seed
-  let seed = 0
-  for (let i = 0; i < pageUrl.length; i++) {
-    seed = (seed ^ pageUrl.charCodeAt(i) * 0x01000193) >>> 0
-  }
-  const rng = (): number => {
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-  const scored = candidates.map(p => ({ p, r: rng() })).sort((a, b) => a.r - b.r)
-  return new Set(scored.slice(0, count).map(s => s.p))
-}

@@ -2,7 +2,7 @@ import { LANGUAGES } from '../../languages'
 
 export function createLanguagePicker(selected: string, onChange: (code: string) => void): HTMLElement {
   const wrapper = document.createElement('div')
-  wrapper.style.position = 'relative'
+  wrapper.className = 'osmo-lang-wrapper'
 
   const cur = LANGUAGES.find(l => l.code === selected)
   let selectedDisplay = cur ? `${cur.flag} ${cur.name}` : selected

@@ -157,11 +157,11 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   confirmBtns.className = 'settings-confirm-btns'
   const cancelDeleteBtn = document.createElement('button')
   cancelDeleteBtn.className = 'osmo-btn osmo-btn--ghost osmo-btn--sm'
-  cancelDeleteBtn.style.flex = '1'
+
   cancelDeleteBtn.textContent = 'Cancel'
   const confirmDeleteBtn = document.createElement('button')
   confirmDeleteBtn.className = 'osmo-btn osmo-btn--danger osmo-btn--sm'
-  confirmDeleteBtn.style.flex = '1'
+
   confirmDeleteBtn.textContent = 'Yes, delete'
   const deleteErrorEl = document.createElement('p')
   deleteErrorEl.className = 'osmo-error'

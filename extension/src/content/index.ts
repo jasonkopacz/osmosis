@@ -19,10 +19,9 @@ let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
 let mutationTimer: ReturnType<typeof setTimeout> | null = null
 let lastMutationRun = 0
+let pipelineRunning = false
 const MUTATION_COOLDOWN_MS = 5_000
 const MUTATION_TEXT_THRESHOLD = 30 // ignore trivial DOM changes (ads, badges, analytics)
-const LOG_CONTEXT_PREVIEW = true
-const CONTEXT_PREVIEW_LIMIT = 5
 
 function sentenceAroundOffset(text: string, offset: number): string | null {
   const normalizedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)))
@@ -100,6 +99,8 @@ function resumeObserver(): void {
 }
 
 async function runPipeline(): Promise<void> {
+  if (pipelineRunning) return
+  pipelineRunning = true
   pauseObserver() // stop watching during our own DOM mutations
   try {
     if (!settings.enabled) {
@@ -164,23 +165,6 @@ async function runPipeline(): Promise<void> {
       if (!wordsBySentence.has(sentence)) wordsBySentence.set(sentence, new Set())
       wordsBySentence.get(sentence)!.add(word)
     }
-    if (LOG_CONTEXT_PREVIEW) {
-      const contextEntries = Object.entries(contextsByWord)
-      const preview = contextEntries.slice(0, CONTEXT_PREVIEW_LIMIT).map(([word, context]) => ({ word, context }))
-      const sentenceGroups = Array.from(wordsBySentence.entries()).map(([sentence, words]) => ({
-        sentence, words: Array.from(words.values()),
-      }))
-      console.log('[osmosis:content] context extraction', {
-        sampledWords: sampledWords.length,
-        wordsWithContext: contextEntries.length,
-        wordsWithoutContext: wordsWithoutContext.size,
-        contextCoveragePct: sampledWords.length > 0 ? Number(((contextEntries.length / sampledWords.length) * 100).toFixed(1)) : 0,
-        uniqueSentenceCount: wordsBySentence.size,
-        contextsByWord, sentenceGroups,
-        wordsMissingContext: Array.from(wordsWithoutContext.values()),
-        preview,
-      })
-    }
 
     void chrome.storage.local.set({
       [STORAGE_KEYS.PAGE_STATS]: {
@@ -236,6 +220,7 @@ async function runPipeline(): Promise<void> {
       } as Message)
     }
   } finally {
+    pipelineRunning = false
     resumeObserver() // resume watching for new dynamic content
   }
 }

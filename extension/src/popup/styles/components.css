@@ -84,6 +84,8 @@
 }
 
 /* ── Usage meter ── */
+.osmo-usage__fill--warn  { box-shadow: 0 0 12px rgba(245,158,11,.5); }
+.osmo-usage__fill--error { box-shadow: 0 0 12px rgba(248,113,113,.6); }
 .osmo-usage__track {
   height: 8px;
   background: var(--shallow);
@@ -108,6 +110,7 @@
 .osmo-usage__row b { color: var(--text); font-weight: 500; }
 
 /* ── Language picker ── */
+.osmo-lang-wrapper { position: relative; }
 .osmo-lang-input {
   width: 100%;
   background: var(--shallow);

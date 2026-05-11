@@ -1,9 +1,6 @@
 import type { UserSettings, SrsDueCard, SrsRating, SrsRateResult, Message } from '../../types'
 
-const POS_LABELS: Record<string, string> = {
-  VERB: 'verb', NOUN: 'noun', ADJ: 'adj.', ADV: 'adv.',
-  PRON: 'pron.', PREP: 'prep.', DET: 'det.', CONJ: 'conj.', INTJ: 'interj.',
-}
+import { POS_LABELS } from '../../utils/pos'
 
 function formatInterval(days: number): string {
   if (days < 1) return '<1d'

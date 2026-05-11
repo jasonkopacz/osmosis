@@ -55,7 +55,7 @@
 
 .osmo-tt-rate-btn--done { opacity: .45; pointer-events: none; }
 
-/* Tooltip host — static layout only; display/left/top/opacity stay inline */
+/* Tooltip host */
 #osmosis-tooltip-host {
   position: fixed;
   z-index: 2147483647;
@@ -77,4 +77,95 @@
   box-sizing: border-box;
   font-family: ui-sans-serif, system-ui, sans-serif;
   transition: opacity 120ms cubic-bezier(.2,.8,.2,1);
+  display: none;
+  opacity: 0;
 }
+#osmosis-tooltip-host.osmosis-tooltip--visible {
+  display: block;
+  opacity: 1;
+}
+
+/* ── Tooltip content elements ── */
+.osmo-tt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.osmo-tt-word {
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  letter-spacing: 0.005em;
+}
+.osmo-tt-pos {
+  display: inline-flex;
+  align-items: center;
+  background: #0c2840;
+  border: 1px solid rgba(110,180,220,.14);
+  color: #b9cbe0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.osmo-tt-translation {
+  margin-top: 4px;
+  color: #5cc6f5;
+  font-size: 14px;
+  font-weight: 600;
+}
+.osmo-tt-alts-label {
+  color: #6f8aa6;
+  font-size: 10px;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.osmo-tt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.osmo-tt-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(110,180,220,.14);
+  background: #03101c;
+  color: #cdeaff;
+  font-size: 10px;
+}
+.osmo-tt-pronounce-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.osmo-tt-play-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(180deg, #5cc6f5 0%, #2aa4e0 100%);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #042033;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 0 0 1px rgba(42,164,224,.45), 0 4px 12px -4px rgba(42,164,224,.55);
+  transition: filter 120ms cubic-bezier(.2,.8,.2,1);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.osmo-tt-play-btn:hover { filter: brightness(1.1); }

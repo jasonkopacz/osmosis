@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findPhrasesInText, samplePhrases, uniquePhrases } from '../src/content/phraseScanner'
+import { findPhrasesInText, uniquePhrases } from '../src/content/phraseScanner'
 import type { PhraseEntry } from '../src/content/phraseScanner'
 
 // ── findPhrasesInText ─────────────────────────────────────────────────────────
@@ -96,39 +96,3 @@ describe('uniquePhrases', () => {
   })
 })
 
-// ── samplePhrases ─────────────────────────────────────────────────────────────
-
-describe('samplePhrases', () => {
-  const candidates = ['by the way', 'of course', 'in fact', 'right now', 'take care',
-                       'make sense', 'carry out', 'find out', 'so far', 'at least']
-
-  it('returns the correct number of phrases for the percentage', () => {
-    const sampled = samplePhrases(candidates, 50, 'https://example.com')
-    expect(sampled.size).toBe(Math.round(candidates.length * 0.5))
-  })
-
-  it('is deterministic for the same URL', () => {
-    const a = samplePhrases(candidates, 30, 'https://example.com')
-    const b = samplePhrases(candidates, 30, 'https://example.com')
-    expect([...a].sort()).toEqual([...b].sort())
-  })
-
-  it('differs for different URLs', () => {
-    const a = samplePhrases(candidates, 50, 'https://site-a.com')
-    const b = samplePhrases(candidates, 50, 'https://site-b.com')
-    // May occasionally collide by chance, but with 10 items and 50% this is extremely unlikely
-    expect([...a].sort()).not.toEqual([...b].sort())
-  })
-
-  it('returns at least 1 phrase even for very low percentage', () => {
-    const sampled = samplePhrases(candidates, 1, 'https://example.com')
-    expect(sampled.size).toBeGreaterThanOrEqual(1)
-  })
-
-  it('only returns phrases from the candidates list', () => {
-    const sampled = samplePhrases(candidates, 80, 'https://example.com')
-    for (const p of sampled) {
-      expect(candidates).toContain(p)
-    }
-  })
-})

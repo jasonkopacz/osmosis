@@ -9,8 +9,7 @@ export function renderProgress(
   container.replaceChildren()
 
   const hint = document.createElement('div')
-  hint.className = 'osmo-hint'
-  hint.style.padding = '28px 0'
+  hint.className = 'osmo-hint progress-hint'
   hint.textContent = 'Loading…'
   container.appendChild(hint)
 
@@ -77,8 +76,7 @@ function paint(
   // ── State breakdown
   if (stats.total > 0) {
     const breakdownLabel = document.createElement('div')
-    breakdownLabel.className = 'field-label'
-    breakdownLabel.style.marginTop = '4px'
+    breakdownLabel.className = 'field-label progress-breakdown-label'
     breakdownLabel.textContent = 'Status'
     body.appendChild(breakdownLabel)
 
@@ -102,8 +100,7 @@ function paint(
     body.appendChild(cta)
   } else {
     const allDone = document.createElement('div')
-    allDone.className = 'osmo-hint'
-    allDone.style.padding = '8px 0'
+    allDone.className = 'osmo-hint progress-all-done'
     allDone.textContent = 'All caught up — check back later'
     body.appendChild(allDone)
   }
@@ -175,8 +172,7 @@ function makeEmptyState(): HTMLDivElement {
 function renderError(container: HTMLElement): void {
   container.replaceChildren()
   const hint = document.createElement('div')
-  hint.className = 'osmo-hint'
-  hint.style.padding = '28px 0'
+  hint.className = 'osmo-hint progress-hint'
   hint.textContent = 'Could not load — try again'
   container.appendChild(hint)
 }

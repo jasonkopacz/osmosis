@@ -43,3 +43,4 @@
 .settings-confirm-row--open { display: flex; }
 .settings-confirm-msg { margin: 0; font-size: 11px; color: var(--error); line-height: 1.4; }
 .settings-confirm-btns { display: flex; gap: 6px; }
+.settings-confirm-btns .osmo-btn { flex: 1; }

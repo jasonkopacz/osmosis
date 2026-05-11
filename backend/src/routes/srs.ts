@@ -29,15 +29,16 @@ srsRouter.post('/rate', requireAuth, async (c) => {
   const nowSec = Math.floor(Date.now() / 1000)
   const existing = await getCard(c.env.DB, userId, word, targetLang)
 
-  const result = existing && existing.reps > 0
+  const useExisting = existing && existing.reps > 0 && existing.stability > 0
+  const result = useExisting
     ? scheduleExisting(
         {
-          stability: existing.stability,
-          difficulty: existing.difficulty,
-          lapses: existing.lapses,
-          reps: existing.reps,
-          state: existing.state,
-          lastRatedAt: existing.lastRatedAt ?? 0,
+          stability: existing!.stability,
+          difficulty: existing!.difficulty,
+          lapses: existing!.lapses,
+          reps: existing!.reps,
+          state: existing!.state,
+          lastRatedAt: existing!.lastRatedAt ?? 0,
         },
         r,
         nowSec

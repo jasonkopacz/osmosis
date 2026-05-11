@@ -47,7 +47,7 @@ function makeStreakCard(info: StreakInfo): HTMLDivElement {
 
   const lbl = document.createElement('div')
   lbl.className = 'streak-card__label'
-  lbl.textContent = info.streak === 1 ? 'day streak' : 'day streak'
+  lbl.textContent = info.streak === 1 ? '1 day streak' : 'day streak'
 
   card.append(iconEl, val, lbl)
   return card

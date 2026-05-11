@@ -76,12 +76,12 @@ function retrievability(daysSinceLast: number, stability: number): number {
 function recallStability(D: number, S: number, R: number, rating: SrsRating): number {
   const hardPenalty = rating === 2 ? W[15] : 1
   const easyBonus = rating === 4 ? W[16] : 1
-  return (
+  const raw =
     S *
     (Math.exp(W[8]) * (11 - D) * Math.pow(S, -W[9]) * (Math.exp((1 - R) * W[10]) - 1) + 1) *
     hardPenalty *
     easyBonus
-  )
+  return Math.max(0.01, raw)
 }
 
 function forgetStability(D: number, S: number, R: number): number {

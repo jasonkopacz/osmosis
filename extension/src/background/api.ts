@@ -221,8 +221,8 @@ function normalizeChromeExtensionRedirectUri(raw: string): string {
 
 export async function loginWithGoogle(): Promise<string> {
   const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
+  // state is kept in closure for CSRF verification — storage is not needed
   const state = crypto.randomUUID()
-  console.log('[osmosis:api] Google redirect_uri (must match Cloud Console exactly):', redirectUri)
 
   const urlRes = await fetch(
     `${API_BASE_URL}/auth/google/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`
@@ -230,27 +230,19 @@ export async function loginWithGoogle(): Promise<string> {
   const urlBody = await urlRes.text()
   if (!urlRes.ok) {
     const msg = readJsonError(urlRes, urlBody)
-    console.warn('[osmosis:api] /auth/google/url failed', urlRes.status, msg)
     throw new Error(msg)
   }
   const { url } = JSON.parse(urlBody) as { url: string }
 
-  // Store state before launching the flow so we can verify it on return
-  await chrome.storage.session.set({ osmosis_oauth_state: state })
-
-  console.log('[osmosis:api] calling launchWebAuthFlow...')
   const responseUrl = await new Promise<string | undefined>(resolve => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
-      const lastErr = chrome.runtime.lastError?.message
-      console.log('[osmosis:api] launchWebAuthFlow callback', { redirectedTo, lastErr })
-      if (lastErr) console.warn('[osmosis:api] launchWebAuthFlow error:', lastErr)
+      if (chrome.runtime.lastError?.message) {
+        console.warn('[osmosis:api] launchWebAuthFlow error:', chrome.runtime.lastError.message)
+      }
       resolve(redirectedTo)
     })
   })
 
-  await chrome.storage.session.remove('osmosis_oauth_state')
-
-  console.log('[osmosis:api] launchWebAuthFlow resolved, responseUrl:', responseUrl)
   if (!responseUrl) {
     throw new Error('Sign-in cancelled or blocked — check the service worker console for details')
   }
