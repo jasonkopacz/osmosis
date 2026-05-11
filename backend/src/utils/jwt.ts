@@ -32,9 +32,10 @@ export async function verifyJWT(
 ): Promise<{ userId: string; email: string; plan: 'free' | 'pro' } | null> {
   const parts = token.split('.')
   if (parts.length !== 3) return null
+  const [header64, payload64, sig64] = parts as [string, string, string]
 
   try {
-    const header = JSON.parse(b64urlDecode(parts[0]!)) as Record<string, unknown>
+    const header = JSON.parse(b64urlDecode(header64)) as Record<string, unknown>
     if (header['alg'] !== 'HS256') return null
   } catch {
     return null
@@ -44,17 +45,17 @@ export async function verifyJWT(
 
   let sigBytes: Uint8Array
   try {
-    sigBytes = Uint8Array.from(atob(parts[2]!.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+    sigBytes = Uint8Array.from(atob(sig64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
   } catch {
     return null
   }
 
-  const valid = await crypto.subtle.verify(ALG, key, sigBytes, new TextEncoder().encode(`${parts[0]}.${parts[1]}`))
+  const valid = await crypto.subtle.verify(ALG, key, sigBytes, new TextEncoder().encode(`${header64}.${payload64}`))
   if (!valid) return null
 
   let payload: Record<string, unknown>
   try {
-    payload = JSON.parse(b64urlDecode(parts[1]!)) as Record<string, unknown>
+    payload = JSON.parse(b64urlDecode(payload64)) as Record<string, unknown>
   } catch {
     return null
   }

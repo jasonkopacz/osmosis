@@ -52,6 +52,7 @@ describe('POST /translate', () => {
     vi.clearAllMocks()
     vi.mocked(getCached).mockResolvedValue(null)
     vi.mocked(lookupWords).mockResolvedValue(new Map())
+    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map())
     db = wrapDb(createTestDb())
     await createUser(db, 'test@test.com', 'hashed')
     const user = await findUserByEmail(db, 'test@test.com')
@@ -81,14 +82,14 @@ describe('POST /translate', () => {
 
   it('returns 400 for more than max words per batch', async () => {
     const { app, env } = makeApp(db)
-    const words = Array.from({ length: 201 }, (_, i) => `word${i}`)
+    const words = Array.from({ length: 401 }, (_, i) => `word${i}`)
     const res = await app.request('/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ words, targetLang: 'de' }),
     }, env)
     expect(res.status).toBe(400)
-    expect(await res.json()).toMatchObject({ error: 'Too many words (max 200 per request)' })
+    expect(await res.json()).toMatchObject({ error: 'Too many words (max 400 per request)' })
   })
 
   it('returns 400 for words with invalid types', async () => {

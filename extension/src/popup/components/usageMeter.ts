@@ -7,7 +7,7 @@ export function createUsageMeter(used: number, limit: number, resetsAt: string):
 
   const safeLimit = Math.max(limit, 1)
   const pct = Math.min((used / safeLimit) * 100, 100)
-  const fillMod = pct >= 100 ? 'osmo-usage__fill--error' : pct >= 85 ? 'osmo-usage__fill--warn' : ''
+  const fillMod = pct >= 85 ? 'osmo-usage__fill--error' : pct >= 60 ? 'osmo-usage__fill--warn' : ''
 
   const track = document.createElement('div')
   track.className = 'osmo-usage__track'

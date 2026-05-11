@@ -14,6 +14,7 @@ import { passesCefrFilter } from './cefr'
 import { collectPhrases, uniquePhrases } from './phraseScanner'
 import { applyPhraseReplacements } from './replacer'
 import { normalizeTargetLang } from '../languages'
+import { log, warn } from '../logger'
 
 let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
@@ -53,7 +54,7 @@ async function loadSettings(): Promise<UserSettings> {
     Math.min(MAX_TRANSLATION_PERCENTAGE, merged.percentage)
   )
   if (clampedPercentage !== merged.percentage) {
-    console.log('[osmosis:content] clamped percentage setting', {
+    log('[osmosis:content] clamped percentage setting', {
       from: merged.percentage,
       to: clampedPercentage,
     })
@@ -104,7 +105,7 @@ async function runPipeline(): Promise<void> {
   pauseObserver() // stop watching during our own DOM mutations
   try {
     if (!settings.enabled) {
-      console.log('[osmosis:content] disabled, skipping')
+      log('[osmosis:content] disabled, skipping')
       clearReplacements()
       return
     }
@@ -146,7 +147,7 @@ async function runPipeline(): Promise<void> {
     const sampledWordSet = new Set(sampledWords)
 
     if (sampledWords.length === 0 && uniquePhraseCandidates.length === 0) {
-      console.log('[osmosis:content] nothing to translate after filtering')
+      log('[osmosis:content] nothing to translate after filtering')
       void chrome.storage.local.set({
         [STORAGE_KEYS.PAGE_STATS]: { sampled: 0, eligible: cefrFiltered.length, lang: settings.targetLang, cefr: cefrMin },
       })
@@ -175,7 +176,7 @@ async function runPipeline(): Promise<void> {
         cefr: cefrMin,
       },
     })
-    console.log('[osmosis:content] pipeline', {
+    log('[osmosis:content] pipeline', {
       phrases: uniquePhraseCandidates.length,
       uniqueEligibleWords: cefrFiltered.length,
       sampledWords: sampledWords.length,
@@ -196,11 +197,11 @@ async function runPipeline(): Promise<void> {
 
     if (res.error === 'LIMIT_REACHED') {
       await chrome.storage.local.set({ osmosis_limit_reached: true })
-      console.warn('[osmosis:content] monthly limit reached')
+      warn('[osmosis:content] monthly limit reached')
       return
     }
     if (res.error === 'NOT_LOGGED_IN' || res.error || !res.translations) {
-      if (res.error && res.error !== 'NOT_LOGGED_IN') console.warn('[osmosis:content] translate error', res.error)
+      if (res.error && res.error !== 'NOT_LOGGED_IN') warn('[osmosis:content] translate error', res.error)
       return
     }
 
@@ -239,10 +240,10 @@ chrome.runtime.onMessage.addListener((msg: Message) => {
 })
 
 async function init(): Promise<void> {
-  console.log('[osmosis:content] init')
+  log('[osmosis:content] init')
   settings = await loadSettings()
   domObserver = new MutationObserver((mutations) => scheduleFromMutation(mutations))
-  console.log('[osmosis:content] settings loaded', settings)
+  log('[osmosis:content] settings loaded', settings)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       void runPipeline()

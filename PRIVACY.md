@@ -4,7 +4,10 @@
 
 This policy describes how **Osmosis** (“we”, “us”), the browser extension and related online services, handles information when you use the product.
 
-**Contact:** Replace this paragraph with your legal name or project name and a working email (for example `privacy@yourdomain.com`). Users may use that address for privacy-related requests.
+**Contact:** 
+Owner: Jason Kopacz
+Email: jtkopacz@gmail.com
+LinkedIn: https://www.linkedin.com/in/jasonkopacz
 
 ---
 
@@ -103,9 +106,3 @@ If you use the service from outside the country where our providers operate, you
 ## Changes to this policy
 
 We may update this policy from time to time. The **Last updated** date at the top will change when we do. For material changes, we may provide additional notice (for example, in the extension or by email when appropriate).
-
----
-
-## Open source note
-
-If you are viewing this file in a public source repository, replace the **Contact** section with your real contact details before linking this document from the Chrome Web Store or a production website.

@@ -4,6 +4,7 @@ import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
 import type { Message, UserProfile, TranslationEntry } from '../types'
+import { log, warn } from '../logger'
 
 const cache = new SessionCache()
 void cache.init()
@@ -17,9 +18,9 @@ async function preWarmCache(lang: string, token: string): Promise<void> {
     if (popular.size === 0) return
     popular.forEach((val, word) => cache.set(word, lang, val))
     lastPrewarmedLang = lang
-    console.log(`[osmosis:bg] pre-warmed ${popular.size} translations for "${lang}"`)
+    log(`[osmosis:bg] pre-warmed ${popular.size} translations for "${lang}"`)
   } catch (err) {
-    console.warn('[osmosis:bg] pre-warm failed', err)
+    warn('[osmosis:bg] pre-warm failed', err)
   }
 }
 
@@ -40,18 +41,21 @@ async function refreshUserProfileInBackground(token: string): Promise<void> {
     const user = (await fetchUser(token)) as UserProfile | null
     if (user) {
       await setUserProfileCache(user)
-      console.log('[osmosis:bg] user profile refresh OK')
+      log('[osmosis:bg] user profile refresh OK')
     } else {
       await clearToken()
-      console.warn('[osmosis:bg] user profile refresh: session invalid, cleared token')
+      warn('[osmosis:bg] user profile refresh: session invalid, cleared token')
     }
   } catch (err) {
-    console.warn('[osmosis:bg] user profile refresh failed', err)
+    warn('[osmosis:bg] user profile refresh failed', err)
   }
 }
 
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-  handle(message)
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('HANDLER_TIMEOUT')), 15_000)
+  )
+  Promise.race([handle(message), timeout])
     .then(sendResponse)
     .catch(err => sendResponse({ error: String(err) }))
   return true
@@ -63,7 +67,7 @@ async function handle(msg: Message): Promise<unknown> {
     await cache.ensureReady()
     const token = await getToken()
     if (!token) {
-      console.warn('[osmosis:bg] TRANSLATE rejected: not logged in')
+      warn('[osmosis:bg] TRANSLATE rejected: not logged in')
       return { error: 'NOT_LOGGED_IN' }
     }
 
@@ -78,7 +82,7 @@ async function handle(msg: Message): Promise<unknown> {
       return !hit
     })
 
-    console.log('[osmosis:bg] TRANSLATE', { total: msg.words.length, uncached: uncached.length, lang: msg.targetLang })
+    log('[osmosis:bg] TRANSLATE', { total: msg.words.length, uncached: uncached.length, lang: msg.targetLang })
 
     if (uncached.length === 0) return { translations: result }
 
@@ -89,14 +93,14 @@ async function handle(msg: Message): Promise<unknown> {
     )
     const contextWordCount = Object.keys(uncachedContextsByWord).length
     if (contextWordCount > 0) {
-      console.log('[osmosis:bg] TRANSLATE context attached', {
+      log('[osmosis:bg] TRANSLATE context attached', {
         uncachedWithContext: contextWordCount,
         uncachedTotal: uncached.length,
         coveragePct: Number(((contextWordCount / uncached.length) * 100).toFixed(1)),
         uncachedContextsByWord,
       })
     } else {
-      console.log('[osmosis:bg] TRANSLATE context attached', {
+      log('[osmosis:bg] TRANSLATE context attached', {
         uncachedWithContext: 0,
         uncachedTotal: uncached.length,
         coveragePct: 0,
@@ -117,7 +121,7 @@ async function handle(msg: Message): Promise<unknown> {
         await clearToken()
         return { error: 'AUTH_EXPIRED' }
       }
-      console.warn('[osmosis:bg] TRANSLATE API error', s)
+      warn('[osmosis:bg] TRANSLATE API error', s)
       // Return whatever we have from cache rather than nothing
       if (Object.keys(result).length > 0) return { translations: result }
       return { error: 'API_ERROR' }
@@ -130,7 +134,7 @@ async function handle(msg: Message): Promise<unknown> {
     try {
       const text = msg.text.trim().slice(0, 120)
       if (!text) return { error: 'INVALID_TEXT' }
-      console.log('[osmosis:bg] PRONOUNCE', { text, targetLang: msg.targetLang })
+      log('[osmosis:bg] PRONOUNCE', { text, targetLang: msg.targetLang })
       const result = await pronounceText(text, msg.targetLang, token)
       return result
     } catch (err) {
@@ -140,7 +144,7 @@ async function handle(msg: Message): Promise<unknown> {
         await clearToken()
         return { error: 'AUTH_EXPIRED' }
       }
-      console.warn('[osmosis:bg] PRONOUNCE API error', s)
+      warn('[osmosis:bg] PRONOUNCE API error', s)
       return { error: 'API_ERROR' }
     }
   }
@@ -148,18 +152,18 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'GET_USER') {
     const token = await getToken()
     if (!token) {
-      console.log('[osmosis:bg] GET_USER: no token')
+      log('[osmosis:bg] GET_USER: no token')
       return null
     }
     const cached = await getUserProfileCache()
     const cacheAge = cached ? Date.now() - cached.fetchedAt : null
     const cacheFresh = cached && cacheAge !== null && cacheAge < PROFILE_CACHE_TTL_MS
     if (cacheFresh && cached.profile) {
-      console.log('[osmosis:bg] GET_USER: using cached profile', { cacheAge_ms: cacheAge })
+      log('[osmosis:bg] GET_USER: using cached profile', { cacheAge_ms: cacheAge })
       void refreshUserProfileInBackground(token)
       return cached.profile
     }
-    console.log('[osmosis:bg] GET_USER: fetching /user/me')
+    log('[osmosis:bg] GET_USER: fetching /user/me')
     try {
       const user = (await fetchUser(token)) as UserProfile | null
       if (user) {
@@ -169,9 +173,9 @@ async function handle(msg: Message): Promise<unknown> {
       await clearToken()
       return null
     } catch (err) {
-      console.warn('[osmosis:bg] GET_USER: fetch error', err)
+      warn('[osmosis:bg] GET_USER: fetch error', err)
       if (cached?.profile) {
-        console.log('[osmosis:bg] GET_USER: returning stale cache after fetch failure')
+        log('[osmosis:bg] GET_USER: returning stale cache after fetch failure')
         return cached.profile
       }
       return null
@@ -181,14 +185,14 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'GOOGLE_LOGIN') {
     try {
       const token = await loginWithGoogle()
-      console.log('[osmosis:bg] GOOGLE_LOGIN: success')
+      log('[osmosis:bg] GOOGLE_LOGIN: success')
       const result = await afterLogin(token)
       // Popup closed when the OAuth window stole focus — reopen it now that the flow is done
       void chrome.action.openPopup().catch(() => {/* already open, or window not focused */})
       return result
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
+      warn('[osmosis:bg] GOOGLE_LOGIN failed', errMsg)
       return { error: errMsg }
     }
   }
@@ -196,11 +200,11 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'EMAIL_LOGIN') {
     try {
       const token = await loginWithEmail(msg.email, msg.password)
-      console.log('[osmosis:bg] EMAIL_LOGIN: success')
+      log('[osmosis:bg] EMAIL_LOGIN: success')
       return afterLogin(token)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] EMAIL_LOGIN failed', errMsg)
+      warn('[osmosis:bg] EMAIL_LOGIN failed', errMsg)
       return { error: errMsg }
     }
   }
@@ -208,22 +212,22 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'EMAIL_SIGNUP') {
     try {
       await requestEmailSignup(msg.email, msg.password)
-      console.log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
+      log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
       return { ok: true }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] EMAIL_SIGNUP failed', errMsg)
+      warn('[osmosis:bg] EMAIL_SIGNUP failed', errMsg)
       return { error: errMsg }
     }
   }
 
   if (msg.type === 'SESSION_FROM_VERIFY') {
     try {
-      console.log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
+      log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
       return await afterLogin(msg.token)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
+      warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
       return { error: errMsg }
     }
   }
@@ -234,7 +238,7 @@ async function handle(msg: Message): Promise<unknown> {
       return { ok: true }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] FORGOT_PASSWORD failed', errMsg)
+      warn('[osmosis:bg] FORGOT_PASSWORD failed', errMsg)
       return { error: errMsg }
     }
   }
@@ -245,11 +249,11 @@ async function handle(msg: Message): Promise<unknown> {
       if (!token) return { error: 'Not signed in' }
       await deleteAccount(token)
       await clearToken()
-      console.log('[osmosis:bg] DELETE_ACCOUNT: account deleted')
+      log('[osmosis:bg] DELETE_ACCOUNT: account deleted')
       return { ok: true }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
-      console.warn('[osmosis:bg] DELETE_ACCOUNT failed', errMsg)
+      warn('[osmosis:bg] DELETE_ACCOUNT failed', errMsg)
       return { error: errMsg }
     }
   }
@@ -263,7 +267,7 @@ async function handle(msg: Message): Promise<unknown> {
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
-      console.warn('[osmosis:bg] SRS_RATE error', s)
+      warn('[osmosis:bg] SRS_RATE error', s)
       return { error: 'API_ERROR' }
     }
   }
@@ -276,7 +280,7 @@ async function handle(msg: Message): Promise<unknown> {
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
-      console.warn('[osmosis:bg] SRS_GET_DUE error', s)
+      warn('[osmosis:bg] SRS_GET_DUE error', s)
       return { error: 'API_ERROR' }
     }
   }
@@ -289,7 +293,7 @@ async function handle(msg: Message): Promise<unknown> {
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
-      console.warn('[osmosis:bg] SRS_GET_STATS error', s)
+      warn('[osmosis:bg] SRS_GET_STATS error', s)
       return { error: 'API_ERROR' }
     }
   }
@@ -298,11 +302,11 @@ async function handle(msg: Message): Promise<unknown> {
     const token = await getToken()
     if (token) {
       void srsReportEncounters(msg.words, msg.targetLang, token)
-        .catch(err => console.warn('[osmosis:bg] SRS_REPORT_ENCOUNTERS failed', err))
+        .catch(err => warn('[osmosis:bg] SRS_REPORT_ENCOUNTERS failed', err))
     }
     // Update reading streak with the number of words encountered (local, no token needed)
     void updateStreakLog(msg.words.length)
-      .catch(err => console.warn('[osmosis:bg] streak update failed', err))
+      .catch(err => warn('[osmosis:bg] streak update failed', err))
     return { ok: true }
   }
 
@@ -310,7 +314,7 @@ async function handle(msg: Message): Promise<unknown> {
     try {
       return await getStreakInfo()
     } catch (err) {
-      console.warn('[osmosis:bg] SRS_GET_STREAK error', err)
+      warn('[osmosis:bg] SRS_GET_STREAK error', err)
       return { error: 'API_ERROR' }
     }
   }

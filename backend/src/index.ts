@@ -17,7 +17,7 @@ app.onError((err, c) => {
 
 app.use('*', cors({
   origin: (origin, c) => {
-    if (!origin) return '*'
+    if (!origin) return null
     const allowedId = c.env.CHROME_EXTENSION_ID
     if (allowedId && origin === `chrome-extension://${allowedId}`) return origin
     // Permit any extension origin when CHROME_EXTENSION_ID is not configured (local dev)

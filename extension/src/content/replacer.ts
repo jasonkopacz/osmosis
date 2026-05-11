@@ -3,6 +3,7 @@ import type { PhraseEntry } from './phraseScanner'
 import type { TranslationEntry } from '../types'
 import { isEligible } from './filter'
 import replacerStyles from './styles/replacer.css?raw'
+import { log, warn } from '../logger'
 
 const STYLE_ID = 'osmosis-styles'
 const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
@@ -158,10 +159,10 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
       })) as { audioBase64?: string; mimeType?: string; voice?: string; error?: string } | undefined
       if (!res) return
       if (res.error) {
-        console.warn('[osmosis:content] pronounce error', res.error)
+        warn('[osmosis:content] pronounce error', res.error)
         const usedFallback = playBrowserPronunciation(translated, targetLang)
         if (usedFallback) {
-          console.log('[osmosis:content] pronounce fallback used', { translated, targetLang })
+          log('[osmosis:content] pronounce fallback used', { translated, targetLang })
           pronounceButton.textContent = 'Fallback voice'
         } else {
           pronounceButton.textContent = 'Error'
@@ -172,7 +173,7 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
         pronounceButton.textContent = 'No audio'
         return
       }
-      console.log('[osmosis:content] pronounce success', {
+      log('[osmosis:content] pronounce success', {
         original,
         translated,
         targetLang,
@@ -180,7 +181,7 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
       })
       const audio = new Audio(`data:${res.mimeType};base64,${res.audioBase64}`)
       activeAudio = audio
-      void audio.play().catch(err => console.warn('[osmosis:content] audio playback failed', err))
+      void audio.play().catch(err => warn('[osmosis:content] audio playback failed', err))
     } finally {
       pronounceButton.disabled = false
       pronounceButton.textContent = previousLabel

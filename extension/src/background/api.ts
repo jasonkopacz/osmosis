@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../constants'
 import type { TranslationEntry } from '../types'
+import { warn } from '../logger'
 
 function parseApiJson<T>(res: Response, bodyText: string): T {
   const t = bodyText.trim()
@@ -9,7 +10,7 @@ function parseApiJson<T>(res: Response, bodyText: string): T {
   try {
     return JSON.parse(t) as T
   } catch {
-    console.warn('[osmosis:api] non-JSON response body', {
+    warn('[osmosis:api] non-JSON response body', {
       status: res.status,
       url: res.url,
       snippet: t.slice(0, 120),
@@ -193,7 +194,7 @@ export async function srsReportEncounters(
     body: JSON.stringify({ words, targetLang }),
   })
   if (!res.ok && res.status !== 401) {
-    console.warn(`[osmosis:api] srs/encounters failed: ${res.status}`)
+    warn(`[osmosis:api] srs/encounters failed: ${res.status}`)
   }
 }
 
@@ -237,7 +238,7 @@ export async function loginWithGoogle(): Promise<string> {
   const responseUrl = await new Promise<string | undefined>(resolve => {
     chrome.identity.launchWebAuthFlow({ url, interactive: true }, redirectedTo => {
       if (chrome.runtime.lastError?.message) {
-        console.warn('[osmosis:api] launchWebAuthFlow error:', chrome.runtime.lastError.message)
+        warn('[osmosis:api] launchWebAuthFlow error:', chrome.runtime.lastError.message)
       }
       resolve(redirectedTo)
     })
@@ -258,7 +259,7 @@ export async function loginWithGoogle(): Promise<string> {
   const oauthErr = parsed.searchParams.get('error')
   if (oauthErr) {
     const desc = parsed.searchParams.get('error_description') ?? oauthErr
-    console.warn('[osmosis:api] Google redirected with error', oauthErr, desc)
+    warn('[osmosis:api] Google redirected with error', oauthErr, desc)
     throw new Error(
       oauthErr === 'redirect_uri_mismatch'
         ? `redirect_uri_mismatch: add this exact URL in Google Cloud → Credentials → your Web client → Authorized redirect URIs: ${redirectUri}`

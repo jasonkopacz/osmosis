@@ -1,5 +1,6 @@
 import type { Message } from '../../types'
 import heroImage from '../assets/osmosis-hero.png'
+import { log, warn } from '../../logger'
 
 type Mode = 'signin' | 'signup'
 
@@ -232,7 +233,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     emailSentPanel.classList.remove('login-panel--hidden')
     title.textContent = 'Almost there'
     subtitle.textContent = 'Confirm from your inbox to finish.'
-    console.log('[osmosis:popup:login] email verification sent UI')
+    log('[osmosis:popup:login] email verification sent UI')
   }
 
   function setFieldError(input: HTMLInputElement, on: boolean): void {
@@ -265,9 +266,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     passwordConfirmField.style.display = isSignin ? 'none' : 'flex'
     forgotLink.style.display = isSignin ? '' : 'none'
     showFormChrome()
-    console.log('[osmosis:popup:login] mode', m)
+    log('[osmosis:popup:login] mode', m)
     requestAnimationFrame(() => {
-      console.log('[osmosis:popup:login] mode layout', {
+      log('[osmosis:popup:login] mode layout', {
         mode: m,
         scrollHeight: document.documentElement.scrollHeight,
         clientHeight: document.documentElement.clientHeight,
@@ -316,12 +317,12 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       }
     }
     if (!ok) {
-      console.log('[osmosis:popup:login] validation failed', { mode })
+      log('[osmosis:popup:login] validation failed', { mode })
       return
     }
 
     if (mode === 'signup') {
-      console.log('[osmosis:popup:login] signup request email', { email })
+      log('[osmosis:popup:login] signup request email', { email })
       submitBtn.disabled = true
       submitBtn.textContent = 'Sending…'
       submitBtn.style.opacity = '0.78'
@@ -333,7 +334,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
         if (result.error) throw new Error(result.error)
         showEmailSentChrome()
       } catch (e) {
-        console.warn('[osmosis:popup:login] signup request failed', e)
+        warn('[osmosis:popup:login] signup request failed', e)
         const msg = String(e).replace('Error: ', '')
         errorEl.textContent = msg
         const isEmailError = /email|account|already/i.test(msg)
@@ -346,7 +347,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       return
     }
 
-    console.log('[osmosis:popup:login] email sign-in requested', { email })
+    log('[osmosis:popup:login] email sign-in requested', { email })
 
     submitBtn.disabled = true
     submitBtn.textContent = 'Signing in…'
@@ -359,10 +360,10 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
       if (!result) throw new Error('Service worker not responding — try reloading')
       if (result.error) throw new Error(result.error)
-      console.log('[osmosis:popup:login] email auth success', { mode: 'signin', email })
+      log('[osmosis:popup:login] email auth success', { mode: 'signin', email })
       onSuccess()
     } catch (e) {
-      console.warn('[osmosis:popup:login] email auth failed', e)
+      warn('[osmosis:popup:login] email auth failed', e)
       errorEl.textContent = String(e).replace('Error: ', '')
       setFieldError(emailInput, true)
       setFieldError(passwordInput, true)
@@ -375,7 +376,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
   submitBtn.addEventListener('click', () => void submit())
   backToFormBtn.addEventListener('click', () => {
-    console.log('[osmosis:popup:login] back from email sent')
+    log('[osmosis:popup:login] back from email sent')
     showFormChrome()
   })
   emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
@@ -412,7 +413,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   wrap.append(hero, card)
   root.appendChild(wrap)
   setMode('signin')
-  console.log('[osmosis:popup:login] layout metrics', {
+  log('[osmosis:popup:login] layout metrics', {
     scrollHeight: document.documentElement.scrollHeight,
     clientHeight: document.documentElement.clientHeight,
   })
@@ -505,7 +506,7 @@ function wireOAuth(
   const textSpan = btn.querySelector<HTMLSpanElement>('[data-oauth-text]')
   btn.addEventListener('click', async () => {
     errorEl.textContent = ''
-    console.log('[osmosis:popup:login] oauth start', { provider })
+    log('[osmosis:popup:login] oauth start', { provider })
     btn.disabled = true
     if (textSpan) textSpan.textContent = 'Opening…'
     btn.style.opacity = '0.85'
@@ -515,10 +516,10 @@ function wireOAuth(
         | undefined
       if (!result) return
       if (result.error) throw new Error(result.error)
-      console.log('[osmosis:popup:login] oauth success', { provider })
+      log('[osmosis:popup:login] oauth success', { provider })
       onSuccess()
     } catch (e) {
-      console.warn('[osmosis:popup:login] oauth failed', { provider, error: e })
+      warn('[osmosis:popup:login] oauth failed', { provider, error: e })
       const msg = String(e).replace('Error: ', '')
       if (!msg.includes('message port closed') && !msg.includes('receiving end does not exist')) {
         errorEl.textContent = msg

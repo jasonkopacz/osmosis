@@ -39,21 +39,21 @@ describe('createUsageMeter', () => {
     expect(fillEl(el).style.width).toBe('100%')
   })
 
-  it('uses green color below 60% usage', () => {
+  it('uses no modifier class below 60% usage', () => {
     const el = createUsageMeter(100, 10000, new Date().toISOString())
-    const bg = fillEl(el).style.background
-    expect(bg === '#10b981' || bg.includes('rgb(16, 185, 129)')).toBe(true)
+    expect(fillEl(el).className).not.toContain('osmo-usage__fill--warn')
+    expect(fillEl(el).className).not.toContain('osmo-usage__fill--error')
   })
 
-  it('uses amber color between 60-85% usage', () => {
+  it('uses amber class between 60-85% usage', () => {
     const el = createUsageMeter(7000, 10000, new Date().toISOString())
-    const bg = fillEl(el).style.background
-    expect(bg === '#f59e0b' || bg.includes('rgb(245, 158, 11)')).toBe(true)
+    expect(fillEl(el).className).toContain('osmo-usage__fill--warn')
+    expect(fillEl(el).className).not.toContain('osmo-usage__fill--error')
   })
 
-  it('uses red color above 85% usage', () => {
+  it('uses red class above 85% usage', () => {
     const el = createUsageMeter(9000, 10000, new Date().toISOString())
-    const bg = fillEl(el).style.background
-    expect(bg === '#ef4444' || bg.includes('rgb(239, 68, 68)')).toBe(true)
+    expect(fillEl(el).className).toContain('osmo-usage__fill--error')
+    expect(fillEl(el).className).not.toContain('osmo-usage__fill--warn')
   })
 })

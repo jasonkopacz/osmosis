@@ -39,8 +39,9 @@ function validateNewPassword(password: string): string | null {
   return null
 }
 
-function verifyLandingPageHtml(jwt: string): string {
+function verifyLandingPageHtml(jwt: string, extensionId: string, popupPath = 'src/popup/index.html'): string {
   // JWTs are base64url-encoded (A-Za-z0-9-_.) so no HTML escaping needed
+  const redirectUrl = `chrome-extension://${extensionId}/${popupPath}#osmosis_session=${jwt}`
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,13 +54,15 @@ function verifyLandingPageHtml(jwt: string): string {
     .card { max-width: 420px; margin: 0 auto; background: rgba(30,41,59,0.9); border: 1px solid rgba(56,189,248,0.25); border-radius: 16px; padding: 24px; }
     h1 { font-size: 1.25rem; margin: 0 0 12px; }
     p { margin: 0 0 14px; color: #94a3b8; font-size: 0.95rem; }
+    a { color: #22d3ee; }
   </style>
+  <script>window.location.replace('${redirectUrl}')</script>
 </head>
 <body>
   <div class="card">
     <h1>&#10003; Email confirmed!</h1>
-    <p>Your Osmosis account is ready. Click the Osmosis icon in your browser toolbar to start translating.</p>
-    <p style="font-size:0.85rem">If you don’t see it, click the puzzle icon next to the address bar and pin Osmosis.</p>
+    <p>Your Osmosis account is ready. <a href="${redirectUrl}">Open Osmosis</a> if you are not redirected automatically.</p>
+    <p style="font-size:0.85rem">If you don't see it, click the puzzle icon next to the address bar and pin Osmosis.</p>
   </div>
 </body>
 </html>`
@@ -70,13 +73,16 @@ authRouter.post('/signup/request', async (c) => {
   const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `signup:${ip}`, 5, 60 * 60)
   if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
 
-  let body: { email?: unknown; password?: unknown }
+  let body: { email?: unknown; password?: unknown; passwordConfirm?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const password = typeof body.password === 'string' ? body.password : ''
+  const passwordConfirm = typeof body.passwordConfirm === 'string' ? body.passwordConfirm : null
 
   if (!email || !EMAIL_RE.test(email)) return c.json({ error: 'Valid email required' }, 400)
   if (!password) return c.json({ error: 'Password is required' }, 400)
+  if (passwordConfirm === null) return c.json({ error: 'Please confirm your password' }, 400)
+  if (passwordConfirm !== password) return c.json({ error: 'Passwords do not match' }, 400)
 
   const pwError = validateNewPassword(password)
   if (pwError) return c.json({ error: pwError }, 400)
@@ -139,7 +145,8 @@ authRouter.get('/verify-email', async (c) => {
   const jwt = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
   console.log(`[auth/verify-email] new user ${user.id}`)
 
-  const html = verifyLandingPageHtml(jwt)
+  const extensionId = c.env.CHROME_EXTENSION_ID ?? ''
+  const html = verifyLandingPageHtml(jwt, extensionId)
   return c.html(html)
 })
 

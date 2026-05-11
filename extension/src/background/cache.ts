@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from '../constants'
 import type { TranslationEntry } from '../types'
+import { log, warn } from '../logger'
 
 const TTL_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
 const MAX_ENTRIES = 10_000
@@ -32,7 +33,7 @@ export class SessionCache {
   async init(): Promise<void> {
     const local = storageLocal()
     if (!local) {
-      console.log('[osmosis:cache] chrome.storage.local unavailable, using in-memory cache only')
+      log('[osmosis:cache] chrome.storage.local unavailable, using in-memory cache only')
       this.resolveReady()
       return
     }
@@ -52,11 +53,11 @@ export class SessionCache {
         const cleaned = { ...stored }
         for (const k of expired) delete cleaned[k]
         void local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: cleaned })
-          .catch(err => console.warn('[osmosis:cache] evict expired failed', err))
+          .catch(err => warn('[osmosis:cache] evict expired failed', err))
       }
-      console.log(`[osmosis:cache] loaded ${this.store.size} entries (${expired.length} expired evicted)`)
+      log(`[osmosis:cache] loaded ${this.store.size} entries (${expired.length} expired evicted)`)
     } catch (err) {
-      console.warn('[osmosis:cache] init failed, using empty cache', err)
+      warn('[osmosis:cache] init failed, using empty cache', err)
     }
     this.resolveReady()
   }
@@ -96,7 +97,7 @@ export class SessionCache {
       writes.forEach((entry, key) => { stored[key] = entry })
       await local.set({ [STORAGE_KEYS.TRANSLATION_CACHE]: stored })
     } catch (err) {
-      console.warn('[osmosis:cache] flush failed', err)
+      warn('[osmosis:cache] flush failed', err)
     }
   }
 
@@ -107,6 +108,6 @@ export class SessionCache {
     const local = storageLocal()
     if (!local) return
     void local.remove(STORAGE_KEYS.TRANSLATION_CACHE)
-      .catch(err => console.warn('[osmosis:cache] clear failed', err))
+      .catch(err => warn('[osmosis:cache] clear failed', err))
   }
 }

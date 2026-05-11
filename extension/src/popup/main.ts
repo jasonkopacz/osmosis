@@ -12,6 +12,7 @@ import { normalizeTargetLang } from '../languages'
 import { renderLogin } from './views/login'
 import { renderMain } from './views/main'
 import { renderSettings } from './views/settings'
+import { log, warn } from '../logger'
 
 function getPopupRoot(): HTMLElement {
   const el = document.getElementById('app')
@@ -39,10 +40,10 @@ async function consumeVerifySessionFromHash(): Promise<void> {
   const token = params.get('osmosis_session')
   if (!token) return
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
-  console.log('[osmosis:popup] applying session from email verification link')
+  log('[osmosis:popup] applying session from email verification link')
   const res = await chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message) as
     { token?: string; error?: string } | undefined
-  if (res?.error) console.warn('[osmosis:popup] SESSION_FROM_VERIFY', res.error)
+  if (res?.error) warn('[osmosis:popup] SESSION_FROM_VERIFY', res.error)
 }
 
 async function boot(): Promise<void> {
@@ -50,14 +51,14 @@ async function boot(): Promise<void> {
   const raw = await chrome.runtime.sendMessage({ type: 'GET_USER' })
   const user = isUserProfile(raw) ? raw : null
   if (raw !== null && !isUserProfile(raw)) {
-    console.warn('[osmosis:popup] GET_USER unexpected response', raw)
+    warn('[osmosis:popup] GET_USER unexpected response', raw)
   }
   if (!user) {
     renderLogin(app, boot)
     return
   }
   const settings = await loadSettings()
-  console.log('[osmosis:popup] main view', { email: user.email, plan: user.plan })
+  log('[osmosis:popup] main view', { email: user.email, plan: user.plan })
   renderMain(app, settings, user, () => renderSettings(app, user, boot))
 }
 
