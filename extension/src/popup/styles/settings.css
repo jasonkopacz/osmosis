@@ -1,3 +1,108 @@
+/* ── About view ── */
+.about-body {
+  padding: 14px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: calc(600px - 48px);
+  scrollbar-width: none;
+}
+.about-body::-webkit-scrollbar { display: none; }
+
+.about-tagline {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+  letter-spacing: -0.01em;
+}
+
+.about-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+  letter-spacing: -0.01em;
+}
+
+.about-level-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.about-level-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.about-level-code {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--current);
+  letter-spacing: 0.06em;
+  min-width: 28px;
+  flex-shrink: 0;
+}
+
+.about-level-desc {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.about-card-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-card-type {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  background: var(--mid);
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+}
+
+.about-card-type__name {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.about-card-type__desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.about-tips {
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-tips li {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.about-version {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-mute);
+  letter-spacing: 0.06em;
+}
+
 /* ── Account row ── */
 .settings-account-row { display: flex; justify-content: space-between; align-items: center; }
 .settings-account-email {

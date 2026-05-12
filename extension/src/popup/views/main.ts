@@ -7,6 +7,7 @@ import { createCefrPicker } from '../components/cefrPicker'
 import { showToast } from '../components/toast'
 import { renderProgress } from './progress'
 import { renderQuiz } from './quiz'
+import { renderAbout } from './about'
 import { langName } from '../../languages'
 
 type TabId = 'home' | 'progress' | 'quiz'
@@ -31,8 +32,10 @@ const ICON_QUIZ = `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="rou
 
 async function saveAndBroadcast(settings: UserSettings): Promise<void> {
   await chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings })
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (tab?.id) void chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_CHANGED', settings } as Message).catch(() => {})
+  const tabs = await chrome.tabs.query({})
+  for (const tab of tabs) {
+    if (tab.id) void chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_CHANGED', settings } as Message).catch(() => {})
+  }
 }
 
 function formatHint(stats: PageStats | undefined, lang: string): string {
@@ -127,7 +130,16 @@ export function renderMain(
     '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' +
     '</svg>'
   settingsBtn.addEventListener('click', onSettings)
-  footer.append(emailSpan, settingsBtn)
+
+  const aboutBtn = document.createElement('button')
+  aboutBtn.className = 'icon-btn'
+  aboutBtn.title = 'About'
+  aboutBtn.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>'
+  aboutBtn.addEventListener('click', () => renderAbout(root, () => renderMain(root, s, user, onSettings)))
+
+  footer.append(emailSpan, aboutBtn, settingsBtn)
 
   root.append(header, tabBar, content, footer)
 

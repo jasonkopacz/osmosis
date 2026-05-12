@@ -69,6 +69,10 @@ async function loadSettings(): Promise<UserSettings> {
 
 function hasMeaningfulNewText(mutations: MutationRecord[]): boolean {
   for (const m of mutations) {
+    const target = m.target as Element
+    // Ignore mutations within our own injected elements — tooltip host and replaced word spans
+    if (target.id === 'osmosis-tooltip-host' || target.closest?.('#osmosis-tooltip-host')) continue
+    if (target.classList?.contains('osmosis-word')) continue
     for (const node of m.addedNodes) {
       const text = node.textContent?.trim() ?? ''
       if (text.length >= MUTATION_TEXT_THRESHOLD) return true
@@ -103,6 +107,7 @@ function resumeObserver(): void {
 async function runPipeline(): Promise<void> {
   if (pipelineRunning) return
   pipelineRunning = true
+  lastMutationRun = Date.now() // initialise cooldown regardless of what triggered this run
   pauseObserver() // stop watching during our own DOM mutations
   try {
     if (!settings.enabled) {
