@@ -3,6 +3,7 @@ import type { TranslationEntry } from '../types'
 const TRANSLATE_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&textType=plain'
 const DICT_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/dictionary/lookup?api-version=3.0&from=en'
 const SPEECH_OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3'
+const AZURE_TIMEOUT_MS = 8_000
 
 type AzureTranslateResponse = { translations: { text: string; to: string }[] }[]
 type AzureDictResponse = Array<{
@@ -61,13 +62,18 @@ export async function synthesizePronunciation(
       'User-Agent': 'osmosis-pronunciation',
     },
     body: ssml,
+    signal: AbortSignal.timeout(AZURE_TIMEOUT_MS),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`Azure speech error: ${res.status} ${body}`)
   }
-  const bytes = await res.arrayBuffer()
-  const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(bytes)))
+  const bytes = new Uint8Array(await res.arrayBuffer())
+  let audioBase64 = ''
+  for (let i = 0; i < bytes.length; i += 8192) {
+    audioBase64 += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  }
+  audioBase64 = btoa(audioBase64)
   return {
     audioBase64,
     mimeType: 'audio/mpeg',
@@ -100,6 +106,7 @@ export async function lookupWords(
         method: 'POST',
         headers: headers(apiKey, region),
         body: JSON.stringify(chunk.map(w => ({ Text: w }))),
+        signal: AbortSignal.timeout(AZURE_TIMEOUT_MS),
       })
       if (!res.ok) {
         const body = await res.text().catch(() => '')
@@ -162,6 +169,7 @@ export async function translateWords(
         method: 'POST',
         headers: headers(apiKey, region),
         body: JSON.stringify(payloadWithContext),
+        signal: AbortSignal.timeout(AZURE_TIMEOUT_MS),
       })
 
       if (!res.ok && hasContextInChunk) {
@@ -175,6 +183,7 @@ export async function translateWords(
           method: 'POST',
           headers: headers(apiKey, region),
           body: JSON.stringify(payloadWithoutContext),
+          signal: AbortSignal.timeout(AZURE_TIMEOUT_MS),
         })
       }
       if (!res.ok) {

@@ -30,19 +30,19 @@ type SavedSession = {
 }
 
 function saveQuizSession(cards: SrsDueCard[], index: number, phase: 'question' | 'answer', lang: string): void {
-  void chrome.storage.session.set({ [SESSION_KEY]: { cards, index, phase, lang } }).catch(() => {})
+  void chrome.storage.local.set({ [SESSION_KEY]: { cards, index, phase, lang } }).catch(() => {})
 }
 
 function clearQuizSession(): void {
-  void chrome.storage.session.remove(SESSION_KEY).catch(() => {})
+  void chrome.storage.local.remove(SESSION_KEY).catch(() => {})
 }
 
 async function getSavedSession(lang: string): Promise<SavedSession | null> {
   try {
-    const r = await chrome.storage.session.get(SESSION_KEY)
+    const r = await chrome.storage.local.get(SESSION_KEY)
     const s = r[SESSION_KEY] as SavedSession | undefined
     if (s && s.lang === lang && s.index < s.cards.length) return s
-  } catch { /* chrome.storage.session unavailable on older Chrome */ }
+  } catch {}
   return null
 }
 

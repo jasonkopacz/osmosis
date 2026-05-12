@@ -8,6 +8,7 @@ import {
   DEFAULT_SETTINGS,
   MIN_TRANSLATION_PERCENTAGE,
   MAX_TRANSLATION_PERCENTAGE,
+  API_BASE_URL,
 } from '../constants'
 import { recordLocalEncounters } from './encounters'
 import { passesCefrFilter } from './cefr'
@@ -248,6 +249,7 @@ chrome.runtime.onMessage.addListener((msg: Message) => {
         MIN_TRANSLATION_PERCENTAGE,
         Math.min(MAX_TRANSLATION_PERCENTAGE, msg.settings.percentage)
       ),
+      targetLang: normalizeTargetLang(msg.settings.targetLang),
     }
     void runPipeline()
   }
@@ -269,7 +271,7 @@ async function init(): Promise<void> {
 
 void init()
 
-if (location.hostname === 'osmosis-api.jtkopacz.workers.dev') {
+if (location.hostname === new URL(API_BASE_URL).hostname) {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="osmosis-session"]')
   const token = meta?.content
   if (token) {

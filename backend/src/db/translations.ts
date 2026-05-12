@@ -83,25 +83,27 @@ export async function batchSetTranslationCached(
   entries: Array<{ word: string; targetLang: string; entry: TranslationEntry }>,
 ): Promise<void> {
   if (entries.length === 0) return
-  for (const batch of chunk(entries, D1_INSERT_CHUNK_SIZE)) {
-    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, 0)').join(', ')
-    const values = batch.flatMap(({ word, targetLang, entry }) => [
-      word.toLowerCase(), targetLang.toLowerCase(),
-      entry.t, entry.p ?? null,
-      entry.a ? JSON.stringify(entry.a) : null,
-    ])
-    await db
-      .prepare(`
-        INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count)
-        VALUES ${placeholders}
-        ON CONFLICT(word, target_lang) DO UPDATE SET
-          translation = excluded.translation,
-          pos_tag = excluded.pos_tag,
-          alternatives = excluded.alternatives
-      `)
-      .bind(...values)
-      .run()
-  }
+  await Promise.all(
+    chunk(entries, D1_INSERT_CHUNK_SIZE).map(batch => {
+      const placeholders = batch.map(() => '(?, ?, ?, ?, ?, 0)').join(', ')
+      const values = batch.flatMap(({ word, targetLang, entry }) => [
+        word.toLowerCase(), targetLang.toLowerCase(),
+        entry.t, entry.p ?? null,
+        entry.a ? JSON.stringify(entry.a) : null,
+      ])
+      return db
+        .prepare(`
+          INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count)
+          VALUES ${placeholders}
+          ON CONFLICT(word, target_lang) DO UPDATE SET
+            translation = excluded.translation,
+            pos_tag = excluded.pos_tag,
+            alternatives = excluded.alternatives
+        `)
+        .bind(...values)
+        .run()
+    })
+  )
 }
 
 export async function getTopTranslations(

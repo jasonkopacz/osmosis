@@ -47,9 +47,9 @@ describe('KV cache', () => {
     expect(await getCached(kv, 'hello', 'de')).toEqual({ t: 'hallo' })
   })
 
-  it('puts without KV expiration (TTL not used)', async () => {
+  it('puts with a 30-day KV expiration TTL', async () => {
     const kv = mockKV() as ReturnType<typeof mockKV>
     await setCached(kv, 'hello', 'de', HALLO)
-    expect(kv.getLastPutOptions()?.expirationTtl).toBeUndefined()
+    expect(kv.getLastPutOptions()?.expirationTtl).toBe(30 * 24 * 60 * 60)
   })
 })
