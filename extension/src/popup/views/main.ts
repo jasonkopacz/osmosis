@@ -2,7 +2,7 @@ import type { UserSettings, UserProfile, SrsStats, Message } from '../../types'
 import { STORAGE_KEYS } from '../../constants'
 import { createToggle } from '../components/toggle'
 import { createLanguagePicker } from '../components/languagePicker'
-import { createSlider } from '../components/slider'
+import { createIntensityPicker } from '../components/slider'
 import { createCefrPicker } from '../components/cefrPicker'
 import { showToast } from '../components/toast'
 import { renderProgress } from './progress'
@@ -232,8 +232,8 @@ export function renderMain(
       broadcast({ ...s, cefrMinLevel })
     }))
 
-    // Slider
-    const sliderEl = createSlider(s.percentage, percentage => { broadcast({ ...s, percentage }) })
+    // Intensity picker
+    const sliderEl = createIntensityPicker(s.percentage, percentage => { broadcast({ ...s, percentage }) })
 
     if (s.enabled) {
       void chrome.storage.local.get(STORAGE_KEYS.PAGE_STATS).then(r => {

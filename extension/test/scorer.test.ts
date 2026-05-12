@@ -29,8 +29,8 @@ describe('sampleWords', () => {
     expect(a).not.toEqual(b)
   })
 
-  it('never exceeds MAX_WORDS (400)', () => {
-    const many = Array.from({ length: 1000 }, (_, i) => `word${i}`)
-    expect(sampleWords(many, 50, 'https://x.com').length).toBeLessThanOrEqual(400)
+  it('never exceeds MAX_WORDS (800)', () => {
+    const many = Array.from({ length: 2000 }, (_, i) => `word${i}`)
+    expect(sampleWords(many, 50, 'https://x.com').length).toBeLessThanOrEqual(800)
   })
 })

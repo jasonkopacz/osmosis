@@ -1,42 +1,55 @@
-import { MAX_TRANSLATION_PERCENTAGE, MIN_TRANSLATION_PERCENTAGE } from '../../constants'
+const LEVELS = [
+  { label: 'Light',  pct: 15, desc: 'A word or two per sentence' },
+  { label: 'Medium', pct: 30, desc: 'Noticeable — roughly every third word' },
+  { label: 'Heavy',  pct: 55, desc: 'Immersive — most content translated' },
+] as const
 
-export function createSlider(value: number, onChange: (v: number) => void): HTMLElement {
+type Level = typeof LEVELS[number]
+
+function nearestLevel(pct: number): Level {
+  return LEVELS.reduce((best, l) =>
+    Math.abs(l.pct - pct) < Math.abs(best.pct - pct) ? l : best
+  )
+}
+
+export function createIntensityPicker(value: number, onChange: (v: number) => void): HTMLElement {
   const wrapper = document.createElement('div')
 
-  const header = document.createElement('div')
-  header.className = 'osmo-slider__header'
-
-  const labelEl = document.createElement('span')
+  const labelEl = document.createElement('div')
   labelEl.className = 'field-label'
-  labelEl.style.margin = '0'
   labelEl.textContent = 'Words to translate'
 
-  const clampedValue = Math.max(MIN_TRANSLATION_PERCENTAGE, Math.min(MAX_TRANSLATION_PERCENTAGE, value))
+  const picker = document.createElement('div')
+  picker.className = 'cefr-picker'
 
-  const valueEl = document.createElement('span')
-  valueEl.className = 'osmo-slider__value'
-  valueEl.textContent = `${clampedValue}%`
+  const desc = document.createElement('div')
+  desc.className = 'cefr-description'
 
-  header.append(labelEl, valueEl)
+  let active = nearestLevel(value)
 
-  const input = document.createElement('input')
-  input.type = 'range'
-  input.min = String(MIN_TRANSLATION_PERCENTAGE)
-  input.max = String(MAX_TRANSLATION_PERCENTAGE)
-  input.step = '1'
-  input.value = String(clampedValue)
-  input.className = 'osmo-range'
-  input.addEventListener('input', () => { valueEl.textContent = `${Number(input.value)}%` })
-  input.addEventListener('change', () => { onChange(Number(input.value)) })
+  function select(level: Level): void {
+    active = level
+    desc.textContent = level.desc
+    desc.classList.toggle('cefr-description--active', true)
+    buttons.forEach((btn, l) => {
+      btn.classList.toggle('cefr-btn--active', l === level)
+    })
+    onChange(level.pct)
+  }
 
-  const rangeLabels = document.createElement('div')
-  rangeLabels.className = 'osmo-slider__labels'
-  const minL = document.createElement('span')
-  minL.textContent = `${MIN_TRANSLATION_PERCENTAGE}%`
-  const maxL = document.createElement('span')
-  maxL.textContent = `${MAX_TRANSLATION_PERCENTAGE}%`
-  rangeLabels.append(minL, maxL)
+  const buttons = new Map<Level, HTMLButtonElement>()
+  for (const level of LEVELS) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'cefr-btn'
+    btn.textContent = level.label
+    btn.addEventListener('click', () => select(level))
+    buttons.set(level, btn)
+    picker.appendChild(btn)
+  }
 
-  wrapper.append(header, input, rangeLabels)
+  select(active)
+
+  wrapper.append(labelEl, picker, desc)
   return wrapper
 }
