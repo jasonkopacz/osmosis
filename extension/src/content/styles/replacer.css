@@ -2,7 +2,7 @@
 .osmosis-word {
   border-bottom: 1.5px dashed rgba(34,211,238,0.55);
   color: inherit;
-  cursor: pointer;
+  cursor: inherit;
   position: relative;
   z-index: 1;
   display: inline;
@@ -149,7 +149,7 @@
   margin-top: 8px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .osmo-tt-play-btn {
   appearance: none;

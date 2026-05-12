@@ -69,6 +69,10 @@ async function loadSettings(): Promise<UserSettings> {
 }
 
 function hasMeaningfulNewText(mutations: MutationRecord[]): boolean {
+  // Don't re-run the pipeline while the user is reading the osmosis tooltip —
+  // site JS tooltips (Wikipedia previews, Reddit hover cards, etc.) add real
+  // paragraph text to the DOM and trip the threshold, causing a full clear+rebuild.
+  if (document.getElementById('osmosis-tooltip-host')?.classList.contains('osmosis-tooltip--visible')) return false
   for (const m of mutations) {
     const target = m.target as Element
     // Ignore mutations within our own injected elements — tooltip host and replaced word spans

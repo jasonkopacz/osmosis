@@ -23,8 +23,31 @@ function coerceEntry(entry: TranslationEntry | string): TranslationEntry {
 }
 
 let detachActiveTooltip: (() => void) | null = null
+let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
+let tooltipShowTimer: ReturnType<typeof setTimeout> | null = null
 let currentTooltipSpan: HTMLSpanElement | null = null
 let activeAudio: HTMLAudioElement | null = null
+
+function clearTooltipHideTimer() {
+  if (tooltipHideTimer !== null) {
+    clearTimeout(tooltipHideTimer)
+    tooltipHideTimer = null
+  }
+}
+
+function clearTooltipShowTimer() {
+  if (tooltipShowTimer !== null) {
+    clearTimeout(tooltipShowTimer)
+    tooltipShowTimer = null
+  }
+}
+
+function scheduleTooltipHide() {
+  clearTooltipHideTimer()
+  tooltipHideTimer = setTimeout(() => {
+    detachActiveTooltip?.()
+  }, 120)
+}
 
 function stopActiveAudio() {
   if (!activeAudio) return
@@ -64,9 +87,9 @@ function ensureTooltipHost(): HTMLDivElement {
     // Initial position is arbitrary — positionTooltip overwrites before show
     host.style.left = '0'
     host.style.top = '0'
-    host.addEventListener('click', ev => ev.stopPropagation())
+    host.addEventListener('mouseenter', () => clearTooltipHideTimer())
+    host.addEventListener('mouseleave', () => scheduleTooltipHide())
     document.documentElement.appendChild(host)
-    document.addEventListener('click', () => detachActiveTooltip?.())
   }
   return host
 }
@@ -213,12 +236,8 @@ function buildRatingRow(original: string, targetLang: string): HTMLDivElement {
 function bindTooltipSpan(span: HTMLSpanElement) {
   const host = ensureTooltipHost()
   const onMove = () => positionTooltip(span, host)
-  span.addEventListener('click', (ev) => {
-    ev.stopPropagation()
-    if (currentTooltipSpan === span) {
-      detachActiveTooltip?.()
-      return
-    }
+  const show = () => {
+    clearTooltipHideTimer()
     detachActiveTooltip?.()
     currentTooltipSpan = span
     host.replaceChildren(buildTooltipContent(span))
@@ -233,6 +252,14 @@ function bindTooltipSpan(span: HTMLSpanElement) {
       currentTooltipSpan = null
       detachActiveTooltip = null
     }
+  }
+  span.addEventListener('mouseenter', () => {
+    clearTooltipShowTimer()
+    tooltipShowTimer = setTimeout(show, 400)
+  })
+  span.addEventListener('mouseleave', () => {
+    clearTooltipShowTimer()
+    if (currentTooltipSpan === span) scheduleTooltipHide()
   })
 }
 
@@ -353,6 +380,8 @@ export function applyPhraseReplacements(
 }
 
 export function clearReplacements(): void {
+  clearTooltipHideTimer()
+  clearTooltipShowTimer()
   detachActiveTooltip?.()
   stopActiveAudio()
   const parents = new Set<Node>()
