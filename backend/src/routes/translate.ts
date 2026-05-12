@@ -11,7 +11,7 @@ import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
 
 // Must match MAX_WORDS in extension/src/content/scorer.ts
-const MAX_WORDS_PER_BATCH = 400
+const MAX_WORDS_PER_BATCH = 800
 const MAX_POPULAR_LIMIT = 500
 
 export const translateRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -155,7 +155,13 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
       }
     }
 
-    const allNew = new Map<string, TranslationEntry>([...lookupHits, ...translateHits])
+    const allNewRaw = new Map<string, TranslationEntry>([...lookupHits, ...translateHits])
+    // Drop identity translations — they waste cache space and show nothing useful to the user
+    const allNew = new Map(
+      [...allNewRaw.entries()].filter(([word, entry]) => entry.t.toLowerCase() !== word.toLowerCase())
+    )
+    const identityCount = allNewRaw.size - allNew.size
+    if (identityCount > 0) console.log(`[translate] dropped ${identityCount} identity translations`)
     console.log(`[translate] azure: lookup=${lookupHits.size} translate=${translateHits.size}`)
 
     // Charge for all words that required any API call

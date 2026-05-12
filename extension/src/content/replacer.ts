@@ -274,6 +274,7 @@ export function applyReplacements(
     const rawEntry = translationMap.get(word.toLowerCase())
     if (!rawEntry) continue
     const entry = coerceEntry(rawEntry)
+    if (entry.t.toLowerCase() === word.toLowerCase()) continue
     if (!byNode.has(node)) byNode.set(node, [])
     byNode.get(node)!.push({ word, offset, entry })
   }
@@ -332,6 +333,7 @@ export function applyPhraseReplacements(
     const rawEntry = translationMap.get(phrase) ?? translationMap.get(phrase.toLowerCase())
     if (!rawEntry) continue
     const entry = coerceEntry(rawEntry)
+    if (entry.t.toLowerCase() === phrase.toLowerCase()) continue
     if (!byNode.has(node)) byNode.set(node, [])
     byNode.get(node)!.push({ surface, phrase, start, end, entry })
   }
