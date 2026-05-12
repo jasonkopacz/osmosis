@@ -21,9 +21,9 @@ import { saveWordContext } from '../utils/contextStore'
 let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
 let mutationTimer: ReturnType<typeof setTimeout> | null = null
-let lastMutationRun = 0
 let pipelineRunning = false
-const MUTATION_COOLDOWN_MS = 5_000
+let cachedTranslationMap: Map<string, import('../types').TranslationEntry | string> = new Map()
+let cachedTargetLang = ''
 const MUTATION_TEXT_THRESHOLD = 30 // ignore trivial DOM changes (ads, badges, analytics)
 
 function sentenceAroundOffset(text: string, offset: number): string | null {
@@ -68,33 +68,42 @@ async function loadSettings(): Promise<UserSettings> {
   }
 }
 
-function hasMeaningfulNewText(mutations: MutationRecord[]): boolean {
-  // Don't re-run the pipeline while the user is reading the osmosis tooltip —
-  // site JS tooltips (Wikipedia previews, Reddit hover cards, etc.) add real
-  // paragraph text to the DOM and trip the threshold, causing a full clear+rebuild.
-  if (document.getElementById('osmosis-tooltip-host')?.classList.contains('osmosis-tooltip--visible')) return false
+function collectMeaningfulNewNodes(mutations: MutationRecord[]): Element[] {
+  if (document.getElementById('osmosis-tooltip-host')?.classList.contains('osmosis-tooltip--visible')) return []
+  const roots = new Set<Element>()
   for (const m of mutations) {
     const target = m.target as Element
-    // Ignore mutations within our own injected elements — tooltip host and replaced word spans
     if (target.id === 'osmosis-tooltip-host' || target.closest?.('#osmosis-tooltip-host')) continue
     if (target.classList?.contains('osmosis-word')) continue
     for (const node of m.addedNodes) {
-      const text = node.textContent?.trim() ?? ''
-      if (text.length >= MUTATION_TEXT_THRESHOLD) return true
+      if ((node.textContent?.trim().length ?? 0) < MUTATION_TEXT_THRESHOLD) continue
+      const root = node instanceof Element ? node : node.parentElement
+      if (root) roots.add(root)
     }
   }
-  return false
+  return [...roots]
+}
+
+async function runIncrementalPipeline(roots: Element[]): Promise<void> {
+  if (cachedTranslationMap.size === 0 || !settings.enabled) return
+  pauseObserver()
+  try {
+    for (const root of roots) {
+      applyPhraseReplacements(cachedTranslationMap, collectPhrases(root), cachedTargetLang)
+      applyReplacements(cachedTranslationMap, collectWords(root), cachedTargetLang)
+    }
+  } finally {
+    resumeObserver()
+  }
 }
 
 function scheduleFromMutation(mutations: MutationRecord[]): void {
-  if (!hasMeaningfulNewText(mutations)) return
+  const roots = collectMeaningfulNewNodes(mutations)
+  if (roots.length === 0) return
   if (mutationTimer !== null) clearTimeout(mutationTimer)
   mutationTimer = setTimeout(() => {
     mutationTimer = null
-    const now = Date.now()
-    if (now - lastMutationRun < MUTATION_COOLDOWN_MS) return
-    lastMutationRun = now
-    void runPipeline()
+    void runIncrementalPipeline(roots)
   }, 800)
 }
 
@@ -112,7 +121,6 @@ function resumeObserver(): void {
 async function runPipeline(): Promise<void> {
   if (pipelineRunning) return
   pipelineRunning = true
-  lastMutationRun = Date.now() // initialise cooldown regardless of what triggered this run
   pauseObserver() // stop watching during our own DOM mutations
   try {
     if (!settings.enabled) {
@@ -209,6 +217,8 @@ async function runPipeline(): Promise<void> {
 
     // ── Phase 6: Apply phrase spans first, then word spans ─────────────────
     const translationMap = new Map(Object.entries(res.translations))
+    cachedTranslationMap = translationMap
+    cachedTargetLang = settings.targetLang
     applyPhraseReplacements(translationMap, allPhraseEntries, settings.targetLang)
     applyReplacements(translationMap, nonOverlappingWordEntries, settings.targetLang)
 
