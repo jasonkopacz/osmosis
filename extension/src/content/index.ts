@@ -17,6 +17,7 @@ import { applyPhraseReplacements } from './replacer'
 import { normalizeTargetLang } from '../languages'
 import { log, warn } from '../logger'
 import { saveWordContext } from '../utils/contextStore'
+import { getMasteredWords } from '../utils/masteredWords'
 
 let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
@@ -162,7 +163,8 @@ async function runPipeline(): Promise<void> {
     const cefrFiltered = cefrMin === 'all'
       ? allUnique
       : allUnique.filter(w => passesCefrFilter(w, cefrMin))
-    const sampledWords = sampleWords(cefrFiltered, settings.percentage, location.href)
+    const masteredWords = await getMasteredWords(settings.targetLang)
+    const sampledWords = sampleWords(cefrFiltered, settings.percentage, location.href, masteredWords)
     const sampledWordSet = new Set(sampledWords)
 
     if (sampledWords.length === 0 && uniquePhraseCandidates.length === 0) {

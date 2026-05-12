@@ -32,7 +32,7 @@ function seededRng(seed: number): () => number {
   }
 }
 
-export function sampleWords(candidates: string[], percentage: number, pageUrl: string): string[] {
+export function sampleWords(candidates: string[], percentage: number, pageUrl: string, masteredWords?: Set<string>): string[] {
   const clampedPercentage = Math.max(
     MIN_TRANSLATION_PERCENTAGE,
     Math.min(MAX_TRANSLATION_PERCENTAGE, percentage)
@@ -40,7 +40,13 @@ export function sampleWords(candidates: string[], percentage: number, pageUrl: s
   const count = Math.min(Math.round(candidates.length * (clampedPercentage / 100)), MAX_WORDS)
   const rng = seededRng(hashSeed(pageUrl))
   const scored = candidates
-    .map(w => ({ word: w, score: scoreWord(w), r: rng() }))
+    .map(w => ({
+      word: w,
+      // Mastered words score 0 — below even very-common words (score 1).
+      // They only appear when the sample count exceeds all non-mastered candidates.
+      score: masteredWords?.has(w.toLowerCase()) ? 0 : scoreWord(w),
+      r: rng(),
+    }))
     .sort((a, b) => b.score - a.score || a.r - b.r)
   return scored.slice(0, count).map(e => e.word)
 }

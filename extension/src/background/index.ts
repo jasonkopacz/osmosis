@@ -5,6 +5,7 @@ import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEma
 import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
+import { addMasteredWord, removeMasteredWord } from '../utils/masteredWords'
 import type { Message, UserProfile, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
 
@@ -282,6 +283,15 @@ async function handle(msg: Message): Promise<unknown> {
     if (!token) return { error: 'NOT_LOGGED_IN' }
     try {
       const result = await srsRateWord(msg.word, msg.targetLang, msg.rating, token)
+      // Keep the local mastered-words store in sync so the content script can
+      // deprioritize words the user has already consolidated.
+      if (result.state === 'review' && result.intervalDays >= 7) {
+        void addMasteredWord(msg.word, msg.targetLang)
+          .catch(err => warn('[osmosis:bg] addMasteredWord failed', err))
+      } else if (result.state === 'relearning') {
+        void removeMasteredWord(msg.word, msg.targetLang)
+          .catch(err => warn('[osmosis:bg] removeMasteredWord failed', err))
+      }
       return result
     } catch (err) {
       const s = String(err)
