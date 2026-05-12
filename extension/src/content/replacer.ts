@@ -23,23 +23,8 @@ function coerceEntry(entry: TranslationEntry | string): TranslationEntry {
 }
 
 let detachActiveTooltip: (() => void) | null = null
-let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 let currentTooltipSpan: HTMLSpanElement | null = null
 let activeAudio: HTMLAudioElement | null = null
-
-function clearTooltipHideTimer() {
-  if (tooltipHideTimer !== null) {
-    clearTimeout(tooltipHideTimer)
-    tooltipHideTimer = null
-  }
-}
-
-function scheduleTooltipHide() {
-  clearTooltipHideTimer()
-  tooltipHideTimer = setTimeout(() => {
-    detachActiveTooltip?.()
-  }, 120)
-}
 
 function stopActiveAudio() {
   if (!activeAudio) return
@@ -79,9 +64,9 @@ function ensureTooltipHost(): HTMLDivElement {
     // Initial position is arbitrary — positionTooltip overwrites before show
     host.style.left = '0'
     host.style.top = '0'
-    host.addEventListener('mouseenter', () => clearTooltipHideTimer())
-    host.addEventListener('mouseleave', () => scheduleTooltipHide())
+    host.addEventListener('click', ev => ev.stopPropagation())
     document.documentElement.appendChild(host)
+    document.addEventListener('click', () => detachActiveTooltip?.())
   }
   return host
 }
@@ -228,8 +213,12 @@ function buildRatingRow(original: string, targetLang: string): HTMLDivElement {
 function bindTooltipSpan(span: HTMLSpanElement) {
   const host = ensureTooltipHost()
   const onMove = () => positionTooltip(span, host)
-  const show = () => {
-    clearTooltipHideTimer()
+  span.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    if (currentTooltipSpan === span) {
+      detachActiveTooltip?.()
+      return
+    }
     detachActiveTooltip?.()
     currentTooltipSpan = span
     host.replaceChildren(buildTooltipContent(span))
@@ -244,12 +233,7 @@ function bindTooltipSpan(span: HTMLSpanElement) {
       currentTooltipSpan = null
       detachActiveTooltip = null
     }
-  }
-  const hide = () => {
-    if (currentTooltipSpan === span) scheduleTooltipHide()
-  }
-  span.addEventListener('mouseenter', show)
-  span.addEventListener('mouseleave', hide)
+  })
 }
 
 export function injectTooltipStyles(): void {
@@ -369,7 +353,6 @@ export function applyPhraseReplacements(
 }
 
 export function clearReplacements(): void {
-  clearTooltipHideTimer()
   detachActiveTooltip?.()
   stopActiveAudio()
   const parents = new Set<Node>()

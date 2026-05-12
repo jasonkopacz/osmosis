@@ -2,7 +2,7 @@
 .osmosis-word {
   border-bottom: 1.5px dashed rgba(34,211,238,0.55);
   color: inherit;
-  cursor: inherit;
+  cursor: pointer;
   position: relative;
   z-index: 1;
   display: inline;
