@@ -64,27 +64,12 @@ function paint(
   grid.className = 'stats-grid'
 
   const readyCount = (stats.sessionCount ?? 0) + stats.dueCount
-  const dueCard = makeStatCard(
-    readyCount.toString(),
-    'Ready',
-    readyCount > 0 ? 'stat-card--due stat-card--due-active' : 'stat-card--due',
+  grid.append(
+    makeStatCard(stats.reviewedToday.toString(), 'Reviewed'),
+    makeStatCard(readyCount.toString(), 'Ready for review'),
+    makeStatCard(stats.total.toString(), 'Your dictionary'),
   )
-  const totalCard = makeStatCard(stats.total.toString(), 'Total', '')
-  const todayCard = makeStatCard(stats.reviewedToday.toString(), 'Reviewed', 'stat-card--reviewed')
-
-  grid.append(dueCard, totalCard, todayCard)
   body.appendChild(grid)
-
-  // ── State breakdown
-  if (stats.total > 0) {
-    const breakdownLabel = document.createElement('div')
-    breakdownLabel.className = 'field-label progress-breakdown-label'
-    breakdownLabel.textContent = 'Status'
-    body.appendChild(breakdownLabel)
-
-    body.appendChild(makeBreakdownRow('Review', stats.inReview, stats.total, 'breakdown-fill--review'))
-    body.appendChild(makeBreakdownRow('Relearning', stats.relearning, stats.total, 'breakdown-fill--relearning'))
-  }
 
   // ── Reading streak (always shown, even with no vocab history)
   if (!streak.error) {
@@ -95,12 +80,9 @@ function paint(
   if (stats.total === 0) {
     body.appendChild(makeEmptyState())
   } else if (stats.reviewReady) {
-    const parts: string[] = []
-    if (stats.sessionCount && stats.sessionCount > 0) parts.push(`${stats.sessionCount} from browsing`)
-    if (stats.dueCount > 0) parts.push(`${stats.dueCount} scheduled`)
     const cta = document.createElement('button')
     cta.className = 'osmo-btn osmo-btn--primary'
-    cta.textContent = `Start Review${parts.length ? ` — ${parts.join(', ')}` : ''}`
+    cta.textContent = 'Start Review'
     cta.addEventListener('click', onStartReview)
     body.appendChild(cta)
   } else {
@@ -117,9 +99,9 @@ function paint(
   container.appendChild(body)
 }
 
-function makeStatCard(value: string, label: string, extraClass: string): HTMLDivElement {
+function makeStatCard(value: string, label: string): HTMLDivElement {
   const card = document.createElement('div')
-  card.className = `stat-card${extraClass ? ` ${extraClass}` : ''}`
+  card.className = 'stat-card'
 
   const val = document.createElement('div')
   val.className = 'stat-card__value'
@@ -133,30 +115,6 @@ function makeStatCard(value: string, label: string, extraClass: string): HTMLDiv
   return card
 }
 
-function makeBreakdownRow(label: string, count: number, total: number, fillClass: string): HTMLDivElement {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0
-
-  const row = document.createElement('div')
-  row.className = 'breakdown-row'
-
-  const lbl = document.createElement('span')
-  lbl.className = 'breakdown-label'
-  lbl.textContent = label
-
-  const track = document.createElement('div')
-  track.className = 'breakdown-track'
-  const fill = document.createElement('div')
-  fill.className = `breakdown-fill ${fillClass}`
-  fill.style.width = `${pct}%`
-  track.appendChild(fill)
-
-  const cnt = document.createElement('span')
-  cnt.className = 'breakdown-count'
-  cnt.textContent = count.toString()
-
-  row.append(lbl, track, cnt)
-  return row
-}
 
 function makeEmptyState(): HTMLDivElement {
   const wrap = document.createElement('div')

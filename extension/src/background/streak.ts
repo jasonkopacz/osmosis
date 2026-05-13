@@ -1,14 +1,16 @@
-export const STREAK_GOAL = 10          // words per day to count as an active day
+export const DEFAULT_STREAK_GOAL = 10
+export const STREAK_GOAL = DEFAULT_STREAK_GOAL  // backward-compat alias
 export const STREAK_KEY = 'osmosis_streak_log'
-const RETAIN_DAYS = 366               // prune entries older than this
+export const DAILY_GOAL_KEY = 'osmosis_daily_goal'
+const RETAIN_DAYS = 366
 
 export type StreakInfo = {
   streak: number          // consecutive active days (including today if goal met)
   longestStreak: number   // all-time best consecutive run
   todayCount: number      // words encountered today
-  goalMet: boolean        // todayCount >= STREAK_GOAL
+  goalMet: boolean        // todayCount >= goalTarget
   atRisk: boolean         // streak > 0 but today's goal not yet met
-  goalTarget: number      // always STREAK_GOAL
+  goalTarget: number      // stored daily goal
 }
 
 // ── Date helpers (local time, not UTC) ───────────────────────────────────────
@@ -39,15 +41,14 @@ function pad(n: number): string {
 
 export type StreakLog = Record<string, number>  // YYYY-MM-DD → word count
 
-export function computeStreak(log: StreakLog, today: string): Omit<StreakInfo, 'goalTarget'> {
+export function computeStreak(log: StreakLog, today: string, goal = DEFAULT_STREAK_GOAL): Omit<StreakInfo, 'goalTarget'> {
   const todayCount = log[today] ?? 0
-  const goalMet = todayCount >= STREAK_GOAL
+  const goalMet = todayCount >= goal
 
-  // Walk backwards from the most recent qualifying day
   let streak = 0
   let d = goalMet ? today : prevDay(today)
 
-  while ((log[d] ?? 0) >= STREAK_GOAL) {
+  while ((log[d] ?? 0) >= goal) {
     streak++
     d = prevDay(d)
   }
@@ -56,16 +57,16 @@ export function computeStreak(log: StreakLog, today: string): Omit<StreakInfo, '
 
   return {
     streak,
-    longestStreak: computeLongest(log),
+    longestStreak: computeLongest(log, goal),
     todayCount,
     goalMet,
     atRisk,
   }
 }
 
-export function computeLongest(log: StreakLog): number {
+export function computeLongest(log: StreakLog, goal = DEFAULT_STREAK_GOAL): number {
   const goalDays = Object.entries(log)
-    .filter(([, count]) => count >= STREAK_GOAL)
+    .filter(([, count]) => count >= goal)
     .map(([date]) => date)
     .sort()
 
@@ -92,6 +93,18 @@ function nextDay(dateStr: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+// ── Daily goal storage ───────────────────────────────────────────────────────
+
+export async function getDailyGoal(): Promise<number> {
+  const r = await chrome.storage.local.get(DAILY_GOAL_KEY)
+  const stored = r[DAILY_GOAL_KEY]
+  return (typeof stored === 'number' && stored > 0) ? stored : DEFAULT_STREAK_GOAL
+}
+
+export async function setDailyGoal(goal: number): Promise<void> {
+  await chrome.storage.local.set({ [DAILY_GOAL_KEY]: goal })
+}
+
 // ── Chrome storage I/O ───────────────────────────────────────────────────────
 
 export async function updateStreakLog(wordCount: number): Promise<void> {
@@ -112,7 +125,10 @@ export async function updateStreakLog(wordCount: number): Promise<void> {
 }
 
 export async function getStreakInfo(): Promise<StreakInfo> {
-  const stored = await chrome.storage.local.get(STREAK_KEY)
+  const [stored, goal] = await Promise.all([
+    chrome.storage.local.get(STREAK_KEY),
+    getDailyGoal(),
+  ])
   const log = (stored[STREAK_KEY] ?? {}) as StreakLog
-  return { ...computeStreak(log, todayStr()), goalTarget: STREAK_GOAL }
+  return { ...computeStreak(log, todayStr(), goal), goalTarget: goal }
 }

@@ -1,5 +1,9 @@
 import type { StreakInfo } from '../../background/streak'
-import { STREAK_GOAL } from '../../background/streak'
+import { setDailyGoal } from '../../background/streak'
+
+const MIN_GOAL = 5
+const MAX_GOAL = 50
+const GOAL_STEP = 5
 
 export function renderStreakSection(streakInfo: StreakInfo): HTMLDivElement {
   const wrap = document.createElement('div')
@@ -20,7 +24,7 @@ export function renderStreakSection(streakInfo: StreakInfo): HTMLDivElement {
   )
   wrap.appendChild(grid)
 
-  // ── Today's goal progress bar
+  // ── Today's goal progress bar (editable)
   wrap.appendChild(makeTodayProgress(streakInfo))
 
   return wrap
@@ -28,17 +32,11 @@ export function renderStreakSection(streakInfo: StreakInfo): HTMLDivElement {
 
 function makeStreakCard(info: StreakInfo): HTMLDivElement {
   const card = document.createElement('div')
-
-  let mod = ''
-  let icon = '🌊'
-  if (info.streak > 0 && info.goalMet) { mod = 'streak-card--active'; icon = '🔥' }
-  else if (info.streak > 0 && info.atRisk) { mod = 'streak-card--risk'; icon = '⚡' }
-
-  card.className = `streak-card${mod ? ` ${mod}` : ''}`
+  card.className = 'streak-card'
 
   const iconEl = document.createElement('div')
   iconEl.className = 'streak-card__icon'
-  iconEl.textContent = icon
+  iconEl.textContent = info.streak > 0 ? '🔥' : '🌊'
   iconEl.setAttribute('aria-hidden', 'true')
 
   const val = document.createElement('div')
@@ -78,6 +76,7 @@ function makeTodayProgress(info: StreakInfo): HTMLDivElement {
   const wrap = document.createElement('div')
   wrap.className = 'streak-today'
 
+  // ── Header: label + stepper
   const header = document.createElement('div')
   header.className = 'streak-today__header'
 
@@ -85,23 +84,75 @@ function makeTodayProgress(info: StreakInfo): HTMLDivElement {
   lbl.className = 'streak-today__label'
   lbl.textContent = "Today's goal"
 
-  const cnt = document.createElement('span')
-  cnt.className = info.goalMet ? 'streak-today__count streak-today__count--met' : 'streak-today__count'
-  cnt.textContent = `${Math.min(info.todayCount, STREAK_GOAL)} / ${STREAK_GOAL} words`
+  const stepper = document.createElement('div')
+  stepper.className = 'streak-today__stepper'
 
-  header.append(lbl, cnt)
+  const decBtn = document.createElement('button')
+  decBtn.type = 'button'
+  decBtn.className = 'streak-today__step-btn'
+  decBtn.textContent = '−'
+  decBtn.setAttribute('aria-label', 'Decrease daily goal')
+
+  const goalDisplay = document.createElement('span')
+  goalDisplay.className = 'streak-today__goal-val'
+
+  const incBtn = document.createElement('button')
+  incBtn.type = 'button'
+  incBtn.className = 'streak-today__step-btn'
+  incBtn.textContent = '+'
+  incBtn.setAttribute('aria-label', 'Increase daily goal')
+
+  stepper.append(decBtn, goalDisplay, incBtn)
+  header.append(lbl, stepper)
+
+  // ── Progress row: bar + count
+  const progressRow = document.createElement('div')
+  progressRow.className = 'streak-today__progress-row'
 
   const track = document.createElement('div')
   track.className = 'streak-today__track'
-
   const fill = document.createElement('div')
-  const pct = Math.min(100, Math.round((info.todayCount / STREAK_GOAL) * 100))
-  fill.className = info.goalMet
-    ? 'streak-today__fill streak-today__fill--met'
-    : 'streak-today__fill'
-  fill.style.width = `${pct}%`
-
   track.appendChild(fill)
-  wrap.append(header, track)
+
+  const cnt = document.createElement('span')
+  cnt.className = 'streak-today__count'
+
+  progressRow.append(track, cnt)
+  wrap.append(header, progressRow)
+
+  // ── Reactive update
+  let currentGoal = info.goalTarget
+
+  function refresh(): void {
+    const met = info.todayCount >= currentGoal
+    const pct = Math.min(100, Math.round((info.todayCount / currentGoal) * 100))
+
+    goalDisplay.textContent = currentGoal.toString()
+    fill.className = met
+      ? 'streak-today__fill streak-today__fill--met'
+      : 'streak-today__fill'
+    fill.style.width = `${pct}%`
+    cnt.textContent = `${Math.min(info.todayCount, currentGoal)} / ${currentGoal}`
+    cnt.className = met ? 'streak-today__count streak-today__count--met' : 'streak-today__count'
+
+    decBtn.disabled = currentGoal <= MIN_GOAL
+    incBtn.disabled = currentGoal >= MAX_GOAL
+  }
+
+  decBtn.addEventListener('click', () => {
+    if (currentGoal <= MIN_GOAL) return
+    currentGoal -= GOAL_STEP
+    refresh()
+    void setDailyGoal(currentGoal)
+  })
+
+  incBtn.addEventListener('click', () => {
+    if (currentGoal >= MAX_GOAL) return
+    currentGoal += GOAL_STEP
+    refresh()
+    void setDailyGoal(currentGoal)
+  })
+
+  refresh()
   return wrap
 }

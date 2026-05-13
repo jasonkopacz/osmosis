@@ -25,62 +25,11 @@
 
 .stat-card__label {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-mute);
   margin-top: 5px;
-}
-
-.stat-card--due .stat-card__value { color: var(--ember); }
-.stat-card--due-active {
-  border-color: rgba(245,154,46,.35);
-  background: rgba(245,154,46,.06);
-}
-
-.stat-card--reviewed .stat-card__value { color: var(--signal); }
-
-/* ── State breakdown ── */
-.breakdown-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.breakdown-row + .breakdown-row { margin-top: 6px; }
-
-.breakdown-label {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-soft);
-  width: 70px;
-  flex-shrink: 0;
-}
-
-.breakdown-track {
-  flex: 1;
-  height: 5px;
-  background: var(--shallow);
-  border-radius: var(--r-pill);
-  overflow: hidden;
-}
-
-.breakdown-fill {
-  height: 100%;
-  border-radius: inherit;
-  transition: width var(--d-3) var(--ease-out);
-}
-
-.breakdown-fill--review    { background: linear-gradient(90deg, var(--droplet), var(--osmo)); }
-.breakdown-fill--relearning { background: linear-gradient(90deg, var(--ember), #c97817); }
-
-.breakdown-count {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-mute);
-  width: 24px;
-  text-align: right;
-  flex-shrink: 0;
 }
 
 /* ── Reading streak ── */
@@ -96,7 +45,6 @@
   border-radius: var(--r-3);
   padding: 12px 8px;
   text-align: center;
-  transition: border-color var(--d-2) var(--ease-out), background var(--d-2) var(--ease-out);
 }
 
 .streak-card__icon {
@@ -122,41 +70,71 @@
   margin-top: 5px;
 }
 
-/* Active streak — green */
-.streak-card--active {
-  border-color: rgba(74,222,128,.3);
-  background: rgba(74,222,128,.06);
-}
-.streak-card--active .streak-card__value { color: var(--signal); }
-
-/* At-risk streak — amber (streak alive but today not done) */
-.streak-card--risk {
-  border-color: rgba(245,154,46,.35);
-  background: rgba(245,154,46,.06);
-}
-.streak-card--risk .streak-card__value { color: var(--ember); }
-
-/* ── Today's progress toward goal ── */
+/* ── Today's goal ── */
 .streak-today {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .streak-today__header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   font-family: var(--mono);
   font-size: 11px;
 }
 
-.streak-today__label { color: var(--text-mute); letter-spacing: 0.08em; }
+.streak-today__label {
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
-.streak-today__count { color: var(--text-soft); }
-.streak-today__count--met { color: var(--signal); }
+.streak-today__stepper {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.streak-today__step-btn {
+  width: 20px;
+  height: 20px;
+  background: var(--shallow);
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--d-1) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.streak-today__step-btn:hover:not(:disabled) { background: var(--mid); }
+.streak-today__step-btn:disabled { opacity: 0.35; cursor: default; }
+
+.streak-today__goal-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 22px;
+  text-align: center;
+}
+
+.streak-today__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .streak-today__track {
+  flex: 1;
   height: 5px;
   background: var(--shallow);
   border-radius: var(--r-pill);
@@ -174,10 +152,19 @@
   background: linear-gradient(90deg, var(--droplet), var(--signal));
 }
 
+.streak-today__count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.streak-today__count--met { color: var(--signal); }
+
 /* ── Loading / error hint ── */
 .progress-hint { padding: 28px 0; }
 .progress-all-done { padding: 8px 0; }
-.progress-breakdown-label { margin-top: 4px; }
 
 /* ── Empty / onboarding state ── */
 .progress-empty {
