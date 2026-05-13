@@ -292,6 +292,11 @@ async function handle(msg: Message): Promise<unknown> {
         void removeMasteredWord(msg.word, msg.targetLang)
           .catch(err => warn('[osmosis:bg] removeMasteredWord failed', err))
       }
+      // Increment daily word goal only when the user explicitly marks a word as known
+      if (msg.rating === 4) {
+        void updateStreakLog(1)
+          .catch(err => warn('[osmosis:bg] streak update failed', err))
+      }
       return result
     } catch (err) {
       const s = String(err)
@@ -448,8 +453,6 @@ async function handle(msg: Message): Promise<unknown> {
     }
     void addEncounteredWords(msg.words, msg.targetLang)
       .catch(err => warn('[osmosis:bg] session words update failed', err))
-    void updateStreakLog(msg.words.length)
-      .catch(err => warn('[osmosis:bg] streak update failed', err))
     return { ok: true }
   }
 

@@ -10,7 +10,6 @@ import {
   MAX_TRANSLATION_PERCENTAGE,
   API_BASE_URL,
 } from '../constants'
-import { recordLocalEncounters } from './encounters'
 import { passesCefrFilter } from './cefr'
 import { collectPhrases, uniquePhrases } from './phraseScanner'
 import { applyPhraseReplacements } from './replacer'
@@ -141,7 +140,7 @@ async function runPipeline(): Promise<void> {
     // Words — collected before DOM changes so offsets are stable.
     const allWordEntries = collectWords(document.body)
     const eligibleWordEntries = allWordEntries.filter(
-      ({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? '')
+      ({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? '', node.textContent ?? '')
     )
 
     // ── Phase 2: Exclude words whose offsets fall inside a phrase match ────
@@ -224,7 +223,7 @@ async function runPipeline(): Promise<void> {
     applyPhraseReplacements(translationMap, allPhraseEntries, settings.targetLang)
     applyReplacements(translationMap, nonOverlappingWordEntries, settings.targetLang)
 
-    // ── Phase 7: Encounter tracking + final PAGE_STATS ───────────────────────
+    // ── Phase 7: Final PAGE_STATS ─────────────────────────────────────────────
     const translatedItems = Object.keys(res.translations)
     // Write actual translated count now that we know it — popup listens for this
     void chrome.storage.local.set({
@@ -236,14 +235,6 @@ async function runPipeline(): Promise<void> {
         cefr: cefrMin,
       },
     })
-    if (translatedItems.length > 0) {
-      void recordLocalEncounters(translatedItems, settings.targetLang)
-      void chrome.runtime.sendMessage({
-        type: 'SRS_REPORT_ENCOUNTERS',
-        words: translatedItems,
-        targetLang: settings.targetLang,
-      } as Message)
-    }
 
     // ── Phase 8: Persist sentence context for fill-in-the-blank quiz ─────────
     for (const [word, sentence] of Object.entries(contextsByWord)) {

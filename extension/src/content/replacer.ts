@@ -1,6 +1,7 @@
 import type { WordEntry } from './walker'
 import type { PhraseEntry } from './phraseScanner'
-import type { TranslationEntry } from '../types'
+import type { TranslationEntry, Message } from '../types'
+import { recordLocalEncounters } from './encounters'
 import { isEligible } from './filter'
 import replacerStyles from './styles/replacer.css?raw'
 import { log, warn } from '../logger'
@@ -27,6 +28,8 @@ let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 let tooltipShowTimer: ReturnType<typeof setTimeout> | null = null
 let currentTooltipSpan: HTMLSpanElement | null = null
 let activeAudio: HTMLAudioElement | null = null
+// Tracks words hovered this page session to avoid duplicate encounter reports
+const reportedHovers = new Set<string>()
 
 function clearTooltipHideTimer() {
   if (tooltipHideTimer !== null) {
@@ -243,6 +246,20 @@ function bindTooltipSpan(span: HTMLSpanElement) {
     host.replaceChildren(buildTooltipContent(span))
     positionTooltip(span, host)
     host.classList.add('osmosis-tooltip--visible')
+
+    // Report this hover as an encounter — once per word per page session
+    const word = span.getAttribute('data-original') ?? ''
+    const lang = span.getAttribute('data-target-lang') ?? ''
+    const hoverKey = `${word}:${lang}`
+    if (word && lang && !reportedHovers.has(hoverKey)) {
+      reportedHovers.add(hoverKey)
+      void recordLocalEncounters([word], lang)
+      void chrome.runtime.sendMessage({
+        type: 'SRS_REPORT_ENCOUNTERS',
+        words: [word],
+        targetLang: lang,
+      } as Message).catch(() => {})
+    }
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
     detachActiveTooltip = () => {
@@ -384,6 +401,7 @@ export function clearReplacements(): void {
   clearTooltipShowTimer()
   detachActiveTooltip?.()
   stopActiveAudio()
+  reportedHovers.clear()
   const parents = new Set<Node>()
   document.querySelectorAll<HTMLSpanElement>('.osmosis-word').forEach(span => {
     if (span.parentNode) {

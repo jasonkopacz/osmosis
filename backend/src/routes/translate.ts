@@ -205,6 +205,13 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
     }
   }
 
+  // Final pass: drop identity translations from all layers (catches stale cache entries)
+  for (const word of Object.keys(result)) {
+    if (result[word]!.t.toLowerCase() === word.toLowerCase()) {
+      delete result[word]
+    }
+  }
+
   console.log(`[translate] returning ${Object.keys(result).length} translated words`)
   return c.json({ translations: result })
 })
