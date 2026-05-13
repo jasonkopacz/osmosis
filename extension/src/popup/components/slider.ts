@@ -27,13 +27,17 @@ export function createIntensityPicker(value: number, onChange: (v: number) => vo
 
   let active = nearestLevel(value)
 
-  function select(level: Level): void {
-    active = level
+  function updateUI(level: Level): void {
     desc.textContent = level.desc
     desc.classList.toggle('cefr-description--active', true)
     buttons.forEach((btn, l) => {
       btn.classList.toggle('cefr-btn--active', l === level)
     })
+  }
+
+  function select(level: Level): void {
+    active = level
+    updateUI(level)
     onChange(level.pct)
   }
 
@@ -48,7 +52,7 @@ export function createIntensityPicker(value: number, onChange: (v: number) => vo
     picker.appendChild(btn)
   }
 
-  select(active)
+  updateUI(active)
 
   wrapper.append(labelEl, picker, desc)
   return wrapper
