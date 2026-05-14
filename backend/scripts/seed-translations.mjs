@@ -22,6 +22,9 @@ const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION ?? 'eastus'
 const AZURE_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&textType=plain'
 const BATCH_SIZE = 900
 const SQL_CHUNK_SIZE = 900
+const INTER_BATCH_DELAY_MS = 3000
+const INTER_LANGUAGE_DELAY_MS = 65000
+const MAX_RETRIES = 6
 
 const LANGUAGES = {
   es: 'Spanish',
@@ -327,11 +330,538 @@ const WORDS = [
   'new','popular','featured','recommended','related','similar','recent','latest',
   'trending','top','best','worst','rating','review','feedback','support','help',
   'contact','about','terms','privacy','cookie','policy','legal','copyright',
+
+  // Business & professional
+  'startup','entrepreneur','entrepreneurship','investor','investment','venture','capital',
+  'funding','revenue','budget','forecast','quarterly','fiscal','stakeholder','shareholder',
+  'dividend','merger','acquisition','subsidiary','franchise','brand','branding','marketing',
+  'advertising','campaign','strategic','management','leadership','executive','director',
+  'supervisor','coordinator','analyst','consultant','advisor','contractor','freelancer',
+  'intern','bonus','commission','equity','pension','retirement','promotion','productivity',
+  'deadline','milestone','deliverable','proposal','invoice','receipt','transaction',
+  'purchase','shipment','supply','demand','competitor','segment','niche','vendor',
+  'supplier','distributor','retailer','wholesaler','manufacturer','exporter','importer',
+  'restructure','downsize','outsource','collaborate','negotiate','facilitate','delegate',
+  'supervise','mentor','recruit','hire','allocate','sponsor','contribute','engage',
+  'onboard','offboard','benchmark','prioritize','streamline','accelerate','monetize',
+  'leverage','scale','pivot','iterate','prototype','launch','disrupt','innovate',
+  'collaboration','negotiation','facilitation','delegation','recruitment','onboarding',
+  'workflow','pipeline','roadmap','sprint','backlog','stakeholder','deliverable',
+  'quarterly','revenue','overhead','margin','markup','breakeven','cashflow','valuation',
+  'pitch','deck','traction','runway','bootstrapped','funded','profitable','viable',
+
+  // Technology (expanded)
+  'algorithm','database','server','cloud','endpoint','repository','branch','commit',
+  'deployment','container','microservice','middleware','authentication','authorization',
+  'encryption','payload','webhook','queue','thread','process','bandwidth','latency',
+  'throughput','scalability','reliability','vulnerability','patch','version','release',
+  'build','debug','log','monitor','metric','dashboard','analytics','interface',
+  'frontend','backend','fullstack','mobile','desktop','browser','operating','system',
+  'processor','graphics','keyboard','router','firewall','proxy','protocol','architecture',
+  'staging','production','configuration','parameter','function','method','class',
+  'object','array','string','integer','boolean','exception','regression','automation',
+  'infrastructure','repository','kubernetes','docker','linux','microservices','devops',
+  'agile','scrum','kanban','iteration','sprint','retrospective','standup','velocity',
+  'debugging','refactoring','deployment','codebase','runtime','compile','syntax',
+  'framework','library','dependency','package','module','component','plugin','extension',
+  'webhook','API','REST','GraphQL','SDK','CLI','IDE','repository','merge','rebase',
+  'feature','branch','release','hotfix','rollback','migration','schema','index',
+  'query','transaction','backup','restore','replication','sharding','caching',
+  'load','balancer','CDN','firewall','gateway','proxy','reverse','SSL','TLS','HTTPS',
+  'OAuth','JWT','token','session','cookie','localStorage','encryption','hashing',
+  'cybersecurity','breach','phishing','malware','ransomware','vulnerability','exploit',
+
+  // Politics & news
+  'election','campaign','candidate','ballot','primary','debate','poll','approval',
+  'voter','turnout','constituency','senator','congressman','parliament','legislation',
+  'amendment','constitution','democracy','republic','administration','cabinet','minister',
+  'secretary','diplomat','ambassador','treaty','alliance','coalition','opposition',
+  'majority','minority','bipartisan','liberal','conservative','moderate','progressive',
+  'radical','reform','regulation','deregulation','sanction','tariff','embargo',
+  'deficit','surplus','inflation','recession','unemployment','stimulus','bailout',
+  'subsidy','spending','debt','crisis','protest','demonstration','rally','march',
+  'strike','activist','advocacy','lobby','corruption','scandal','investigation',
+  'impeachment','resignation','appointment','confirmation','nomination','inauguration',
+  'summit','briefing','statement','announcement','speech','journalism','reporter',
+  'correspondent','editor','headline','breaking','exclusive','editorial','op-ed',
+  'propaganda','censorship','transparency','accountability','oversight','intelligence',
+  'diplomat','foreign','domestic','bilateral','multilateral','geopolitical','sovereignty',
+  'referendum','mandate','coalition','incumbent','challenger','poll','margin','swing',
+  'democrat','republican','socialist','communist','libertarian','nationalist','populist',
+
+  // Health & medicine
+  'vaccine','vaccination','pandemic','epidemic','outbreak','virus','bacteria','infection',
+  'contagion','immunity','antibody','antibiotic','prescription','medication','dosage',
+  'diagnosis','prognosis','chronic','acute','terminal','rehabilitation','prevention',
+  'screening','examination','biopsy','transplant','therapy','chemotherapy','radiation',
+  'psychology','psychiatry','anxiety','depression','bipolar','autism','dementia',
+  'alzheimer','stroke','cancer','tumor','diabetes','obesity','cardiovascular',
+  'respiratory','neurological','genetic','hereditary','allergy','inflammation','immune',
+  'autoimmune','clinical','trial','laboratory','pathology','anatomy','physiology',
+  'nutrition','diet','wellness','meditation','mindfulness','quarantine','isolation',
+  'ventilator','intensive','ambulance','paramedic','specialist','surgeon','physician',
+  'pharmacist','therapist','counselor','pediatric','geriatric','psychiatric','oncology',
+  'cardiology','neurology','orthopedic','dermatology','ophthalmology','gynecology',
+  'telemedicine','telehealth','wearable','fitness','tracker','calories','protein',
+  'carbohydrate','supplement','vitamin','mineral','antioxidant','probiotic','microbiome',
+  'mental','emotional','behavioral','cognitive','developmental','chronic','acute',
+  'preventive','palliative','holistic','alternative','conventional','evidence-based',
+
+  // Entertainment & media
+  'movie','film','series','episode','sequel','prequel','actor','actress','director',
+  'producer','screenplay','script','character','plot','genre','comedy','drama',
+  'thriller','horror','action','romance','documentary','animation','streaming',
+  'premiere','trailer','critic','award','nomination','festival','performance','concert',
+  'album','track','playlist','podcast','broadcast','channel','studio','label',
+  'songwriter','composer','conductor','orchestra','exhibition','gallery','museum',
+  'theater','ballet','opera','celebrity','influencer','entertainment','blockbuster',
+  'franchise','reboot','remake','adaptation','cinematography','soundtrack','score',
+  'narrative','protagonist','antagonist','plot','twist','climax','resolution','arc',
+  'binge','watch','review','spoiler','reaction','commentary','critique','analysis',
+  'subscription','streaming','platform','original','exclusive','release','premiere',
+
+  // Sports & fitness
+  'athlete','coach','trainer','referee','umpire','championship','tournament','league',
+  'division','conference','fixture','assist','penalty','foul','offside','tackle',
+  'dribble','sprint','hurdle','marathon','triathlon','swimming','cycling','boxing',
+  'wrestling','gymnastics','martial','baseball','basketball','football','soccer',
+  'volleyball','tennis','golf','rugby','cricket','hockey','skiing','snowboarding',
+  'surfing','skateboarding','olympics','paralympic','medal','trophy','stadium','arena',
+  'court','pitch','track','gym','workout','training','strength','cardio','endurance',
+  'flexibility','recovery','injury','physiotherapy','doping','sponsorship','transfer',
+  'contract','signing','draft','playoff','semifinal','final','overtime','shootout',
+  'record','personal','world','national','qualifying','seeding','ranking','standings',
+
+  // Science & research
+  'hypothesis','experiment','observation','evidence','conclusion','theory','discovery',
+  'innovation','engineering','physics','chemistry','biology','astronomy','geology',
+  'ecology','sociology','statistics','calculus','algebra','geometry','logic',
+  'methodology','procedure','variable','control','sample','population','correlation',
+  'causation','peer','publication','journal','citation','abstract','introduction',
+  'microscope','telescope','simulation','prediction','uncertainty','probability',
+  'quantum','relativity','evolution','genetics','genome','molecule','atom','electron',
+  'neutron','proton','particle','wave','frequency','amplitude','spectrum','reaction',
+  'compound','element','periodic','organic','inorganic','polymer','crystal','plasma',
+  'temperature','pressure','velocity','acceleration','gravity','momentum',
+  'biodiversity','ecosystem','habitat','species','extinction','conservation','fossil',
+  'carbon','oxygen','hydrogen','nitrogen','climate','atmosphere','ozone','emissions',
+  'renewable','sustainable','solar','wind','nuclear','fossil','fuel','geothermal',
+  'nanotechnology','biotechnology','artificial','intelligence','machine','learning',
+  'neural','network','deep','reinforcement','supervised','unsupervised','dataset',
+  'training','inference','model','accuracy','precision','recall','benchmark','evaluation',
+
+  // Legal & financial
+  'attorney','lawyer','judge','verdict','sentence','appeal','plaintiff','defendant',
+  'witness','testimony','clause','liability','negligence','damages','compensation',
+  'settlement','arbitration','mediation','compliance','audit','disclosure','fraud',
+  'theft','copyright','trademark','patent','license','permit','mortgage','loan',
+  'credit','interest','bond','yield','portfolio','diversification','hedge','insurance',
+  'premium','deductible','claim','beneficiary','estate','inheritance','trust','executor',
+  'bankruptcy','liquidation','collateral','guarantee','warranty','indemnity',
+  'jurisdiction','precedent','statute','ordinance','malpractice','injunction',
+  'subpoena','deposition','litigation','prosecution','acquittal','probation','parole',
+  'felony','misdemeanor','infringement','intellectual','property','trademark',
+  'incorporation','llc','corporation','partnership','sole','proprietorship',
+  'accounting','bookkeeping','depreciation','amortization','asset','liability',
+  'equity','balance','sheet','income','statement','cashflow','dividend','capital',
+  'gains','loss','deduction','exemption','withholding','quarterly','filing',
+
+  // Social media & digital culture
+  'hashtag','viral','meme','thread','mention','handle','avatar','bio','unfollow',
+  'block','report','retweet','reaction','dm','timeline','algorithm','reach',
+  'impression','engagement','conversion','bounce','traffic','SEO','keyword',
+  'ranking','backlink','domain','hosting','analytics','funnel','landing','checkout',
+  'cart','wishlist','recommendation','testimonial','unboxing','tutorial','walkthrough',
+  'livestream','webinar','newsletter','paywall','freemium','crowdfunding','affiliate',
+  'referral','coupon','discount','promo','deal','clickbait','sponsored','ad','native',
+  'influencer','creator','content','monetize','niche','audience','persona','brand',
+  'collab','partnership','campaign','viral','organic','paid','earned','owned',
+  'community','moderation','toxic','troll','bot','spam','fake','misinformation',
+
+  // Travel & geography
+  'destination','itinerary','reservation','accommodation','hostel','hotel','resort',
+  'motel','airbnb','passport','visa','customs','immigration','departure','arrival',
+  'terminal','gate','boarding','layover','connection','transfer','currency','exchange',
+  'tourist','traveler','backpacker','cruise','safari','expedition','adventure','tour',
+  'guide','map','navigation','directions','landmark','attraction','sightseeing',
+  'monument','castle','cathedral','temple','mosque','shrine','ruins','heritage',
+  'continent','region','province','territory','capital','suburb','downtown','urban',
+  'rural','coastal','inland','tropical','arctic','equatorial','mediterranean',
+  'altitude','longitude','latitude','climate','timezone','local','abroad','overseas',
+  'international','domestic','border','crossing','checkpoint','quarantine',
+
+  // Education (expanded)
+  'curriculum','syllabus','semester','trimester','tuition','scholarship','fellowship',
+  'dissertation','thesis','undergraduate','graduate','postgraduate','doctorate','phd',
+  'bachelor','master','diploma','certificate','credential','accreditation','enrollment',
+  'admission','application','interview','recommendation','essay','portfolio','transcript',
+  'gpa','grade','pass','fail','distinction','honor','academic','classroom','lecture',
+  'seminar','tutorial','workshop','laboratory','experiment','assignment','project',
+  'presentation','examination','assessment','feedback','rubric','criteria','objective',
+  'outcome','competency','literacy','numeracy','critical','thinking','creativity',
+  'collaboration','communication','digital','literacy','stem','humanities','philosophy',
+
+  // Nature & environment
+  'ecosystem','biodiversity','habitat','species','wildlife','mammal','reptile','amphibian',
+  'insect','bird','plant','tree','flower','grass','fungus','bacteria','virus',
+  'predator','prey','migration','hibernation','photosynthesis','pollination','seed',
+  'soil','sand','clay','mineral','crystal','volcano','earthquake','tsunami','tornado',
+  'hurricane','drought','flood','wildfire','erosion','glacier','iceberg','coral',
+  'reef','wetland','desert','savanna','rainforest','tundra','prairie','meadow',
+  'conservation','preservation','sustainability','renewable','emission','pollution',
+  'recycling','waste','contamination','toxic','biodegradable','carbon','footprint',
+  'greenhouse','ozone','deforestation','reforestation','rewilding','endangered',
+
+  // More verbs not yet covered
+  'achieve','accomplish','implement','execute','deploy','configure','optimize','monitor',
+  'analyze','evaluate','assess','prioritize','coordinate','communicate','collaborate',
+  'negotiate','facilitate','mediate','arbitrate','advocate','lobby','campaign','protest',
+  'demonstrate','march','strike','petition','volunteer','donate','fundraise','sponsor',
+  'recruit','hire','train','promote','transfer','retire','resign','quit','fire',
+  'outsource','subcontract','franchise','license','patent','trademark','copyright',
+  'audit','inspect','investigate','prosecute','defend','appeal','settle','mediate',
+  'diagnose','prescribe','treat','cure','vaccinate','quarantine','isolate','test',
+  'screen','examine','operate','transplant','rehabilitate','recover','heal',
+  'stream','broadcast','publish','distribute','circulate','syndicate','archive',
+  'curate','moderate','censor','edit','revise','proofread','translate','interpret',
+  'authenticate','authorize','encrypt','decrypt','hash','tokenize','validate',
+  'migrate','replicate','synchronize','backup','restore','archive','compress','extract',
+  'visualize','render','animate','simulate','model','prototype','iterate','test',
+  'benchmark','profile','trace','log','monitor','alert','notify','automate','schedule',
+  'trigger','invoke','execute','terminate','suspend','resume','pause','restart',
+
+  // More adjectives not yet covered
+  'innovative','collaborative','comprehensive','transparent','sustainable','scalable',
+  'robust','flexible','modular','iterative','productive','profitable','viable',
+  'feasible','affordable','accessible','inclusive','diverse','equitable','authentic',
+  'genuine','credible','reputable','established','emerging','competitive','dominant',
+  'mainstream','premium','enterprise','commercial','industrial','governmental',
+  'nonprofit','charitable','voluntary','mandatory','optional','supplementary',
+  'preliminary','provisional','interim','permanent','temporary','seasonal','annual',
+  'weekly','monthly','daily','hourly','real-time','instant','delayed','scheduled',
+  'automated','manual','hybrid','integrated','standalone','distributed','centralized',
+  'decentralized','federated','open','closed','proprietary','open-source',
+  'encrypted','secure','vulnerable','exposed','protected','restricted','classified',
+  'confidential','sensitive','public','anonymous','pseudonymous','identifiable',
+  'verified','unverified','certified','accredited','licensed','registered','regulated',
+  'unregulated','compliant','non-compliant','approved','pending','rejected','archived',
+  'deprecated','obsolete','legacy','modern','contemporary','cutting-edge','state-of-the-art',
+  'groundbreaking','unprecedented','revolutionary','evolutionary','incremental',
+  'disruptive','transformative','impactful','meaningful','measurable','quantifiable',
+
+  // More -ing forms (professional & domain verbs)
+  'achieving','accomplishing','implementing','executing','deploying','configuring',
+  'optimizing','monitoring','analyzing','evaluating','assessing','prioritizing',
+  'coordinating','communicating','collaborating','negotiating','facilitating',
+  'advocating','lobbying','campaigning','protesting','demonstrating','volunteering',
+  'donating','fundraising','sponsoring','recruiting','hiring','training','promoting',
+  'outsourcing','franchising','licensing','patenting','auditing','inspecting',
+  'investigating','prosecuting','defending','appealing','settling','diagnosing',
+  'prescribing','treating','vaccinating','quarantining','isolating','screening',
+  'operating','rehabilitating','recovering','healing','streaming','broadcasting',
+  'publishing','distributing','curating','moderating','editing','translating',
+  'authenticating','authorizing','encrypting','migrating','replicating','backing',
+  'restoring','archiving','compressing','visualizing','rendering','animating',
+  'simulating','modeling','benchmarking','profiling','tracing','logging','alerting',
+  'notifying','automating','scheduling','triggering','invoking','terminating',
+  'suspending','resuming','pausing','restarting','scaling','refactoring','debugging',
+
+  // More -ed forms (professional & domain verbs)
+  'achieved','accomplished','implemented','executed','deployed','configured','optimized',
+  'monitored','analyzed','evaluated','assessed','prioritized','coordinated','communicated',
+  'collaborated','negotiated','facilitated','advocated','lobbied','campaigned','protested',
+  'volunteered','donated','fundraised','sponsored','recruited','hired','trained','promoted',
+  'outsourced','franchised','licensed','patented','audited','inspected','investigated',
+  'prosecuted','defended','appealed','settled','diagnosed','prescribed','treated',
+  'vaccinated','quarantined','isolated','screened','operated','rehabilitated','healed',
+  'streamed','broadcast','published','distributed','curated','moderated','edited',
+  'translated','authenticated','authorized','encrypted','migrated','replicated',
+  'archived','compressed','visualized','rendered','animated','simulated','modeled',
+  'benchmarked','profiled','traced','logged','alerted','notified','automated',
+  'scheduled','triggered','invoked','terminated','suspended','resumed','restarted',
+  'scaled','refactored','debugged','launched','funded','acquired','merged','restructured',
+
+  // Common compound / collocations used as standalone words on the web
+  'healthcare','cybersecurity','cryptocurrency','blockchain','fintech','edtech',
+  'healthtech','cleantech','biotech','nanotech','aerospace','automotive','ecommerce',
+  'marketplace','platform','ecosystem','framework','methodology','infrastructure',
+  'architecture','governance','compliance','transparency','accountability','sustainability',
+  'diversity','inclusion','belonging','accessibility','usability','reliability',
+  'affordability','availability','scalability','interoperability','compatibility',
+  'backward','forward','downtime','uptime','offboarding','onboarding','crowdsource',
+  'open-source','open-access','peer-to-peer','end-to-end','real-time','near-real-time',
+  'full-time','part-time','freelance','remote','hybrid','onsite','in-person','virtual',
+  'synchronous','asynchronous','self-paced','instructor-led','blended','cohort',
+  'subscription','membership','tier','plan','upgrade','downgrade','trial','freemium',
+  'paywall','checkout','cart','wishlist','bundle','package','add-on','integration',
+
+  // Countries & territories (commonly translated on news/travel pages)
+  'afghanistan','albania','algeria','angola','argentina','armenia','australia','austria',
+  'azerbaijan','bahrain','bangladesh','belarus','belgium','bolivia','brazil','bulgaria',
+  'cambodia','cameroon','canada','chile','china','colombia','croatia','cuba','cyprus',
+  'czechia','denmark','ecuador','egypt','ethiopia','finland','france','georgia',
+  'ghana','greece','guatemala','honduras','hungary','iceland','india','indonesia',
+  'iran','iraq','ireland','israel','italy','jamaica','japan','jordan','kazakhstan',
+  'kenya','kuwait','kyrgyzstan','laos','latvia','lebanon','libya','lithuania',
+  'luxembourg','malaysia','mexico','moldova','mongolia','morocco','mozambique',
+  'myanmar','namibia','nepal','netherlands','nicaragua','nigeria','norway','pakistan',
+  'panama','paraguay','peru','philippines','poland','portugal','qatar','romania',
+  'russia','rwanda','saudi','senegal','serbia','singapore','slovakia','slovenia',
+  'somalia','spain','sudan','sweden','switzerland','syria','taiwan','tajikistan',
+  'tanzania','thailand','tunisia','turkey','uganda','ukraine','uruguay','uzbekistan',
+  'venezuela','vietnam','yemen','zimbabwe',
+
+  // Nationalities & demonyms (appear constantly in news and web content)
+  'american','british','french','german','spanish','italian','portuguese','dutch',
+  'russian','chinese','japanese','korean','arabic','hindi','swedish','norwegian',
+  'danish','finnish','polish','romanian','hungarian','czech','slovak','greek',
+  'turkish','persian','hebrew','thai','vietnamese','indonesian','malay','bengali',
+  'ukrainian','bulgarian','serbian','croatian','slovenian','latvian','lithuanian',
+  'estonian','irish','scottish','welsh','canadian','australian','mexican','brazilian',
+  'argentinian','colombian','chilean','peruvian','venezuelan','cuban','jamaican',
+  'nigerian','kenyan','ethiopian','egyptian','moroccan','algerian','tunisian',
+  'ghanaian','south','african','congolese','tanzanian','ugandan','rwandan',
+  'pakistani','bangladeshi','nepali','sri','lankan','afghan','iranian','iraqi',
+  'syrian','lebanese','jordanian','kuwaiti','saudi','emirati','qatari','bahraini',
+  'israeli','indian','singaporean','filipino','cambodian','laotian','burmese',
+  'mongolian','kazakh','uzbek','azerbaijani','armenian','georgian','moldovan',
+
+  // Common adjective phrases / standalone descriptors seen on web pages
+  'award-winning','well-known','high-quality','low-cost','full-featured','user-friendly',
+  'cutting-edge','state-of-the-art','best-in-class','world-class','industry-leading',
+  'fast-growing','high-performing','data-driven','cloud-based','web-based','mobile-first',
+  'open-source','cross-platform','multi-platform','real-time','on-demand','subscription-based',
+  'evidence-based','research-backed','peer-reviewed','fact-checked','bias-free',
+  'family-friendly','child-safe','adult-only','age-restricted','region-locked',
+  'time-sensitive','high-priority','low-priority','mission-critical','business-critical',
+  'cost-effective','resource-intensive','labor-intensive','capital-intensive','scalable',
+  'backward-compatible','forward-compatible','plug-and-play','out-of-the-box',
+
+  // Finance & economics (expanded)
+  'macroeconomics','microeconomics','monetary','fiscal','quantitative','easing','tightening',
+  'interest','rate','inflation','deflation','stagflation','hyperinflation','recession',
+  'depression','recovery','growth','contraction','expansion','boom','bust','cycle',
+  'gdp','gnp','unemployment','employment','workforce','labor','productivity','output',
+  'consumption','expenditure','investment','savings','deficit','surplus','debt','credit',
+  'liquidity','solvency','insolvency','default','restructuring','austerity','stimulus',
+  'quantitative','monetary','fiscal','policy','central','reserve','treasury','mint',
+  'currency','exchange','rate','appreciation','depreciation','devaluation','revaluation',
+  'volatility','hedge','speculation','arbitrage','derivative','futures','options',
+  'commodity','equities','bonds','securities','assets','liabilities','net-worth',
+  'portfolio','diversification','correlation','risk','return','yield','coupon',
+  'maturity','duration','rating','downgrade','upgrade','outlook','forecast','projection',
+  'revenue','earnings','profit','loss','margin','ebitda','operating','net','gross',
+  'quarterly','annual','guidance','consensus','beat','miss','surprise','analyst',
+
+  // Marketing & communications
+  'branding','positioning','differentiation','segmentation','targeting','persona',
+  'funnel','awareness','consideration','conversion','retention','loyalty','advocacy',
+  'impression','click','engagement','reach','frequency','attribution','touchpoint',
+  'copywriting','messaging','narrative','storytelling','content','inbound','outbound',
+  'organic','paid','earned','media','channel','omnichannel','multichannel','cross-channel',
+  'email','social','search','display','programmatic','influencer','affiliate',
+  'retargeting','remarketing','personalization','segmentation','automation','nurture',
+  'lead','prospect','opportunity','pipeline','quota','forecast','close','churn',
+  'acquisition','retention','lifetime','value','cost','per','click','impression',
+  'conversion','rate','return','ad','spend','cost','acquisition','payback','period',
+
+  // Human resources & organizational
+  'recruitment','talent','acquisition','onboarding','offboarding','retention','turnover',
+  'attrition','headcount','capacity','planning','succession','performance','management',
+  'compensation','benefits','total','rewards','equity','diversity','belonging',
+  'wellbeing','engagement','satisfaction','experience','development','learning',
+  'reskilling','upskilling','mentoring','coaching','feedback','review','appraisal',
+  'objective','key','result','goal','alignment','culture','values','mission','vision',
+  'org','chart','hierarchy','flat','matrix','cross-functional','agile','team',
+  'remote','hybrid','distributed','co-located','flexible','work','arrangement',
+  'leave','parental','maternity','paternity','sick','vacation','sabbatical','break',
+  'harassment','discrimination','unconscious','bias','privilege','allyship',
+  'whistleblower','grievance','mediation','arbitration','termination','severance',
+
+  // Product & design
+  'ux','ui','product','design','user','experience','interface','interaction','visual',
+  'information','architecture','wireframe','mockup','prototype','usability','testing',
+  'accessibility','inclusive','responsive','adaptive','mobile','desktop','tablet',
+  'typography','hierarchy','layout','grid','spacing','color','palette','contrast',
+  'affordance','discoverability','onboarding','flow','journey','map','persona',
+  'empathy','research','insight','hypothesis','experiment','validate','iterate',
+  'sprint','design','thinking','lean','agile','waterfall','kanban','scrum',
+  'backlog','prioritization','roadmap','milestone','release','launch','post-launch',
+  'metrics','kpi','north-star','vanity','actionable','leading','lagging','indicator',
+
+  // Common news & journalism vocabulary
+  'breaking','exclusive','developing','confirmed','alleged','reportedly','sources',
+  'anonymous','on-record','background','embargo','retraction','correction','update',
+  'byline','dateline','lede','headline','subheading','caption','pullquote','sidebar',
+  'op-ed','column','editorial','opinion','analysis','investigation','feature','profile',
+  'interview','press','conference','briefing','statement','release','spokesperson',
+  'attribution','credibility','bias','objectivity','balance','fact-checking','verification',
+  'primary','secondary','source','document','leak','whistleblower','anonymous','tip',
+  'circulation','readership','pageview','engagement','subscription','paywall','premium',
+
+  // Everyday nouns commonly found on web pages but not yet covered
+  'picture','caption','screenshot','thumbnail','banner','poster','flyer','brochure',
+  'catalog','catalog','manual','handbook','guidebook','glossary','index','appendix',
+  'footnote','citation','reference','bibliography','abstract','executive','summary',
+  'introduction','overview','background','methodology','findings','conclusion',
+  'recommendation','action','item','takeaway','insight','lesson','tip','trick','hack',
+  'shortcut','workaround','solution','fix','patch','update','upgrade','migration',
+  'transition','transformation','change','shift','trend','pattern','theme','topic',
+  'subject','area','field','discipline','domain','specialty','expertise','niche',
+  'segment','market','industry','vertical','horizontal','adjacent','complementary',
+
+  // Verbs commonly found on web pages (imperatives & infinitives in CTAs, instructions)
+  'click','tap','swipe','scroll','hover','drag','drop','pinch','zoom','rotate',
+  'navigate','browse','explore','discover','learn','read','watch','listen','play',
+  'pause','stop','skip','rewind','fast-forward','replay','loop','shuffle','repeat',
+  'share','copy','paste','cut','undo','redo','select','highlight','mark','bookmark',
+  'print','export','import','convert','compress','extract','unzip','rename','move',
+  'resize','crop','trim','merge','split','sort','group','tag','label','categorize',
+  'archive','restore','recover','reset','clear','flush','purge','wipe','format',
+  'activate','deactivate','enable','disable','toggle','switch','flip','lock','unlock',
+  'verify','confirm','acknowledge','accept','decline','reject','dismiss','ignore',
+  'approve','deny','grant','revoke','suspend','terminate','renew','extend','expire',
+
+  // More common adjectives for web content
+  'featured','sponsored','promoted','boosted','pinned','highlighted','starred','flagged',
+  'verified','certified','official','authentic','legitimate','genuine','trusted','safe',
+  'secure','encrypted','protected','private','anonymous','incognito','hidden','visible',
+  'published','unpublished','draft','archived','deleted','removed','banned','blocked',
+  'approved','rejected','pending','processing','queued','scheduled','delayed','canceled',
+  'completed','finished','done','closed','resolved','fixed','patched','updated',
+  'outdated','deprecated','legacy','classic','vintage','retro','nostalgic','timeless',
+  'limited','exclusive','special','rare','unique','custom','bespoke','tailored',
+  'personalized','curated','handpicked','recommended','suggested','relevant','targeted',
+  'contextual','dynamic','static','responsive','adaptive','flexible','rigid',
+  'lightweight','heavyweight','compact','portable','handheld','wearable','embedded',
+
+  // Common everyday English words not yet covered
+  'ability','absence','access','accident','achievement','action','activity','addition',
+  'address','administration','advantage','adventure','advice','affect','afternoon',
+  'agency','agent','agreement','aim','airport','allowance','alternative','analysis',
+  'announcement','anxiety','appearance','application','appointment','appreciation',
+  'approach','argument','arrangement','arrival','aspect','assistance','association',
+  'assumption','atmosphere','attachment','attempt','attitude','attraction','availability',
+  'awareness','balance','barrier','basis','behavior','benefit','boundary','capacity',
+  'capability','celebration','certainty','circumstance','citizenship','clarity',
+  'collection','commitment','communication','community','comparison','compassion',
+  'competition','complexity','concern','confidence','conflict','consciousness',
+  'conservation','consideration','consistency','contribution','controversy','convenience',
+  'conversation','cooperation','copyright','creation','creativity','criticism',
+  'curiosity','democracy','demonstration','dependence','description','determination',
+  'dialogue','difficulty','direction','disadvantage','disagreement','discipline',
+  'discussion','distinction','diversity','documentation','effectiveness','efficiency',
+  'elimination','emotion','emphasis','equality','establishment','estimation','exception',
+  'existence','expansion','expectation','explanation','expression','extension',
+  'flexibility','formation','foundation','freedom','frequency','friendship','fulfillment',
+  'functionality','globalization','happiness','identification','illustration',
+  'imagination','independence','indication','influence','information','instruction',
+  'intention','interpretation','introduction','investigation','involvement','isolation',
+  'justification','liberation','limitation','location','maintenance','measurement',
+  'modification','motivation','movement','navigation','necessity','observation',
+  'organization','orientation','participation','patience','percentage','perception',
+  'persistence','perspective','population','possibility','potential','preference',
+  'preparation','presentation','priority','probability','productivity','profession',
+  'progression','protection','provision','qualification','recognition','recommendation',
+  'reduction','reflection','relationship','representation','requirement','resistance',
+  'resolution','responsibility','restriction','satisfaction','separation','significance',
+  'simplicity','situation','specification','stability','strategy','strength','structure',
+  'submission','suggestion','sustainability','transparency','understanding','uniqueness',
+  'variation','verification','vulnerability','weakness','willingness',
+
+  // Common phrasal verbs & particle verbs (appear as distinct words on web)
+  'breakout','breakthrough','breakdown','buildup','burnout','buyout','callback','carryout',
+  'catchup','checkout','cleanup','closeout','comeback','cutback','cutout','drawback',
+  'dropdown','fallback','followup','giveaway','handout','hangup','holdup','keepout',
+  'kickoff','knockoff','lockdown','lockout','lookup','makeup','markdown','meetup',
+  'meltdown','outlook','output','overcrowded','overdue','overfull','overlap','overload',
+  'overrun','overthrow','overview','packaged','passout','payout','pickup','plugin',
+  'printout','pullout','pushback','readout','rollout','roundup','rundown','runoff',
+  'sellout','setback','setup','shutdown','signin','signup','slowdown','speedup',
+  'spillover','spinoff','standout','standby','startup','stopover','takeover','takeout',
+  'timeout','tradeoff','turnout','turnover','update','upgrade','uptick','workaround',
+
+  // More common nouns (gap-filling)
+  'abundance','accountability','accuracy','achievement','acknowledgment','acquisition',
+  'adaptation','addition','adequacy','adjustment','admission','adoption','advancement',
+  'affiliation','affirmation','aftermath','agenda','allocation','ambiguity','ambition',
+  'analogy','appeal','applicability','appreciation','appropriateness','aptitude',
+  'assertion','assessment','assignment','assurance','authenticity','authorization',
+  'benchmark','breadth','breakdown','breakthrough','capacity','clarity','coherence',
+  'collaboration','commitment','competence','complexity','comprehension','concentration',
+  'confirmation','conformity','contradiction','coordination','correspondence',
+  'credibility','critique','currency','dedication','depth','designation','detail',
+  'determination','differentiation','disclosure','discrepancy','distribution','economy',
+  'elaboration','empowerment','endorsement','enhancement','enrollment','entitlement',
+  'equivalence','escalation','evaluation','examination','exclusion','execution',
+  'exemption','exhaustion','expectation','expertise','exposure','extent','facilitation',
+  'familiarity','flexibility','guidance','implementation','improvement','inclusion',
+  'inconsistency','independence','indication','initiative','integration','integrity',
+  'interaction','interdependence','interpretation','intervention','introduction',
+  'judgment','justification','leadership','leverage','limitation','maintenance',
+  'manifestation','mechanism','methodology','modification','monitoring','momentum',
+  'navigation','negotiation','objective','obligation','observation','occurrence',
+  'optimization','orientation','oversight','participation','persistence','placement',
+  'precision','preparation','preservation','prioritization','projection','qualification',
+  'rationalization','realization','recognition','reconciliation','reinforcement',
+  'relevance','representation','resilience','retention','scalability','scope',
+  'sensitivity','significance','specification','standardization','submission',
+  'sustainability','tolerance','traceability','transformation','transparency','trust',
+  'uncertainty','utilization','validation','viability','visibility','vulnerability',
+
+  // More verb forms (gerunds of common professional actions)
+  'addressing','advancing','allocating','analyzing','anticipating','applying',
+  'assessing','assigning','assisting','assuming','attributing','auditing',
+  'authorizing','automating','benchmarking','building','calculating','categorizing',
+  'challenging','characterizing','classifying','collaborating','combining',
+  'communicating','compensating','complying','computing','confirming','consolidating',
+  'constructing','consulting','contributing','controlling','coordinating','correcting',
+  'creating','customizing','defining','demonstrating','designing','detecting',
+  'determining','developing','documenting','driving','enabling','enforcing',
+  'establishing','estimating','evaluating','executing','expanding','explaining',
+  'exploring','filtering','formatting','generating','governing','guiding',
+  'identifying','implementing','improving','incorporating','increasing','indicating',
+  'influencing','informing','integrating','interpreting','investigating','leading',
+  'maintaining','managing','measuring','migrating','mitigating','modeling',
+  'monitoring','navigating','notifying','obtaining','optimizing','organizing',
+  'outlining','overseeing','performing','planning','preparing','presenting',
+  'prioritizing','processing','providing','publishing','qualifying','quantifying',
+  'recommending','recording','reducing','reporting','researching','resolving',
+  'reviewing','revising','scheduling','securing','selecting','simplifying',
+  'streamlining','structuring','summarizing','supporting','transforming','translating',
+  'troubleshooting','updating','validating','verifying','visualizing',
+
+  // Technology (additional terms)
+  'agility','alignment','allocation','analytics','annotation','anonymization',
+  'archiving','assertion','augmentation','automation','availability','baseline',
+  'batching','bottleneck','caching','checksum','clustering','codegen','compression',
+  'concurrency','containerization','continuous','delivery','integration','deployment',
+  'crawling','cryptography','deduplication','dependency','deserialization','detection',
+  'distributed','edge','embedding','encryption','enumeration','federation','fingerprint',
+  'garbage','collection','horizontal','vertical','scaling','idempotent','immutable',
+  'indexing','instrumentation','isolation','iteration','linting','liveness','probe',
+  'load','testing','logging','marshaling','memoization','messaging','namespacing',
+  'observability','orchestration','pagination','parallelism','parsing','persistence',
+  'polling','pub-sub','queue','race','condition','rate-limiting','reconciliation',
+  'redundancy','regression','resilience','retry','rollback','routing','sampling',
+  'sandboxing','serialization','serverless','sharding','sidecar','single-sign-on',
+  'snapshot','state','machine','throttling','tracing','idempotency','versioning',
+
+  // Common online shopping & commerce vocabulary
+  'bestseller','clearance','closeout','comparison','coupon','currency','customer',
+  'delivery','discount','dispatch','exchange','express','fulfillment','guarantee',
+  'inventory','marketplace','merchant','offer','original','outlet','packaging',
+  'payment','promotion','protection','purchase','quantity','refund','return','review',
+  'sale','seller','shipment','shipping','sku','stock','store','tracking','transaction',
+  'vendor','verified','warranty','wholesale','wishlist','buyer','seller','bidding',
+  'auction','reserve','buyout','negotiable','fixed','variable','flexible',
 ]
 
 const uniqueWords = [...new Set(WORDS.map(w => w.toLowerCase()))]
 
-async function translateBatch(words, langCode) {
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+async function translateBatch(words, langCode, attempt = 0) {
   const url = `${AZURE_ENDPOINT}&to=${encodeURIComponent(langCode)}`
   const res = await fetch(url, {
     method: 'POST',
@@ -342,6 +872,17 @@ async function translateBatch(words, langCode) {
     },
     body: JSON.stringify(words.map(w => ({ Text: w }))),
   })
+  if (res.status === 429) {
+    if (attempt >= MAX_RETRIES) {
+      const text = await res.text()
+      throw new Error(`Azure error ${res.status} after ${MAX_RETRIES} retries: ${text}`)
+    }
+    const retryAfter = parseInt(res.headers.get('Retry-After') ?? '0', 10)
+    const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(15000 * 2 ** attempt, 120000)
+    process.stdout.write(` [rate limited, waiting ${backoff / 1000}s...]`)
+    await sleep(backoff)
+    return translateBatch(words, langCode, attempt + 1)
+  }
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`Azure error ${res.status}: ${text}`)
@@ -363,6 +904,7 @@ async function seedLanguage(langCode, langName) {
     const ok = results.filter(r => r.translation !== null)
     pairs.push(...ok)
     console.log(` ${ok.length}/${batch.length} ok`)
+    if (i + BATCH_SIZE < uniqueWords.length) await sleep(INTER_BATCH_DELAY_MS)
   }
 
   const lines = [
@@ -429,10 +971,16 @@ async function main() {
       '',
     ]
     let totalPairs = 0
-    for (const [code, name] of Object.entries(LANGUAGES)) {
+    const langEntries = Object.entries(LANGUAGES)
+    for (let i = 0; i < langEntries.length; i++) {
+      const [code, name] = langEntries[i]
       const { lines, pairs } = await seedLanguage(code, name)
       combinedLines.push(...lines)
       totalPairs += pairs.length
+      if (i < langEntries.length - 1) {
+        console.log(`  Waiting ${INTER_LANGUAGE_DELAY_MS / 1000}s before next language...`)
+        await sleep(INTER_LANGUAGE_DELAY_MS)
+      }
     }
     const outputFile = 'seed_all.sql'
     writeFileSync(outputFile, combinedLines.join('\n'), 'utf8')
