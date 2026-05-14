@@ -35,7 +35,7 @@ export const requireAuth = createMiddleware<{ Bindings: Env; Variables: Variable
     return c.json({ error: 'Invalid token user' }, 401)
   }
 
-  void c.env.TRANSLATION_CACHE.put(kvKey, JSON.stringify({ email: user.email, plan: user.plan }), { expirationTtl: 60 })
+  void c.env.TRANSLATION_CACHE.put(kvKey, JSON.stringify({ email: user.email, plan: user.plan }), { expirationTtl: 600 })
 
   console.log(`[requireAuth] authenticated user ${payload.userId} plan=${user.plan}`)
   c.set('userId', payload.userId)
