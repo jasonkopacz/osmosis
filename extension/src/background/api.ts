@@ -29,28 +29,42 @@ function parseApiJson<T>(res: Response, bodyText: string): T {
   }
 }
 
-async function authPost(path: string, body: object): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const bodyText = await res.text()
-  const data = parseApiJson<{ token?: string; error?: string }>(res, bodyText)
-  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
-  if (!data.token) throw new Error('No token received')
-  return data.token
-}
-
-export async function loginWithEmail(email: string, password: string): Promise<string> {
-  return authPost('/auth/login', { email, password })
-}
-
-export async function requestEmailSignup(email: string, password: string): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/auth/signup/request`, {
+export async function loginWithEmail(
+  email: string,
+  password: string,
+): Promise<{ token: string; refreshToken?: string }> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+  })
+  const bodyText = await res.text()
+  const data = parseApiJson<{ token?: string; refreshToken?: string; error?: string }>(res, bodyText)
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
+  if (!data.token) throw new Error('No token received')
+  return { token: data.token, refreshToken: data.refreshToken }
+}
+
+export async function refreshAuthToken(
+  refreshToken: string,
+): Promise<{ token: string; refreshToken: string }> {
+  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+  const bodyText = await res.text()
+  const data = parseApiJson<{ token?: string; refreshToken?: string; error?: string }>(res, bodyText)
+  if (!res.ok) throw new Error(data.error ?? `Refresh failed (${res.status})`)
+  if (!data.token || !data.refreshToken) throw new Error('Invalid refresh response')
+  return { token: data.token, refreshToken: data.refreshToken }
+}
+
+export async function requestEmailSignup(email: string, password: string, passwordConfirm: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/signup/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, passwordConfirm }),
   })
   const bodyText = await res.text()
   const data = parseApiJson<{ ok?: boolean; error?: string }>(res, bodyText)

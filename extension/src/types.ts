@@ -28,7 +28,7 @@ export type Message =
   | { type: 'GOOGLE_LOGIN' }
   | { type: 'EMAIL_LOGIN'; email: string; password: string }
   | { type: 'EMAIL_SIGNUP'; email: string; password: string; passwordConfirm: string }
-  | { type: 'SESSION_FROM_VERIFY'; token: string }
+  | { type: 'SESSION_FROM_VERIFY'; token: string; refreshToken?: string }
   | { type: 'FORGOT_PASSWORD'; email: string }
   | { type: 'DELETE_ACCOUNT' }
   | { type: 'SRS_RATE'; word: string; targetLang: string; rating: SrsRating }

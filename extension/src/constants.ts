@@ -14,6 +14,7 @@ export const REVIEW_THRESHOLD = 25
 
 export const STORAGE_KEYS = {
   TOKEN: "osmosis_token",
+  REFRESH_TOKEN: "osmosis_refresh_token",
   SETTINGS: "osmosis_settings",
   USER_PROFILE_CACHE: "osmosis_user_profile_cache",
   TRANSLATION_CACHE: "osmosis_translation_cache",

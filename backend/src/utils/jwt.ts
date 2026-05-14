@@ -60,7 +60,8 @@ export async function verifyJWT(
     return null
   }
 
-  if (typeof payload['exp'] === 'number' && Date.now() / 1000 >= payload['exp']) return null
+  if (typeof payload['exp'] !== 'number') return null
+  if (Date.now() / 1000 >= payload['exp']) return null
 
   const sub = payload['sub']
   const email = payload['email']

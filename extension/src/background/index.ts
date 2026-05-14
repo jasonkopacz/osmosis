@@ -1,7 +1,7 @@
 import { SessionCache } from './cache'
-import { getToken, setToken, clearToken } from './auth'
+import { getToken, setToken, clearToken, getRefreshToken, setRefreshToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters } from './api'
+import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
@@ -27,8 +27,9 @@ async function preWarmCache(lang: string, token: string): Promise<void> {
   }
 }
 
-async function afterLogin(token: string): Promise<{ token: string }> {
+async function afterLogin(token: string, refreshToken?: string): Promise<{ token: string }> {
   await setToken(token)
+  if (refreshToken) await setRefreshToken(refreshToken)
   cache.clear()
   lastPrewarmedLang = null
   const user = (await fetchUser(token)) as UserProfile | null
@@ -37,6 +38,23 @@ async function afterLogin(token: string): Promise<{ token: string }> {
   const lang = (r.osmosis_settings as { targetLang?: string } | undefined)?.targetLang
   if (lang) void preWarmCache(lang, token)
   return { token }
+}
+
+async function tryRefreshAndRetry<T>(retryFn: (token: string) => Promise<T>): Promise<T | { error: string }> {
+  const storedRefresh = await getRefreshToken()
+  if (!storedRefresh) {
+    await clearToken()
+    return { error: 'AUTH_EXPIRED' }
+  }
+  try {
+    const { token: newToken, refreshToken: newRefresh } = await refreshAuthToken(storedRefresh)
+    await setToken(newToken)
+    await setRefreshToken(newRefresh)
+    return retryFn(newToken)
+  } catch {
+    await clearToken()  // also clears refresh token
+    return { error: 'AUTH_EXPIRED' }
+  }
 }
 
 async function refreshUserProfileInBackground(token: string): Promise<void> {
@@ -138,8 +156,15 @@ async function handle(msg: Message): Promise<unknown> {
       const s = String(err)
       if (s.includes('LIMIT_REACHED')) return { error: 'LIMIT_REACHED' }
       if (s.includes('AUTH_EXPIRED')) {
-        await clearToken()
-        return { error: 'AUTH_EXPIRED' }
+        return tryRefreshAndRetry(newToken =>
+          translateBatch(uncached, msg.targetLang, newToken, uncachedContextsByWord).then(fresh => {
+            fresh.forEach((val, key) => {
+              result[key] = val
+              cache.set(key, msg.targetLang, val)
+            })
+            return { translations: result }
+          })
+        )
       }
       warn('[osmosis:bg] TRANSLATE API error', s)
       // Return whatever we have from cache rather than nothing
@@ -161,8 +186,8 @@ async function handle(msg: Message): Promise<unknown> {
       const s = String(err)
       if (s.includes('LIMIT_REACHED')) return { error: 'LIMIT_REACHED' }
       if (s.includes('AUTH_EXPIRED')) {
-        await clearToken()
-        return { error: 'AUTH_EXPIRED' }
+        const retryText = msg.text.trim().slice(0, 120)
+        return tryRefreshAndRetry(newToken => pronounceText(retryText, msg.targetLang, newToken))
       }
       warn('[osmosis:bg] PRONOUNCE API error', s)
       return { error: 'API_ERROR' }
@@ -219,9 +244,9 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'EMAIL_LOGIN') {
     try {
-      const token = await loginWithEmail(msg.email, msg.password)
+      const { token, refreshToken } = await loginWithEmail(msg.email, msg.password)
       log('[osmosis:bg] EMAIL_LOGIN: success')
-      return afterLogin(token)
+      return afterLogin(token, refreshToken)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       warn('[osmosis:bg] EMAIL_LOGIN failed', errMsg)
@@ -231,7 +256,7 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'EMAIL_SIGNUP') {
     try {
-      await requestEmailSignup(msg.email, msg.password)
+      await requestEmailSignup(msg.email, msg.password, msg.passwordConfirm)
       log('[osmosis:bg] EMAIL_SIGNUP: verification email requested')
       return { ok: true }
     } catch (err) {
@@ -244,7 +269,9 @@ async function handle(msg: Message): Promise<unknown> {
   if (msg.type === 'SESSION_FROM_VERIFY') {
     try {
       log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
-      return await afterLogin(msg.token)
+      const result = await afterLogin(msg.token, msg.refreshToken)
+      void chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') }).catch(() => {})
+      return result
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       warn('[osmosis:bg] SESSION_FROM_VERIFY failed', errMsg)
@@ -300,7 +327,9 @@ async function handle(msg: Message): Promise<unknown> {
       return result
     } catch (err) {
       const s = String(err)
-      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken => srsRateWord(msg.word, msg.targetLang, msg.rating, newToken))
+      }
       warn('[osmosis:bg] SRS_RATE error', s)
       return { error: 'API_ERROR' }
     }
@@ -313,7 +342,9 @@ async function handle(msg: Message): Promise<unknown> {
       return await srsGetDue(msg.targetLang, token, msg.limit)
     } catch (err) {
       const s = String(err)
-      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken => srsGetDue(msg.targetLang, newToken, msg.limit))
+      }
       warn('[osmosis:bg] SRS_GET_DUE error', s)
       return { error: 'API_ERROR' }
     }
@@ -334,7 +365,9 @@ async function handle(msg: Message): Promise<unknown> {
       }
     } catch (err) {
       const s = String(err)
-      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken => srsGetStats(msg.targetLang, newToken))
+      }
       warn('[osmosis:bg] SRS_GET_STATS error', s)
       return { error: 'API_ERROR' }
     }
@@ -433,7 +466,9 @@ async function handle(msg: Message): Promise<unknown> {
       return { cards: enriched }
     } catch (err) {
       const s = String(err)
-      if (s.includes('AUTH_EXPIRED')) { await clearToken(); return { error: 'AUTH_EXPIRED' } }
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken => srsGetDue(msg.targetLang, newToken, msg.limit ?? REVIEW_THRESHOLD))
+      }
       warn('[osmosis:bg] SRS_GET_REVIEW_SESSION error', s)
       return { error: 'API_ERROR' }
     }

@@ -108,8 +108,9 @@ userRouter.delete('/me', requireAuth, async (c) => {
     }
   }
 
+  // usage and word_cards rows cascade-delete via FK ON DELETE CASCADE on users
   await deleteUser(c.env.DB, userId)
-  void c.env.TRANSLATION_CACHE.delete(`user_auth:${userId}`)
+  await c.env.TRANSLATION_CACHE.delete(`user_auth:${userId}`)
 
   console.log(`[user/me DELETE] deleted user ${userId}`)
   return c.json({ ok: true })

@@ -39,10 +39,12 @@ async function consumeVerifySessionFromHash(): Promise<void> {
   const params = new URLSearchParams(hash)
   const token = params.get('osmosis_session')
   if (!token) return
+  const refreshToken = params.get('osmosis_refresh') ?? undefined
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
   log('[osmosis:popup] applying session from email verification link')
-  const res = await chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message) as
-    { token?: string; error?: string } | undefined
+  const res = await chrome.runtime.sendMessage(
+    { type: 'SESSION_FROM_VERIFY', token, refreshToken } as Message,
+  ) as { token?: string; error?: string } | undefined
   if (res?.error) warn('[osmosis:popup] SESSION_FROM_VERIFY', res.error)
 }
 

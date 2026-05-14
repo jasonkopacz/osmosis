@@ -21,6 +21,12 @@ export async function storePendingSignup(
   await kv.put(verificationKvKey(token), JSON.stringify(payload), { expirationTtl: VERIFY_TTL_SEC })
 }
 
+export async function peekPendingSignup(kv: KVNamespace, token: string): Promise<boolean> {
+  const key = verificationKvKey(token.trim())
+  const raw = await kv.get(key)
+  return raw !== null
+}
+
 export async function takePendingSignup(kv: KVNamespace, token: string): Promise<PendingSignupPayload | null> {
   const key = verificationKvKey(token.trim())
   const raw = await kv.get(key)

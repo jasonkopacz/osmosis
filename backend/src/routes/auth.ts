@@ -9,6 +9,7 @@ import {
   sendSignupConfirmationEmail,
   storePendingSignup,
   takePendingSignup,
+  peekPendingSignup,
   verificationKvKey,
 } from '../services/emailSignup'
 import { checkRateLimit } from '../utils/ratelimit'
@@ -25,7 +26,8 @@ import { updatePassword } from '../db/users'
 export const authRouter = new Hono<{ Bindings: Env }>()
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const JWT_EXPIRY_SECS = 60 * 60 * 24 * 30 // 30 days
+const ACCESS_TOKEN_EXPIRY_SECS = 60 * 60          // 1 hour
+const REFRESH_TOKEN_TTL_SECS = 60 * 60 * 24 * 30  // 30 days
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
 
@@ -39,31 +41,82 @@ function validateNewPassword(password: string): string | null {
   return null
 }
 
-function verifyLandingPageHtml(jwt: string, extensionId: string, popupPath = 'src/popup/index.html'): string {
-  // JWTs are base64url-encoded (A-Za-z0-9-_.) so no HTML escaping needed
-  const redirectUrl = `chrome-extension://${extensionId}/${popupPath}#osmosis_session=${jwt}`
+async function generateRefreshToken(kv: KVNamespace, userId: string): Promise<string> {
+  const buf = new Uint8Array(32)
+  crypto.getRandomValues(buf)
+  const token = [...buf].map(b => b.toString(16).padStart(2, '0')).join('')
+  await kv.put(`refresh:${token}`, userId, { expirationTtl: REFRESH_TOKEN_TTL_SECS })
+  return token
+}
+
+function verifyLandingPageHtml(jwt: string, refreshToken: string, extensionId: string): string {
+  // jwt is base64url (A-Za-z0-9-_.) and refreshToken is hex — both safe as JS string literals
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="osmosis-session" content="${jwt}" />
   <title>Osmosis — email confirmed</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #0f172a; color: #ecfeff; margin: 0; padding: 32px 20px; line-height: 1.5; }
     .card { max-width: 420px; margin: 0 auto; background: rgba(30,41,59,0.9); border: 1px solid rgba(56,189,248,0.25); border-radius: 16px; padding: 24px; }
     h1 { font-size: 1.25rem; margin: 0 0 12px; }
     p { margin: 0 0 14px; color: #94a3b8; font-size: 0.95rem; }
-    a { color: #22d3ee; }
   </style>
-  <script>window.location.replace('${redirectUrl}')</script>
 </head>
 <body>
   <div class="card">
     <h1>&#10003; Email confirmed!</h1>
-    <p>Your Osmosis account is ready. <a href="${redirectUrl}">Open Osmosis</a> if you are not redirected automatically.</p>
-    <p style="font-size:0.85rem">If you don't see it, click the puzzle icon next to the address bar and pin Osmosis.</p>
+    <p id="status">Signing you in&hellip;</p>
+    <p style="font-size:0.85rem">If you don&apos;t see the extension, click the puzzle icon next to the address bar and pin Osmosis.</p>
   </div>
+  <script>
+    (function () {
+      var extId = '${extensionId}';
+      var status = document.getElementById('status');
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        status.textContent = 'Make sure Osmosis is installed, then sign in from the extension.';
+        return;
+      }
+      chrome.runtime.sendMessage(extId, { type: 'SESSION_FROM_VERIFY', token: '${jwt}', refreshToken: '${refreshToken}' }, function (res) {
+        if (chrome.runtime.lastError || !res || res.error) {
+          status.textContent = 'Could not connect to Osmosis. Please sign in manually from the extension.';
+          return;
+        }
+        status.textContent = 'You\\'re all set! Click the Osmosis icon in your toolbar to start learning.';
+      });
+    })();
+  </script>
+</body>
+</html>`
+}
+
+function verifyConfirmPageHtml(token: string): string {
+  // token is random hex — safe in HTML attribute values
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Osmosis — confirm your account</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #ecfeff; margin: 0; padding: 32px 20px; line-height: 1.5; }
+    .card { max-width: 420px; margin: 0 auto; background: rgba(30,41,59,0.9); border: 1px solid rgba(56,189,248,0.25); border-radius: 16px; padding: 24px; }
+    h1 { font-size: 1.25rem; margin: 0 0 12px; }
+    p { margin: 0 0 14px; color: #94a3b8; font-size: 0.95rem; }
+    .btn { display:inline-block; padding: 12px 24px; background: #22d3ee; color: #042f2e; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Confirm your Osmosis account</h1>
+    <p>Click the button below to activate your account and open Osmosis.</p>
+    <form id="f" method="POST" action="/auth/verify-email">
+      <input type="hidden" name="t" value="${token}" />
+      <button class="btn" type="submit">Confirm &amp; open Osmosis</button>
+    </form>
+  </div>
+  <script>document.getElementById('f').submit()</script>
 </body>
 </html>`
 }
@@ -90,7 +143,6 @@ authRouter.post('/signup/request', async (c) => {
   const existing = await findUserByEmail(c.env.DB, email)
   if (existing) {
     // Return 200 to avoid leaking whether this email is registered
-    console.log('[auth/signup/request] signup attempt for existing email', { email })
     return c.json({ ok: true })
   }
 
@@ -100,7 +152,6 @@ authRouter.post('/signup/request', async (c) => {
 
   const origin = new URL(c.req.url).origin
   const verifyUrl = buildVerifyEmailUrl(origin, token)
-  console.log('[auth/signup/request] pending verification', { email, verifyUrl })
 
   try {
     await sendSignupConfirmationEmail(c.env, email, verifyUrl)
@@ -114,9 +165,38 @@ authRouter.post('/signup/request', async (c) => {
   return c.json({ ok: true })
 })
 
+// Step 1: GET link from email — validate token exists, show confirm button (prevents CSRF via img/redirect)
 authRouter.get('/verify-email', async (c) => {
   const raw = c.req.query('t')?.trim()
   if (!raw) return c.html('<p>Invalid or missing link.</p>', 400)
+
+  const exists = await peekPendingSignup(c.env.TRANSLATION_CACHE, raw)
+  if (!exists) {
+    return c.html(
+      '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:24px"><p>This confirmation link is invalid or already used.</p></body></html>',
+      400,
+    )
+  }
+
+  return c.html(verifyConfirmPageHtml(raw))
+})
+
+// Step 2: POST confirmation — consume token, create account, redirect to extension
+authRouter.post('/verify-email', async (c) => {
+  let raw: string
+  try {
+    const body = await c.req.parseBody()
+    raw = typeof body['t'] === 'string' ? body['t'].trim() : ''
+  } catch {
+    return c.html('<p>Invalid submission.</p>', 400)
+  }
+  if (!raw) return c.html('<p>Invalid or missing token.</p>', 400)
+
+  const extensionId = c.env.CHROME_EXTENSION_ID?.trim()
+  if (!extensionId) {
+    console.error('[auth/verify-email] CHROME_EXTENSION_ID is not configured')
+    return c.html('<p>Server configuration error. Please contact support.</p>', 503)
+  }
 
   const pending = await takePendingSignup(c.env.TRANSLATION_CACHE, raw)
   if (!pending) {
@@ -141,12 +221,12 @@ authRouter.get('/verify-email', async (c) => {
   const user = await findUserByEmail(c.env.DB, pending.email)
   if (!user) return c.html('<p>Account creation failed.</p>', 500)
 
-  const exp = Math.floor(Date.now() / 1000) + JWT_EXPIRY_SECS
+  const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
   const jwt = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
+  const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, user.id)
   console.log(`[auth/verify-email] new user ${user.id}`)
 
-  const extensionId = c.env.CHROME_EXTENSION_ID ?? ''
-  const html = verifyLandingPageHtml(jwt, extensionId)
+  const html = verifyLandingPageHtml(jwt, refreshToken, extensionId)
   return c.html(html)
 })
 
@@ -170,12 +250,10 @@ authRouter.post('/forgot-password', async (c) => {
     const resetUrl = buildResetEmailUrl(origin, token)
     try {
       await sendPasswordResetEmail(c.env, email, resetUrl)
-      console.log(`[auth/forgot-password] reset email sent to ${email}`)
+      console.log(`[auth/forgot-password] reset email sent for user ${user.id}`)
     } catch (e) {
       console.warn('[auth/forgot-password] send failed', e)
     }
-  } else {
-    console.log(`[auth/forgot-password] no-op: ${!user ? 'user not found' : 'google-only account'}`)
   }
 
   return c.json({ ok: true })
@@ -232,8 +310,37 @@ authRouter.post('/login', async (c) => {
     return c.json({ error: 'This account uses Google sign-in. Please continue with Google.' }, 401)
   }
 
-  const exp = Math.floor(Date.now() / 1000) + JWT_EXPIRY_SECS
+  const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
   const token = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
+  const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, user.id)
   console.log(`[auth/login] user ${user.id}`)
-  return c.json({ token })
+  return c.json({ token, refreshToken })
+})
+
+authRouter.post('/refresh', async (c) => {
+  let body: { refreshToken?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const incoming = typeof body.refreshToken === 'string' ? body.refreshToken.trim() : ''
+  if (!incoming) return c.json({ error: 'refreshToken required' }, 400)
+
+  const userId = await c.env.TRANSLATION_CACHE.get(`refresh:${incoming}`)
+  if (!userId) return c.json({ error: 'Invalid or expired refresh token' }, 401)
+
+  // Rotate: consume old token before issuing new one
+  await c.env.TRANSLATION_CACHE.delete(`refresh:${incoming}`)
+
+  const user = await c.env.DB.prepare('SELECT email, plan FROM users WHERE id = ?')
+    .bind(userId).first<{ email: string; plan: string }>()
+  if (!user) {
+    console.warn(`[auth/refresh] refresh token references missing user ${userId}`)
+    return c.json({ error: 'Invalid refresh token' }, 401)
+  }
+
+  const plan: 'free' | 'pro' = user.plan === 'pro' ? 'pro' : 'free'
+  const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
+  const token = await signJWT({ sub: userId, email: user.email, plan, exp }, c.env.JWT_SECRET)
+  const newRefreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, userId)
+
+  console.log(`[auth/refresh] rotated token for user ${userId}`)
+  return c.json({ token, refreshToken: newRefreshToken })
 })

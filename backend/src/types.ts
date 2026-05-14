@@ -16,6 +16,7 @@ export type Env = {
   RESEND_API_KEY?: string
   EMAIL_FROM?: string
   CHROME_EXTENSION_ID?: string
+  EXTENSION_POPUP_PATH?: string
   APP_URL?: string
 }
 

@@ -17,6 +17,12 @@ export async function saveWordContext(word: string, lang: string, sentence: stri
   await chrome.storage.local.set({ [k]: sentence.trim() })
 }
 
+export async function clearAllWordContexts(): Promise<void> {
+  const all = await chrome.storage.local.get(null)
+  const keys = Object.keys(all).filter(k => k.startsWith(KEY_PREFIX + '::'))
+  if (keys.length > 0) await chrome.storage.local.remove(keys)
+}
+
 export async function getWordContexts(words: string[], lang: string): Promise<Map<string, string>> {
   if (words.length === 0) return new Map()
   const keys = words.map(w => storageKey(w, lang))
