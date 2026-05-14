@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import type { Env, Variables, TranslationEntry } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { checkUsage } from '../middleware/checkUsage'
-import { getCached, setCached } from '../utils/kv'
 import { lookupWords, synthesizePronunciation, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
 import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
@@ -35,7 +34,11 @@ translateRouter.get('/popular', requireAuth, async (c) => {
   const translations = Object.fromEntries(rows.map(r => [r.word, r.entry]))
   console.log(`[translate/popular] lang=${lang} limit=${limit} returned=${rows.length}`)
 
-  void c.env.TRANSLATION_CACHE.put(cacheKey, JSON.stringify(translations), { expirationTtl: POPULAR_CACHE_TTL })
+  try {
+    c.executionCtx.waitUntil(c.env.TRANSLATION_CACHE.put(cacheKey, JSON.stringify(translations), { expirationTtl: POPULAR_CACHE_TTL }))
+  } catch {
+    void c.env.TRANSLATION_CACHE.put(cacheKey, JSON.stringify(translations), { expirationTtl: POPULAR_CACHE_TTL })
+  }
   return c.json({ translations })
 })
 
@@ -89,14 +92,14 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   const result: Record<string, TranslationEntry> = {}
   const backgroundTasks: Promise<unknown>[] = []
 
-  // Layer 1: D1 database (single batch query)
+  // Layer 1: D1 database (single batch query — 1 subrequest for all words)
   const d1Map = await getTranslationsCachedBatch(c.env.DB, uniqueWords, targetLang)
-  const afterD1: string[] = []
+  const uncached: string[] = []
   const d1Words: string[] = []
   for (const word of uniqueWords) {
     const hit = d1Map.get(word.toLowerCase())
     if (hit) { result[word] = hit; d1Words.push(word) }
-    else afterD1.push(word)
+    else uncached.push(word)
   }
   if (d1Words.length > 0) {
     backgroundTasks.push(
@@ -104,29 +107,7 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
         .catch(err => console.warn(`[translate] hit_count increment failed: ${String(err)}`))
     )
   }
-
-  // Layer 2: KV cache (fallback for D1 write failures)
-  const kvResults = await Promise.all(
-    afterD1.map(word => getCached(c.env.TRANSLATION_CACHE, word, targetLang).then(hit => ({ word, hit })))
-  )
-  const uncached: string[] = []
-  const kvHits: Array<{ word: string; entry: TranslationEntry }> = []
-  for (const { word, hit } of kvResults) {
-    if (hit) {
-      result[word] = hit
-      kvHits.push({ word, entry: hit })
-    } else {
-      uncached.push(word)
-    }
-  }
-  if (kvHits.length > 0) {
-    backgroundTasks.push(
-      batchSetTranslationCached(c.env.DB, kvHits.map(({ word, entry }) => ({ word, targetLang, entry })))
-        .catch(err => console.warn(`[translate] D1 KV backfill failed: ${String(err)}`))
-    )
-  }
-  // kv_hit_rate = kvHits / afterD1 — if consistently 0%, KV layer can be removed
-  console.log(`[translate] layers: d1=${d1Words.length} kv=${kvHits.length}(rate=${afterD1.length > 0 ? ((kvHits.length / afterD1.length) * 100).toFixed(0) : 0}%) uncached=${uncached.length} total=${uniqueWords.length}`)
+  console.log(`[translate] layers: d1=${d1Words.length} uncached=${uncached.length} total=${uniqueWords.length}`)
 
   if (uncached.length > 0) {
     // Layer 3a: Azure Dictionary Lookup (preferred — returns POS + alternatives)
@@ -185,14 +166,8 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
 
     const newEntries = [...allNew.entries()]
     backgroundTasks.push(
-      // Batch all D1 inserts into a single query per chunk instead of N individual writes
       batchSetTranslationCached(c.env.DB, newEntries.map(([word, entry]) => ({ word, targetLang, entry })))
         .catch(err => console.warn(`[translate] D1 batch write failed: ${String(err)}`)),
-      // KV writes can stay parallel — they're fast and independent
-      ...newEntries.map(([word, entry]) =>
-        setCached(c.env.TRANSLATION_CACHE, word, targetLang, entry)
-          .catch(err => console.warn(`[translate] KV write failed for "${word}": ${String(err)}`))
-      ),
     )
   }
 
