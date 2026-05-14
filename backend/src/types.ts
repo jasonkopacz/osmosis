@@ -38,6 +38,7 @@ export type User = {
   auth_provider: 'email' | 'google' | 'both'
   stripe_customer_id: string | null
   plan: 'free' | 'pro'
+  email_verified: number
   created_at: number
 }
 

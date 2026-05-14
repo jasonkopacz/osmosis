@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { Env } from '../types'
 import { signJWT } from '../utils/jwt'
 import { hashPassword, verifyPassword, DUMMY_HASH } from '../utils/passwords'
-import { createUser, findUserByEmail, DuplicateEmailError } from '../db/users'
+import { createUser, findUserByEmail, findUserById, verifyUserEmail, DuplicateEmailError } from '../db/users'
 import {
   buildVerifyEmailUrl,
   generateVerifyToken,
@@ -141,13 +141,37 @@ authRouter.post('/signup/request', async (c) => {
 
   const existing = await findUserByEmail(c.env.DB, email)
   if (existing) {
-    // Return 200 to avoid leaking whether this email is registered
+    if (existing.email_verified) {
+      // Return 200 to avoid leaking whether this email is registered
+      return c.json({ ok: true })
+    }
+    // Unverified account — resend the confirmation email
+    const token = generateVerifyToken()
+    await storePendingSignup(c.env.TRANSLATION_CACHE, token, { userId: existing.id })
+    const origin = new URL(c.req.url).origin
+    const verifyUrl = buildVerifyEmailUrl(origin, token)
+    try {
+      await sendSignupConfirmationEmail(c.env, email, verifyUrl)
+    } catch (e) {
+      console.warn('[auth/signup/request] resend failed', e)
+      await c.env.TRANSLATION_CACHE.delete(verificationKvKey(token))
+      const msg = e instanceof Error ? e.message : 'Email send failed'
+      return c.json({ error: msg }, 503)
+    }
     return c.json({ ok: true })
   }
 
   const hash = await hashPassword(password)
+  let userId: string
+  try {
+    userId = await createUser(c.env.DB, email, hash)
+  } catch (err) {
+    if (err instanceof DuplicateEmailError) return c.json({ ok: true })
+    throw err
+  }
+
   const token = generateVerifyToken()
-  await storePendingSignup(c.env.TRANSLATION_CACHE, token, { email, password_hash: hash })
+  await storePendingSignup(c.env.TRANSLATION_CACHE, token, { userId })
 
   const origin = new URL(c.req.url).origin
   const verifyUrl = buildVerifyEmailUrl(origin, token)
@@ -205,20 +229,10 @@ authRouter.post('/verify-email', async (c) => {
     )
   }
 
-  try {
-    await createUser(c.env.DB, pending.email, pending.password_hash)
-  } catch (err) {
-    if (err instanceof DuplicateEmailError) {
-      return c.html(
-        '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:24px"><p>An account with this email already exists. Sign in from the extension.</p></body></html>',
-        409,
-      )
-    }
-    throw err
-  }
+  await verifyUserEmail(c.env.DB, pending.userId)
 
-  const user = await findUserByEmail(c.env.DB, pending.email)
-  if (!user) return c.html('<p>Account creation failed.</p>', 500)
+  const user = await findUserById(c.env.DB, pending.userId)
+  if (!user) return c.html('<p>Account not found.</p>', 500)
 
   const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
   const jwt = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
@@ -304,6 +318,10 @@ authRouter.post('/login', async (c) => {
   const valid = await verifyPassword(password, storedHash)
 
   if (!user || !valid) return c.json({ error: 'Invalid email or password' }, 401)
+
+  if (!user.email_verified) {
+    return c.json({ error: 'Please confirm your email before signing in. Check your inbox for the confirmation link.' }, 403)
+  }
 
   if (user.auth_provider === 'google') {
     return c.json({ error: 'This account uses Google sign-in. Please continue with Google.' }, 401)

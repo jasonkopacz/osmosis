@@ -1,15 +1,20 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import type { User } from '../types'
 
-const USER_COLUMNS = 'id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, created_at'
+const USER_COLUMNS = 'id, email, password_hash, google_sub, auth_provider, stripe_customer_id, plan, email_verified, created_at'
 
 export class DuplicateEmailError extends Error {
   constructor() { super('Email already registered'); this.name = 'DuplicateEmailError' }
 }
 
-export async function createUser(db: D1Database, email: string, passwordHash: string): Promise<void> {
+export async function createUser(db: D1Database, email: string, passwordHash: string): Promise<string> {
   try {
-    await db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').bind(email, passwordHash).run()
+    const row = await db
+      .prepare('INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, 0) RETURNING id')
+      .bind(email, passwordHash)
+      .first<{ id: string }>()
+    if (!row) throw new Error('createUser: no id returned')
+    return row.id
   } catch (err) {
     const msg = String(err)
     if (msg.includes('UNIQUE constraint failed') || msg.includes('SQLITE_CONSTRAINT')) {
@@ -17,6 +22,15 @@ export async function createUser(db: D1Database, email: string, passwordHash: st
     }
     throw err
   }
+}
+
+export async function findUserById(db: D1Database, userId: string): Promise<User | null> {
+  const result = await db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`).bind(userId).first<User>()
+  return result ?? null
+}
+
+export async function verifyUserEmail(db: D1Database, userId: string): Promise<void> {
+  await db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').bind(userId).run()
 }
 
 export async function findUserByEmail(db: D1Database, email: string): Promise<User | null> {
@@ -41,7 +55,7 @@ export async function createGoogleUser(
 ): Promise<void> {
   try {
     await db
-      .prepare('INSERT INTO users (email, password_hash, google_sub, auth_provider) VALUES (?, ?, ?, ?)')
+      .prepare('INSERT INTO users (email, password_hash, google_sub, auth_provider, email_verified) VALUES (?, ?, ?, ?, 1)')
       .bind(email, passwordHash, googleSub, 'google')
       .run()
   } catch (err) {

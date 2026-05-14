@@ -5,8 +5,7 @@ const TOKEN_BYTES = 32
 const VERIFY_TTL_SEC = 60 * 60 // 1 hour
 
 export type PendingSignupPayload = {
-  email: string
-  password_hash: string
+  userId: string
 }
 
 export function verificationKvKey(token: string): string {
