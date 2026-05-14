@@ -14,10 +14,6 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function isContextCard(card: SrsDueCard): card is SrsDueCard & { context: string; choices: string[] } {
-  return !!card.context && Array.isArray(card.choices) && card.choices.length > 0
-}
-
 // ── Session persistence ──────────────────────────────────────────────────────
 
 const SESSION_KEY = 'osmosis_quiz_session'
@@ -130,24 +126,19 @@ function runSession(
     body.appendChild(meta)
 
     const card = cards[index]!
+    body.appendChild(buildCard(card, phase))
+
     const actions = document.createElement('div')
     actions.className = 'quiz-actions'
 
-    if (isContextCard(card)) {
-      body.appendChild(buildContextCard(card))
-      actions.appendChild(buildChoiceGrid(card, settings, advance))
+    if (phase === 'question') {
+      const revealBtn = document.createElement('button')
+      revealBtn.className = 'osmo-btn osmo-btn--secondary'
+      revealBtn.textContent = 'Show Answer'
+      revealBtn.addEventListener('click', () => { phase = 'answer'; renderCurrent() })
+      actions.appendChild(revealBtn)
     } else {
-      body.appendChild(buildFlashcard(card, phase))
-
-      if (phase === 'question') {
-        const revealBtn = document.createElement('button')
-        revealBtn.className = 'osmo-btn osmo-btn--secondary'
-        revealBtn.textContent = 'Show Answer'
-        revealBtn.addEventListener('click', () => { phase = 'answer'; renderCurrent() })
-        actions.appendChild(revealBtn)
-      } else {
-        actions.appendChild(buildRatingGrid(card, settings, advance))
-      }
+      actions.appendChild(buildRatingGrid(card, settings, advance))
     }
 
     body.appendChild(actions)
@@ -157,22 +148,45 @@ function runSession(
   renderCurrent()
 }
 
-// ── Flashcard (existing) ────────────────────────────────────────────────────
+// ── Card ─────────────────────────────────────────────────────────────────────
 
-function buildFlashcard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
+function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
   const el = document.createElement('div')
   el.className = phase === 'answer' ? 'quiz-card quiz-card--revealed' : 'quiz-card'
 
-  const word = document.createElement('div')
-  word.className = 'quiz-word'
-  word.textContent = card.translation
-  el.appendChild(word)
+  if (card.context) {
+    const sentenceEl = document.createElement('div')
+    sentenceEl.className = 'quiz-context-sentence'
 
-  if (card.posTag) {
-    const pos = document.createElement('span')
-    pos.className = 'quiz-pos'
-    pos.textContent = POS_LABELS[card.posTag] ?? card.posTag.toLowerCase()
-    el.appendChild(pos)
+    const re = new RegExp(`\\b${escapeRegExp(card.word)}\\w*`, 'gi')
+    const match = re.exec(card.context)
+
+    if (match) {
+      if (match.index > 0) sentenceEl.appendChild(document.createTextNode(card.context.slice(0, match.index)))
+      const highlight = document.createElement('span')
+      highlight.className = 'quiz-context-word'
+      highlight.textContent = card.translation
+      sentenceEl.appendChild(highlight)
+      const after = card.context.slice(match.index + match[0].length)
+      if (after) sentenceEl.appendChild(document.createTextNode(after))
+    } else {
+      sentenceEl.textContent = card.context
+    }
+
+    el.appendChild(sentenceEl)
+  } else {
+    // Fallback for cards with no saved context
+    const word = document.createElement('div')
+    word.className = 'quiz-word'
+    word.textContent = card.translation
+    el.appendChild(word)
+
+    if (card.posTag) {
+      const pos = document.createElement('span')
+      pos.className = 'quiz-pos'
+      pos.textContent = POS_LABELS[card.posTag] ?? card.posTag.toLowerCase()
+      el.appendChild(pos)
+    }
   }
 
   if (phase === 'answer') {
@@ -182,6 +196,8 @@ function buildFlashcard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDiv
 
   return el
 }
+
+// ── Rating buttons ────────────────────────────────────────────────────────────
 
 function buildRatingGrid(
   card: SrsDueCard,
@@ -235,91 +251,7 @@ function buildRatingGrid(
   return grid
 }
 
-// ── Context fill-in-the-blank ───────────────────────────────────────────────
-
-function buildContextCard(card: SrsDueCard & { context: string }): HTMLDivElement {
-  const el = document.createElement('div')
-  el.className = 'quiz-card'
-
-  const sentenceEl = document.createElement('div')
-  sentenceEl.className = 'quiz-context-sentence'
-
-  // Replace the English word with the target-language translation shown inline
-  const re = new RegExp(`\\b${escapeRegExp(card.word)}\\w*`, 'gi')
-  const sentence = card.context
-  const match = re.exec(sentence)
-
-  if (match) {
-    if (match.index > 0) sentenceEl.appendChild(document.createTextNode(sentence.slice(0, match.index)))
-    const highlight = document.createElement('span')
-    highlight.className = 'quiz-context-word'
-    highlight.textContent = card.translation
-    sentenceEl.appendChild(highlight)
-    const after = sentence.slice(match.index + match[0].length)
-    if (after) sentenceEl.appendChild(document.createTextNode(after))
-  } else {
-    sentenceEl.textContent = sentence
-  }
-
-  el.appendChild(sentenceEl)
-
-  return el
-}
-
-function buildChoiceGrid(
-  card: SrsDueCard & { choices: string[] },
-  settings: UserSettings,
-  onRated: (result: SrsRateResult) => void,
-): HTMLDivElement {
-  const grid = document.createElement('div')
-  grid.className = 'context-choices'
-
-  for (const choice of card.choices) {
-    const btn = document.createElement('button')
-    btn.className = 'context-choice-btn'
-    btn.textContent = choice
-
-    btn.addEventListener('click', async () => {
-      const correct = choice.toLowerCase() === card.word.toLowerCase()
-
-      grid.querySelectorAll<HTMLButtonElement>('.context-choice-btn').forEach(b => {
-        b.disabled = true
-        if (b.textContent?.toLowerCase() === card.word.toLowerCase()) {
-          b.classList.add('context-choice-btn--correct')
-        } else if (b === btn && !correct) {
-          b.classList.add('context-choice-btn--wrong')
-        }
-      })
-
-      const rating: SrsRating = correct ? 3 : 1
-      let rateResult: SrsRateResult = {
-        word: card.word, targetLang: settings.targetLang, state: 'review',
-        intervalDays: correct ? 4 : 0, dueAt: Date.now(),
-        stability: card.stability, difficulty: card.difficulty,
-        lapses: card.lapses, reps: card.reps + 1,
-      }
-
-      try {
-        const res = (await chrome.runtime.sendMessage({
-          type: 'SRS_RATE',
-          word: card.word,
-          targetLang: settings.targetLang,
-          rating,
-        } as Message)) as SrsRateResult & { error?: string }
-        if (!res.error) rateResult = res
-      } catch { /* use defaults */ }
-
-      await new Promise(resolve => setTimeout(resolve, 900))
-      onRated(rateResult)
-    })
-
-    grid.appendChild(btn)
-  }
-
-  return grid
-}
-
-// ── Shared helpers ──────────────────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 function buildDots(current: number, total: number): HTMLDivElement {
   const wrap = document.createElement('div')
