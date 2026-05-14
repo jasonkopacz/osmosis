@@ -4,6 +4,7 @@ import { log, warn } from '../../logger'
 
 type Mode = 'signin' | 'signup'
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
 
@@ -146,6 +147,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     const email = forgotEmailInput.value.trim().toLowerCase()
     forgotErrorEl.textContent = ''
     if (!email) { forgotErrorEl.textContent = 'Email is required.'; return }
+    if (!EMAIL_RE.test(email)) { forgotErrorEl.textContent = 'Please enter a valid email address.'; return }
     forgotSubmitBtn.disabled = true
     forgotSubmitBtn.textContent = 'Sending…'
     try {
@@ -161,6 +163,21 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     }
   })
   forgotEmailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') forgotSubmitBtn.click() })
+  forgotEmailInput.addEventListener('blur', () => {
+    const val = forgotEmailInput.value.trim()
+    if (val && !EMAIL_RE.test(val)) {
+      setFieldError(forgotEmailInput, true)
+      forgotErrorEl.textContent = 'Please enter a valid email address.'
+    }
+  })
+  forgotEmailInput.addEventListener('input', () => {
+    if (!forgotEmailInput.dataset.invalid) return
+    const val = forgotEmailInput.value.trim()
+    if (!val || EMAIL_RE.test(val)) {
+      setFieldError(forgotEmailInput, false)
+      if (forgotErrorEl.textContent === 'Please enter a valid email address.') forgotErrorEl.textContent = ''
+    }
+  })
 
   function showForgotPanel(): void {
     formPanel.classList.add('login-panel--hidden')
@@ -291,6 +308,10 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       errorEl.textContent = 'Email is required.'
       setFieldError(emailInput, true)
       ok = false
+    } else if (!EMAIL_RE.test(email)) {
+      errorEl.textContent = 'Please enter a valid email address.'
+      setFieldError(emailInput, true)
+      ok = false
     }
     if (!password) {
       if (!errorEl.textContent) errorEl.textContent = 'Password is required.'
@@ -382,10 +403,38 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
   passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
   passwordConfirmInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
-  emailInput.addEventListener('input', () => { if (emailInput.dataset.invalid) setFieldError(emailInput, false) })
+  emailInput.addEventListener('blur', () => {
+    const val = emailInput.value.trim()
+    if (val && !EMAIL_RE.test(val)) {
+      setFieldError(emailInput, true)
+      errorEl.textContent = 'Please enter a valid email address.'
+    }
+  })
+  emailInput.addEventListener('input', () => {
+    if (!emailInput.dataset.invalid) return
+    const val = emailInput.value.trim()
+    if (!val || EMAIL_RE.test(val)) {
+      setFieldError(emailInput, false)
+      if (errorEl.textContent === 'Please enter a valid email address.') errorEl.textContent = ''
+    }
+  })
   passwordInput.addEventListener('input', () => { if (passwordInput.dataset.invalid) setFieldError(passwordInput, false) })
+  passwordConfirmInput.addEventListener('blur', () => {
+    if (mode !== 'signup') return
+    const val = passwordConfirmInput.value
+    if (val && val !== passwordInput.value) {
+      setFieldError(passwordConfirmInput, true)
+      setFieldError(passwordInput, true)
+      errorEl.textContent = 'Passwords do not match.'
+    }
+  })
   passwordConfirmInput.addEventListener('input', () => {
-    if (passwordConfirmInput.dataset.invalid) setFieldError(passwordConfirmInput, false)
+    if (!passwordConfirmInput.dataset.invalid) return
+    if (passwordConfirmInput.value === passwordInput.value) {
+      setFieldError(passwordConfirmInput, false)
+      setFieldError(passwordInput, false)
+      if (errorEl.textContent === 'Passwords do not match.') errorEl.textContent = ''
+    }
   })
 
   wireOAuth(googleBtn, 'GOOGLE_LOGIN', 'google', errorEl, onSuccess)

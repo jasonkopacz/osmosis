@@ -82,6 +82,22 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
   return true
 })
 
+// Messages from externally_connectable web pages (e.g. the email verification page)
+// arrive here, not on onMessage.
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'SESSION_FROM_VERIFY') {
+    sendResponse({ error: 'UNKNOWN_MESSAGE' })
+    return false
+  }
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('HANDLER_TIMEOUT')), 15_000)
+  )
+  Promise.race([handle(message as Message), timeout])
+    .then(sendResponse)
+    .catch(err => sendResponse({ error: String(err) }))
+  return true
+})
+
 
 function fisherYates<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -270,7 +286,14 @@ async function handle(msg: Message): Promise<unknown> {
     try {
       log('[osmosis:bg] SESSION_FROM_VERIFY: applying session')
       const result = await afterLogin(msg.token, msg.refreshToken)
-      void chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') }).catch(() => {})
+      const stored = await chrome.storage.sync.get('osmosis_settings')
+      const current = (stored['osmosis_settings'] ?? {}) as Record<string, unknown>
+      await chrome.storage.sync.set({ osmosis_settings: { ...current, enabled: false } })
+      const windows = await chrome.windows.getAll({ windowTypes: ['normal'] })
+      const target = windows.find(w => w.focused) ?? windows[0]
+      if (target?.id != null) {
+        void chrome.action.openPopup({ windowId: target.id }).catch(() => {})
+      }
       return result
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)

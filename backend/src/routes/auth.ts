@@ -111,12 +111,11 @@ function verifyConfirmPageHtml(token: string): string {
   <div class="card">
     <h1>Confirm your Osmosis account</h1>
     <p>Click the button below to activate your account and open Osmosis.</p>
-    <form id="f" method="POST" action="/auth/verify-email">
+    <form method="POST" action="/auth/verify-email">
       <input type="hidden" name="t" value="${token}" />
       <button class="btn" type="submit">Confirm &amp; open Osmosis</button>
     </form>
   </div>
-  <script>document.getElementById('f').submit()</script>
 </body>
 </html>`
 }
