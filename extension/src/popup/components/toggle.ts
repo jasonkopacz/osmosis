@@ -3,6 +3,7 @@ export function createToggle(checked: boolean, onChange: (v: boolean) => void): 
   track.className = checked ? 'osmo-toggle osmo-toggle--on' : 'osmo-toggle'
   track.setAttribute('role', 'switch')
   track.setAttribute('aria-checked', String(checked))
+  track.setAttribute('aria-label', 'Toggle translation')
   track.setAttribute('tabindex', '0')
 
   const thumb = document.createElement('div')
