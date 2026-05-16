@@ -3,8 +3,10 @@ import type { TranslationEntry } from '../types'
 
 // D1 caps bound variables per query at ~100; reserve 1 slot for target_lang
 const D1_CHUNK_SIZE = 99
-// INSERT rows have 5 params each; leave headroom
+// INSERT rows have 5 bound params each (expires_at is a SQL expression, not a param)
 const D1_INSERT_CHUNK_SIZE = Math.floor(D1_CHUNK_SIZE / 5)
+// 90 days in seconds
+const TRANSLATION_TTL_SECS = 90 * 24 * 60 * 60
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = []
@@ -33,7 +35,7 @@ export async function getTranslationsCachedBatch(
     chunk(lower, D1_CHUNK_SIZE).map(batch => {
       const placeholders = batch.map(() => '?').join(', ')
       return db
-        .prepare(`SELECT word, translation, pos_tag, alternatives FROM translation_cache WHERE target_lang = ? AND word IN (${placeholders})`)
+        .prepare(`SELECT word, translation, pos_tag, alternatives FROM translation_cache WHERE target_lang = ? AND word IN (${placeholders}) AND expires_at > unixepoch()`)
         .bind(lang, ...batch)
         .all<CacheRow>()
         .then(r => r.results)
@@ -62,12 +64,13 @@ export async function setTranslationCached(
 ): Promise<void> {
   await db
     .prepare(`
-      INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count)
-      VALUES (?, ?, ?, ?, ?, 0)
+      INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count, expires_at)
+      VALUES (?, ?, ?, ?, ?, 0, unixepoch() + ${TRANSLATION_TTL_SECS})
       ON CONFLICT(word, target_lang) DO UPDATE SET
         translation = excluded.translation,
         pos_tag = excluded.pos_tag,
-        alternatives = excluded.alternatives
+        alternatives = excluded.alternatives,
+        expires_at = excluded.expires_at
     `)
     .bind(
       word.toLowerCase(), targetLang.toLowerCase(),
@@ -85,7 +88,7 @@ export async function batchSetTranslationCached(
   if (entries.length === 0) return
   await Promise.all(
     chunk(entries, D1_INSERT_CHUNK_SIZE).map(batch => {
-      const placeholders = batch.map(() => '(?, ?, ?, ?, ?, 0)').join(', ')
+      const placeholders = batch.map(() => `(?, ?, ?, ?, ?, 0, unixepoch() + ${TRANSLATION_TTL_SECS})`).join(', ')
       const values = batch.flatMap(({ word, targetLang, entry }) => [
         word.toLowerCase(), targetLang.toLowerCase(),
         entry.t, entry.p ?? null,
@@ -93,12 +96,13 @@ export async function batchSetTranslationCached(
       ])
       return db
         .prepare(`
-          INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count)
+          INSERT INTO translation_cache (word, target_lang, translation, pos_tag, alternatives, hit_count, expires_at)
           VALUES ${placeholders}
           ON CONFLICT(word, target_lang) DO UPDATE SET
             translation = excluded.translation,
             pos_tag = excluded.pos_tag,
-            alternatives = excluded.alternatives
+            alternatives = excluded.alternatives,
+            expires_at = excluded.expires_at
         `)
         .bind(...values)
         .run()
@@ -113,7 +117,7 @@ export async function getTopTranslations(
     .prepare(`
       SELECT word, translation, pos_tag, alternatives, hit_count
       FROM translation_cache
-      WHERE target_lang = ?
+      WHERE target_lang = ? AND expires_at > unixepoch()
       ORDER BY hit_count DESC
       LIMIT ?
     `)
