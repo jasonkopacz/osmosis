@@ -268,6 +268,10 @@ authRouter.get('/reset-password', (c) => {
 })
 
 authRouter.post('/reset-password', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `reset-password:${ip}`, 5, 15 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
   let body: { token?: unknown; password?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const token = typeof body.token === 'string' ? body.token.trim() : ''
