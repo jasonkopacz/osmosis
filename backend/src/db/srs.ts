@@ -95,7 +95,7 @@ export async function batchRecordEncounters(
   if (words.length === 0) return
   const lower = words.map(w => w.toLowerCase())
   const lang = targetLang.toLowerCase()
-  await Promise.all(
+  await db.batch(
     chunk(lower, ENCOUNTER_CHUNK_SIZE).map(batch => {
       const placeholders = batch.map(() => '(?, ?, ?, 1, ?)').join(', ')
       const values = batch.flatMap(w => [userId, w, lang, nowSec])
@@ -108,7 +108,6 @@ export async function batchRecordEncounters(
             last_seen_at    = excluded.last_seen_at
         `)
         .bind(...values)
-        .run()
     })
   )
 }
