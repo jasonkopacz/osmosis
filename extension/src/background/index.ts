@@ -145,11 +145,11 @@ async function handle(msg: Message): Promise<unknown> {
 
     if (uncached.length === 0) return { translations: result }
 
-    const uncachedContextsByWord = Object.fromEntries(
-      uncached
-        .map(word => [word, msg.contextsByWord?.[word]] as const)
-        .filter(([, context]): context is string => typeof context === 'string' && context.length > 0)
-    )
+    const uncachedContextsByWord: Record<string, string> = {}
+    for (const word of uncached) {
+      const ctx = msg.contextsByWord?.[word]
+      if (typeof ctx === 'string' && ctx.length > 0) uncachedContextsByWord[word] = ctx
+    }
     const contextWordCount = Object.keys(uncachedContextsByWord).length
     if (contextWordCount > 0) {
       log('[osmosis:bg] TRANSLATE context attached', {

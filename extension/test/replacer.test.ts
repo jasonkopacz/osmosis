@@ -15,33 +15,33 @@ describe('applyReplacements', () => {
 
   it('replaces a word with its translation', () => {
     const entries = collectWords(document.body)
-    applyReplacements(new Map([['quick', 'schnell']]), entries)
+    applyReplacements(new Map([['quick', 'schnell']]), entries, 'de')
     expect(document.body.textContent).toContain('schnell')
   })
 
   it('sets data-original to the original word', () => {
     const entries = collectWords(document.body)
-    applyReplacements(new Map([['quick', 'schnell']]), entries)
+    applyReplacements(new Map([['quick', 'schnell']]), entries, 'de')
     expect(document.querySelector('.osmosis-word')?.getAttribute('data-original')).toBe('quick')
   })
 
   it('adds osmosis-word class', () => {
     const entries = collectWords(document.body)
-    applyReplacements(new Map([['quick', 'schnell']]), entries)
+    applyReplacements(new Map([['quick', 'schnell']]), entries, 'de')
     expect(document.querySelectorAll('.osmosis-word').length).toBeGreaterThan(0)
   })
 
   it('does nothing when translation map is empty', () => {
     const original = document.body.textContent
     const entries = collectWords(document.body)
-    applyReplacements(new Map(), entries)
+    applyReplacements(new Map(), entries, 'de')
     expect(document.body.textContent).toBe(original)
   })
 
   it('replaces multiple words independently', () => {
     setup('<p>The quick brown fox</p>')
     const entries = collectWords(document.body)
-    applyReplacements(new Map([['quick', 'schnell'], ['fox', 'Fuchs']]), entries)
+    applyReplacements(new Map([['quick', 'schnell'], ['fox', 'Fuchs']]), entries, 'de')
     expect(document.body.textContent).toContain('schnell')
     expect(document.body.textContent).toContain('fuchs')
     expect(document.querySelectorAll('.osmosis-word').length).toBe(2)
@@ -52,7 +52,7 @@ describe('clearReplacements', () => {
   it('removes spans and restores originals', () => {
     setup('<p>The quick brown fox</p>')
     const entries = collectWords(document.body)
-    applyReplacements(new Map([['quick', 'schnell']]), entries)
+    applyReplacements(new Map([['quick', 'schnell']]), entries, 'de')
     clearReplacements()
     expect(document.body.textContent).toContain('quick')
     expect(document.querySelectorAll('.osmosis-word').length).toBe(0)

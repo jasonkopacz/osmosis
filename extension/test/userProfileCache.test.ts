@@ -17,7 +17,7 @@ beforeEach(() => {
     storage: {
       local: {
         get: vi.fn((keys: string | string[]) => {
-          const k = typeof keys === 'string' ? keys : keys[0]
+          const k = typeof keys === 'string' ? keys : (keys[0] ?? '')
           return Promise.resolve({ [k]: store[k] })
         }),
         set: vi.fn((obj: Record<string, unknown>) => {

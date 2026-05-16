@@ -165,9 +165,10 @@ export function renderMain(
 
   // Clear loading state the instant the content script writes final PAGE_STATS
   chrome.storage.local.onChanged.addListener((changes) => {
-    if (!changes[STORAGE_KEYS.PAGE_STATS]) return
+    const pageStatsChange = changes[STORAGE_KEYS.PAGE_STATS]
+    if (!pageStatsChange) return
     if (broadcastTimer) { clearTimeout(broadcastTimer); broadcastTimer = null }
-    const stats = changes[STORAGE_KEYS.PAGE_STATS].newValue as PageStats | undefined
+    const stats = pageStatsChange.newValue as PageStats | undefined
     hintEl.textContent = formatHint(stats, s.targetLang)
     hintEl.classList.remove('osmo-hint--active')
   })

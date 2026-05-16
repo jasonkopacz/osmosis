@@ -8,6 +8,7 @@
     "pack:store": "npm run build && cd dist && zip -r ../osmosis-chrome-store.zip .",
     "generate:frequency": "tsx scripts/generateFrequency.ts",
     "print:load": "node -e \"const { join } = require('path'); const d = join(process.cwd(), 'dist'); console.log('Load unpacked in chrome://extensions →'); console.log(d);\"",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --environment jsdom --passWithNoTests",
     "test:watch": "vitest --environment jsdom --passWithNoTests"
   },

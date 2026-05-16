@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../constants'
-import type { TranslationEntry } from '../types'
+import type { TranslationEntry, SrsRateResult } from '../types'
 import { warn } from '../logger'
 
 function parseApiJson<T>(res: Response, bodyText: string): T {
@@ -166,7 +166,7 @@ export async function fetchPopularTranslations(lang: string, token: string, limi
 
 export async function srsRateWord(
   word: string, targetLang: string, rating: number, token: string
-): Promise<unknown> {
+): Promise<SrsRateResult> {
   const res = await fetch(`${API_BASE_URL}/srs/rate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

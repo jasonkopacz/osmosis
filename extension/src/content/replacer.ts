@@ -11,7 +11,7 @@ const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
 
 function matchCase(original: string, translation: string): string {
   if (!translation) return translation
-  if (original[0] === original[0].toUpperCase()) {
+  if (original.charAt(0) === original.charAt(0).toUpperCase()) {
     return translation.charAt(0).toUpperCase() + translation.slice(1)
   }
   return translation.toLowerCase()
