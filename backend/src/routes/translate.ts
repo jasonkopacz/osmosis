@@ -220,6 +220,6 @@ translateRouter.post('/pronounce', requireAuth, async (c) => {
   } catch (err) {
     const detail = String(err)
     console.error(`[translate/pronounce] failed: ${detail}`)
-    return c.json({ error: 'Pronunciation service unavailable', detail }, 503)
+    return c.json({ error: 'Pronunciation service unavailable' }, 503)
   }
 })
