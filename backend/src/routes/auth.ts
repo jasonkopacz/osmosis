@@ -26,6 +26,7 @@ import { updatePassword } from '../db/users'
 export const authRouter = new Hono<{ Bindings: Env }>()
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const HEX64_RE = /^[0-9a-f]{64}$/
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
 
@@ -182,7 +183,7 @@ authRouter.post('/signup/request', async (c) => {
 // Step 1: GET link from email — validate token exists, show confirm button (prevents CSRF via img/redirect)
 authRouter.get('/verify-email', async (c) => {
   const raw = c.req.query('t')?.trim()
-  if (!raw) return c.html('<p>Invalid or missing link.</p>', 400)
+  if (!raw || !HEX64_RE.test(raw)) return c.html('<p>Invalid or missing link.</p>', 400)
 
   const exists = await peekPendingSignup(c.env.TRANSLATION_CACHE, raw)
   if (!exists) {
@@ -204,7 +205,7 @@ authRouter.post('/verify-email', async (c) => {
   } catch {
     return c.html('<p>Invalid submission.</p>', 400)
   }
-  if (!raw) return c.html('<p>Invalid or missing token.</p>', 400)
+  if (!raw || !HEX64_RE.test(raw)) return c.html('<p>Invalid or missing token.</p>', 400)
 
   const extensionId = c.env.CHROME_EXTENSION_ID?.trim()
   if (!extensionId) {
