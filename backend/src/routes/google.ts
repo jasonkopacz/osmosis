@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
 import { signJWT, generateRefreshToken, ACCESS_TOKEN_EXPIRY_SECS } from '../utils/jwt'
+import { checkRateLimit } from '../utils/ratelimit'
 import { hashPassword } from '../utils/passwords'
 import {
   buildGoogleAuthorizeUrl,
@@ -31,6 +32,10 @@ googleOAuthRouter.get('/url', async c => {
 })
 
 googleOAuthRouter.post('/exchange', async c => {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `google-exchange:${ip}`, 10, 15 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
   if (!getGoogleWebClientCredentials(c.env)) {
     return c.json({ error: 'Google OAuth not configured (GOOGLE_WEB_CLIENT_JSON or GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)' }, 503)
   }

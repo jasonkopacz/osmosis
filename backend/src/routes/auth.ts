@@ -326,6 +326,10 @@ authRouter.post('/login', async (c) => {
 })
 
 authRouter.post('/refresh', async (c) => {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown'
+  const allowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `refresh:${ip}`, 20, 15 * 60)
+  if (!allowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
   let body: { refreshToken?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const incoming = typeof body.refreshToken === 'string' ? body.refreshToken.trim() : ''
