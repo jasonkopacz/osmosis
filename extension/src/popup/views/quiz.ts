@@ -165,7 +165,13 @@ function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivEleme
       if (match.index > 0) sentenceEl.appendChild(document.createTextNode(card.context.slice(0, match.index)))
       const highlight = document.createElement('span')
       highlight.className = 'quiz-context-word'
-      highlight.textContent = card.translation
+      // Mirror the case of the matched surface word so the translation looks
+      // natural in the sentence (sentence-start capital, otherwise lowercase).
+      const surface = match[0]
+      const startsUpper = surface[0] !== undefined && surface[0] === surface[0].toUpperCase() && surface[0] !== surface[0].toLowerCase()
+      highlight.textContent = startsUpper
+        ? card.translation.charAt(0).toUpperCase() + card.translation.slice(1)
+        : card.translation.charAt(0).toLowerCase() + card.translation.slice(1)
       sentenceEl.appendChild(highlight)
       const after = card.context.slice(match.index + match[0].length)
       if (after) sentenceEl.appendChild(document.createTextNode(after))
@@ -191,7 +197,10 @@ function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivEleme
 
   if (phase === 'answer') {
     el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-sep' }))
-    el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-answer', textContent: card.word }))
+    // Prefer the lemma (base/dictionary form) over the surface word, which may
+    // be an inflected form or capitalized due to its position in the source sentence.
+    const answerWord = card.lemma ?? card.word.toLowerCase()
+    el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-answer', textContent: answerWord }))
   }
 
   return el

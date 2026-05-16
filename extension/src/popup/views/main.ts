@@ -114,6 +114,7 @@ export function renderMain(
 
   // ── Content area (changes on tab switch)
   const content = document.createElement('div')
+  content.className = 'tab-content'
 
   // ── Footer
   const footer = document.createElement('div')

@@ -264,6 +264,20 @@ chrome.runtime.onMessage.addListener((msg: Message) => {
 
 async function init(): Promise<void> {
   log('[osmosis:content] init')
+
+  // Never translate on the backend's own pages (e.g. email verification).
+  // Handle the session token if present, then bail out before loading settings
+  // or running the pipeline — avoiding the race where settings.enabled is still
+  // true while SESSION_FROM_VERIFY is still in-flight setting it to false.
+  if (location.hostname === new URL(API_BASE_URL).hostname) {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="osmosis-session"]')
+    const token = meta?.content
+    if (token) {
+      void chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message)
+    }
+    return
+  }
+
   settings = await loadSettings()
   domObserver = new MutationObserver((mutations) => scheduleFromMutation(mutations))
   log('[osmosis:content] settings loaded', settings)
@@ -277,11 +291,3 @@ async function init(): Promise<void> {
 }
 
 void init()
-
-if (location.hostname === new URL(API_BASE_URL).hostname) {
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="osmosis-session"]')
-  const token = meta?.content
-  if (token) {
-    void chrome.runtime.sendMessage({ type: 'SESSION_FROM_VERIFY', token } as Message)
-  }
-}

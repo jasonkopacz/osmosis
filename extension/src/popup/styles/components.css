@@ -297,9 +297,8 @@
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-mute);
-  margin-top: 5px;
+  margin-top: 9px;
   letter-spacing: 0.03em;
-  min-height: 15px;
   transition: color var(--d-2) var(--ease-out);
 }
 
@@ -311,8 +310,7 @@
   font-size: 11px;
   color: var(--text-mute);
   text-align: center;
-  min-height: 15px;
-  margin-top: -6px;
   letter-spacing: 0.03em;
 }
+.osmo-hint:empty { display: none; }
 .osmo-hint--active { color: var(--current); }

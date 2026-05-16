@@ -288,7 +288,10 @@ async function handle(msg: Message): Promise<unknown> {
       const result = await afterLogin(msg.token, msg.refreshToken)
       const stored = await chrome.storage.sync.get('osmosis_settings')
       const current = (stored['osmosis_settings'] ?? {}) as Record<string, unknown>
-      await chrome.storage.sync.set({ osmosis_settings: { ...current, enabled: false } })
+      await Promise.all([
+        chrome.storage.sync.set({ osmosis_settings: { ...current, enabled: false } }),
+        chrome.storage.local.remove('osmosis_onboarded'),
+      ])
       const windows = await chrome.windows.getAll({ windowTypes: ['normal'] })
       const target = windows.find(w => w.focused) ?? windows[0]
       if (target?.id != null) {
