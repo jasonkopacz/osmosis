@@ -63,18 +63,17 @@ export async function upsertCard(
     .prepare(`
       INSERT INTO word_cards
         (user_id, word, target_lang, state, stability, difficulty, lapses, reps,
-         due_at, last_rated_at, encounter_count, last_seen_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+         due_at, last_rated_at, last_seen_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id, word, target_lang) DO UPDATE SET
-        state        = excluded.state,
-        stability    = excluded.stability,
-        difficulty   = excluded.difficulty,
-        lapses       = excluded.lapses,
-        reps         = excluded.reps,
-        due_at       = excluded.due_at,
+        state         = excluded.state,
+        stability     = excluded.stability,
+        difficulty    = excluded.difficulty,
+        lapses        = excluded.lapses,
+        reps          = excluded.reps,
+        due_at        = excluded.due_at,
         last_rated_at = excluded.last_rated_at,
-        encounter_count = encounter_count + 1,
-        last_seen_at = excluded.last_seen_at
+        last_seen_at  = excluded.last_seen_at
     `)
     .bind(
       userId, word.toLowerCase(), targetLang.toLowerCase(),

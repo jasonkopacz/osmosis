@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import type { Env, Variables, TranslationEntry } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
-import { checkUsage } from '../middleware/checkUsage'
 import { lookupWords, synthesizePronunciation, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
 import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
@@ -42,7 +41,7 @@ translateRouter.get('/popular', requireAuth, async (c) => {
   return c.json({ translations })
 })
 
-translateRouter.post('/', requireAuth, checkUsage, async (c) => {
+translateRouter.post('/', requireAuth, async (c) => {
   let body: { words?: unknown; targetLang?: unknown; contextsByWord?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const { words, targetLang, contextsByWord } = body as { words: unknown[]; targetLang: string; contextsByWord?: unknown }
@@ -191,7 +190,7 @@ translateRouter.post('/', requireAuth, checkUsage, async (c) => {
   return c.json({ translations: result })
 })
 
-translateRouter.post('/pronounce', requireAuth, checkUsage, async (c) => {
+translateRouter.post('/pronounce', requireAuth, async (c) => {
   let body: { text?: unknown; targetLang?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
   const { text, targetLang } = body

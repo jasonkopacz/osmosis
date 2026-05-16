@@ -82,9 +82,13 @@ describe('SRS DB layer', () => {
       expect(card?.reps).toBe(2)
     })
 
-    it('increments encounter_count on each upsert', async () => {
-      await upsertCard(db, userId, 'river', 'es', makeResult(), NOW)
-      await upsertCard(db, userId, 'river', 'es', makeResult({ reps: 2 }), NOW + 1)
+    it('does not touch encounter_count so passive history is preserved', async () => {
+      // Simulate passive encounters recorded before the first rating
+      await batchRecordEncounters(db, userId, ['river'], 'es', NOW)
+      await batchRecordEncounters(db, userId, ['river'], 'es', NOW + 1)
+      // Rating should not reset or increment encounter_count
+      await upsertCard(db, userId, 'river', 'es', makeResult(), NOW + 2)
+      await upsertCard(db, userId, 'river', 'es', makeResult({ reps: 2 }), NOW + 3)
       const card = await getCard(db, userId, 'river', 'es')
       expect(card?.encounterCount).toBe(2)
     })

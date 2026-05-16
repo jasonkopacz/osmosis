@@ -1,4 +1,5 @@
 import { SessionCache } from './cache'
+import { API_BASE_URL } from '../constants'
 import { getToken, setToken, clearToken, getRefreshToken, setRefreshToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken } from './api'
@@ -84,7 +85,11 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
 
 // Messages from externally_connectable web pages (e.g. the email verification page)
 // arrive here, not on onMessage.
-chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (sender.origin !== new URL(API_BASE_URL).origin) {
+    sendResponse({ error: 'UNAUTHORIZED_ORIGIN' })
+    return false
+  }
   if (message?.type !== 'SESSION_FROM_VERIFY') {
     sendResponse({ error: 'UNKNOWN_MESSAGE' })
     return false
