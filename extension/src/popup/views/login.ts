@@ -99,7 +99,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   errorEl.className = 'osmo-error'
 
   const submitBtn = document.createElement('button')
-  submitBtn.type = 'button'
+  submitBtn.type = 'submit'
   submitBtn.className = 'osmo-btn osmo-btn--primary'
   submitBtn.textContent = 'Sign in'
 
@@ -118,8 +118,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const googleBtnAfterEmail = makeSocialButton('Continue with Google')
 
   // Forgot-password panel
-  const forgotPanel = document.createElement('div')
+  const forgotPanel = document.createElement('form')
   forgotPanel.className = 'login-panel login-panel--hidden'
+  forgotPanel.noValidate = true
   const forgotTitle = document.createElement('p')
   forgotTitle.className = 'login-email-sent__title'
   forgotTitle.textContent = 'Reset your password'
@@ -131,7 +132,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   const forgotErrorEl = document.createElement('p')
   forgotErrorEl.className = 'osmo-error'
   const forgotSubmitBtn = document.createElement('button')
-  forgotSubmitBtn.type = 'button'
+  forgotSubmitBtn.type = 'submit'
   forgotSubmitBtn.className = 'osmo-btn osmo-btn--primary login-forgot-submit'
   forgotSubmitBtn.textContent = 'Send reset link'
   const forgotSentMsg = document.createElement('p')
@@ -143,7 +144,8 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   backFromForgotBtn.className = 'login-back-btn'
   forgotPanel.append(forgotTitle, forgotDesc, forgotEmailField, forgotErrorEl, forgotSubmitBtn, forgotSentMsg, backFromForgotBtn)
 
-  forgotSubmitBtn.addEventListener('click', async () => {
+  forgotPanel.addEventListener('submit', async (e) => {
+    e.preventDefault()
     const email = forgotEmailInput.value.trim().toLowerCase()
     forgotErrorEl.textContent = ''
     if (!email) { forgotErrorEl.textContent = 'Email is required.'; return }
@@ -162,7 +164,6 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       forgotSubmitBtn.textContent = 'Send reset link'
     }
   })
-  forgotEmailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') forgotSubmitBtn.click() })
   forgotEmailInput.addEventListener('blur', () => {
     const val = forgotEmailInput.value.trim()
     if (val && !EMAIL_RE.test(val)) {
@@ -230,8 +231,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   backToFormBtn.className = 'login-alt-btn'
   emailSentPanel.append(emailSentTitle, emailSentBody, oauthSentErrorEl, sentDivider, googleBtnAfterEmail, backToFormBtn)
 
-  const formPanel = document.createElement('div')
+  const formPanel = document.createElement('form')
   formPanel.className = 'login-panel'
+  formPanel.noValidate = true
 
   function showFormChrome(): void {
     emailSentPanel.classList.add('login-panel--hidden')
@@ -394,14 +396,11 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     }
   }
 
-  submitBtn.addEventListener('click', () => void submit())
+  formPanel.addEventListener('submit', e => { e.preventDefault(); void submit() })
   backToFormBtn.addEventListener('click', () => {
     log('[osmosis:popup:login] back from email sent')
     showFormChrome()
   })
-  emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
-  passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
-  passwordConfirmInput.addEventListener('keydown', e => { if (e.key === 'Enter') void submit() })
   emailInput.addEventListener('blur', () => {
     const val = emailInput.value.trim()
     if (val && !EMAIL_RE.test(val)) {

@@ -83,7 +83,7 @@ export function renderMain(
   // ── Tab bar
   const tabBar = document.createElement('div')
   tabBar.className = 'tab-bar'
-
+  tabBar.role = 'tablist'
   const tabs: Array<{ id: TabId; label: string; icon: string }> = [
     { id: 'home',     label: 'Translate', icon: ICON_HOME     },
     { id: 'progress', label: 'Progress',  icon: ICON_PROGRESS },
@@ -97,6 +97,9 @@ export function renderMain(
     const btn = document.createElement('button')
     btn.className = 'tab-btn'
     btn.setAttribute('aria-label', label)
+    btn.role = 'tab'
+    btn.setAttribute('aria-controls', `tab-content-${id}`)
+    btn.setAttribute('tabindex', '0')
 
     const iconWrap = document.createElement('span')
     iconWrap.innerHTML = icon
