@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../constants'
-import type { TranslationEntry, SrsRateResult } from '../types'
+import type { TranslationEntry, SrsRateResult, SrsDueCard, SrsStats, UserProfile } from '../types'
+import { isUserProfile } from '../types'
 import { warn } from '../logger'
 
 function parseApiJson<T>(res: Response, bodyText: string): T {
@@ -144,9 +145,11 @@ export async function pronounceText(
   return res.json() as Promise<{ audioBase64: string; mimeType: string; voice: string }>
 }
 
-export async function fetchUser(token: string): Promise<unknown> {
+export async function fetchUser(token: string): Promise<UserProfile | null> {
   const res = await fetch(`${API_BASE_URL}/user/me`, { headers: { Authorization: `Bearer ${token}` } })
-  return res.ok ? res.json() : null
+  if (!res.ok) return null
+  const data: unknown = await res.json()
+  return isUserProfile(data) ? data : null
 }
 
 export async function fetchPopularTranslations(lang: string, token: string, limit = 500): Promise<Map<string, TranslationEntry>> {
@@ -174,29 +177,29 @@ export async function srsRateWord(
   })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
-  return res.json()
+  return (await res.json()) as SrsRateResult
 }
 
 export async function srsGetDue(
   targetLang: string, token: string, limit = 20
-): Promise<unknown> {
+): Promise<{ cards: SrsDueCard[] }> {
   const res = await fetch(
     `${API_BASE_URL}/srs/due?lang=${encodeURIComponent(targetLang)}&limit=${limit}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
-  return res.json()
+  return (await res.json()) as { cards: SrsDueCard[] }
 }
 
-export async function srsGetStats(targetLang: string, token: string): Promise<unknown> {
+export async function srsGetStats(targetLang: string, token: string): Promise<SrsStats> {
   const res = await fetch(
     `${API_BASE_URL}/srs/stats?lang=${encodeURIComponent(targetLang)}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
-  return res.json()
+  return (await res.json()) as SrsStats
 }
 
 export async function srsReportEncounters(

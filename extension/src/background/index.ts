@@ -7,7 +7,7 @@ import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
 import { addMasteredWord, removeMasteredWord } from '../utils/masteredWords'
-import type { Message, UserProfile, TranslationEntry, SrsDueCard } from '../types'
+import type { Message, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
 
 const cache = new SessionCache()
@@ -33,7 +33,7 @@ async function afterLogin(token: string, refreshToken?: string): Promise<{ token
   if (refreshToken) await setRefreshToken(refreshToken)
   cache.clear()
   lastPrewarmedLang = null
-  const user = (await fetchUser(token)) as UserProfile | null
+  const user = await fetchUser(token)
   if (user) await setUserProfileCache(user)
   const r = await chrome.storage.sync.get('osmosis_settings')
   const lang = (r.osmosis_settings as { targetLang?: string } | undefined)?.targetLang
@@ -60,7 +60,7 @@ async function tryRefreshAndRetry<T>(retryFn: (token: string) => Promise<T>): Pr
 
 async function refreshUserProfileInBackground(token: string): Promise<void> {
   try {
-    const user = (await fetchUser(token)) as UserProfile | null
+    const user = await fetchUser(token)
     if (user) {
       await setUserProfileCache(user)
       log('[osmosis:bg] user profile refresh OK')
@@ -231,7 +231,7 @@ async function handle(msg: Message): Promise<unknown> {
     }
     log('[osmosis:bg] GET_USER: fetching /user/me')
     try {
-      const user = (await fetchUser(token)) as UserProfile | null
+      const user = await fetchUser(token)
       if (user) {
         await setUserProfileCache(user)
         return user
@@ -386,13 +386,13 @@ async function handle(msg: Message): Promise<unknown> {
     if (!token) return { error: 'NOT_LOGGED_IN' }
     try {
       const [stats, sessionCount] = await Promise.all([
-        srsGetStats(msg.targetLang, token) as Promise<Record<string, unknown>>,
+        srsGetStats(msg.targetLang, token),
         getSessionCount(msg.targetLang),
       ])
       return {
         ...stats,
         sessionCount,
-        reviewReady: sessionCount >= REVIEW_THRESHOLD || (stats['dueCount'] as number) > 0,
+        reviewReady: sessionCount >= REVIEW_THRESHOLD || stats.dueCount > 0,
       }
     } catch (err) {
       const s = String(err)
@@ -410,7 +410,7 @@ async function handle(msg: Message): Promise<unknown> {
     try {
       const limit = msg.limit ?? REVIEW_THRESHOLD
       const [dueResult, sessionWords] = await Promise.all([
-        srsGetDue(msg.targetLang, token, limit) as Promise<{ cards?: SrsDueCard[] }>,
+        srsGetDue(msg.targetLang, token, limit),
         getSessionWords(msg.targetLang),
       ])
       const dueCards: SrsDueCard[] = dueResult.cards ?? []

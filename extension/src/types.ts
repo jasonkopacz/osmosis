@@ -20,6 +20,15 @@ export type UserProfile = {
   usage: { used: number; limit: number | null; resetsAt: string }
 }
 
+export function isUserProfile(v: unknown): v is UserProfile {
+  return (
+    typeof v === 'object' && v !== null &&
+    'email' in v && typeof (v as UserProfile).email === 'string' &&
+    'plan' in v &&
+    'usage' in v && typeof (v as UserProfile).usage === 'object'
+  )
+}
+
 export type Message =
   | { type: 'TRANSLATE'; words: string[]; targetLang: string; contextsByWord?: Record<string, string> }
   | { type: 'PRONOUNCE'; text: string; targetLang: string }

@@ -7,6 +7,7 @@ import './styles/settings.css'
 import './styles/progress.css'
 import './styles/quiz.css'
 import type { UserProfile, UserSettings, Message } from '../types'
+import { isUserProfile } from '../types'
 import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../constants'
 import { normalizeTargetLang } from '../languages'
 import { renderLogin } from './views/login'
@@ -29,9 +30,6 @@ async function loadSettings(): Promise<UserSettings> {
   return { ...merged, targetLang: normalizeTargetLang(merged.targetLang) }
 }
 
-function isUserProfile(v: unknown): v is UserProfile {
-  return typeof v === 'object' && v !== null && 'email' in v && typeof (v as UserProfile).email === 'string'
-}
 
 async function consumeVerifySessionFromHash(): Promise<void> {
   const hash = window.location.hash.replace(/^#/, '')
