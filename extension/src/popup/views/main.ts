@@ -28,6 +28,10 @@ const ICON_QUIZ = `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="rou
   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
 </svg>`
 
+// Tracks the storage listener registered by the most recent renderMain call so
+// it can be removed before the next render instead of accumulating.
+let activeStorageListener: ((changes: Record<string, chrome.storage.StorageChange>) => void) | null = null
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function saveAndBroadcast(settings: UserSettings): Promise<void> {
@@ -52,6 +56,10 @@ export function renderMain(
   user: UserProfile,
   onSettings: () => void,
 ): void {
+  if (activeStorageListener) {
+    chrome.storage.local.onChanged.removeListener(activeStorageListener)
+    activeStorageListener = null
+  }
   root.replaceChildren()
 
   let s: UserSettings = { ...settings }
@@ -164,14 +172,15 @@ export function renderMain(
   let broadcastTimer: ReturnType<typeof setTimeout> | null = null
 
   // Clear loading state the instant the content script writes final PAGE_STATS
-  chrome.storage.local.onChanged.addListener((changes) => {
+  activeStorageListener = (changes) => {
     const pageStatsChange = changes[STORAGE_KEYS.PAGE_STATS]
     if (!pageStatsChange) return
     if (broadcastTimer) { clearTimeout(broadcastTimer); broadcastTimer = null }
     const stats = pageStatsChange.newValue as PageStats | undefined
     hintEl.textContent = formatHint(stats, s.targetLang)
     hintEl.classList.remove('osmo-hint--active')
-  })
+  }
+  chrome.storage.local.onChanged.addListener(activeStorageListener)
 
   function broadcast(newSettings: UserSettings): void {
     s = newSettings
