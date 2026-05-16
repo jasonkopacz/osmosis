@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { signJWT } from '../utils/jwt'
+import { signJWT, generateRefreshToken, ACCESS_TOKEN_EXPIRY_SECS, REFRESH_TOKEN_TTL_SECS } from '../utils/jwt'
 import { hashPassword, verifyPassword, DUMMY_HASH } from '../utils/passwords'
 import { createUser, findUserByEmail, findUserById, verifyUserEmail, DuplicateEmailError } from '../db/users'
 import {
@@ -26,8 +26,6 @@ import { updatePassword } from '../db/users'
 export const authRouter = new Hono<{ Bindings: Env }>()
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const ACCESS_TOKEN_EXPIRY_SECS = 60 * 60          // 1 hour
-const REFRESH_TOKEN_TTL_SECS = 60 * 60 * 24 * 30  // 30 days
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_SPECIAL_RE = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/
 
@@ -41,13 +39,6 @@ function validateNewPassword(password: string): string | null {
   return null
 }
 
-async function generateRefreshToken(kv: KVNamespace, userId: string): Promise<string> {
-  const buf = new Uint8Array(32)
-  crypto.getRandomValues(buf)
-  const token = [...buf].map(b => b.toString(16).padStart(2, '0')).join('')
-  await kv.put(`refresh:${token}`, userId, { expirationTtl: REFRESH_TOKEN_TTL_SECS })
-  return token
-}
 
 function verifyLandingPageHtml(jwt: string, refreshToken: string, extensionId: string): string {
   // jwt is base64url (A-Za-z0-9-_.) and refreshToken is hex — both safe as JS string literals

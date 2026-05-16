@@ -234,7 +234,7 @@ function normalizeChromeExtensionRedirectUri(raw: string): string {
   return raw
 }
 
-export async function loginWithGoogle(): Promise<string> {
+export async function loginWithGoogle(): Promise<{ token: string; refreshToken?: string }> {
   const redirectUri = normalizeChromeExtensionRedirectUri(chrome.identity.getRedirectURL())
   // state is kept in closure for CSRF verification — storage is not needed
   const state = crypto.randomUUID()
@@ -289,8 +289,8 @@ export async function loginWithGoogle(): Promise<string> {
     body: JSON.stringify({ code, redirect_uri: redirectUri }),
   })
   const exchText = await exch.text()
-  const body = parseApiJson<{ token?: string; error?: string }>(exch, exchText)
+  const body = parseApiJson<{ token?: string; refreshToken?: string; error?: string }>(exch, exchText)
   if (!exch.ok) throw new Error(body.error ?? 'Google sign-in failed')
   if (!body.token) throw new Error('No token from server')
-  return body.token
+  return { token: body.token, refreshToken: body.refreshToken }
 }

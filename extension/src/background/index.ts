@@ -250,9 +250,9 @@ async function handle(msg: Message): Promise<unknown> {
 
   if (msg.type === 'GOOGLE_LOGIN') {
     try {
-      const token = await loginWithGoogle()
+      const { token, refreshToken } = await loginWithGoogle()
       log('[osmosis:bg] GOOGLE_LOGIN: success')
-      const result = await afterLogin(token)
+      const result = await afterLogin(token, refreshToken)
       // Popup closed when the OAuth window stole focus — reopen it now that the flow is done
       void chrome.action.openPopup().catch(() => {/* already open, or window not focused */})
       return result

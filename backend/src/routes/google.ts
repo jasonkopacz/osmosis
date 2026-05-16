@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import { signJWT } from '../utils/jwt'
+import { signJWT, generateRefreshToken, ACCESS_TOKEN_EXPIRY_SECS } from '../utils/jwt'
 import { hashPassword } from '../utils/passwords'
 import {
   buildGoogleAuthorizeUrl,
@@ -66,10 +66,11 @@ googleOAuthRouter.post('/exchange', async c => {
 
   let user = await findUserByGoogleSub(c.env.DB, googleSub)
   if (user) {
-    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
+    const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
     const token = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
+    const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, user.id)
     console.log(`[auth/google] existing google user ${user.id}`)
-    return c.json({ token })
+    return c.json({ token, refreshToken })
   }
 
   const byEmail = await findUserByEmail(c.env.DB, email)
@@ -79,10 +80,11 @@ googleOAuthRouter.post('/exchange', async c => {
     }
     if (!byEmail.google_sub) {
       await linkGoogleToEmailUser(c.env.DB, byEmail.id, googleSub)
-      const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
+      const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
       const token = await signJWT({ sub: byEmail.id, email: byEmail.email, plan: byEmail.plan, exp }, c.env.JWT_SECRET)
+      const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, byEmail.id)
       console.log(`[auth/google] linked Google to ${byEmail.id}`)
-      return c.json({ token })
+      return c.json({ token, refreshToken })
     }
   }
 
@@ -102,8 +104,9 @@ googleOAuthRouter.post('/exchange', async c => {
     console.error(`[auth/google] failed to retrieve newly created user for ${email}`)
     return c.json({ error: 'Account creation failed' }, 500)
   }
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
+  const exp = Math.floor(Date.now() / 1000) + ACCESS_TOKEN_EXPIRY_SECS
   const token = await signJWT({ sub: created.id, email: created.email, plan: created.plan, exp }, c.env.JWT_SECRET)
+  const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, created.id)
   console.log(`[auth/google] new user ${created.id}`)
-  return c.json({ token })
+  return c.json({ token, refreshToken })
 })
