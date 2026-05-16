@@ -167,6 +167,21 @@ export async function fetchPopularTranslations(lang: string, token: string, limi
   )
 }
 
+export async function fetchBillingUrl(path: '/user/checkout' | '/user/portal', token: string): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? `Server error (${res.status})`)
+  }
+  const data = await res.json() as { url?: string }
+  if (!data.url) throw new Error('No URL returned from server')
+  return data.url
+}
+
 export async function srsRateWord(
   word: string, targetLang: string, rating: number, token: string
 ): Promise<SrsRateResult> {

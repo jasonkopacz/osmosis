@@ -1,24 +1,6 @@
 import type { UserProfile, Message } from '../../types'
-import { getToken } from '../../background/auth'
 import { createUsageMeter } from '../components/usageMeter'
-import { API_BASE_URL, FREE_TIER_LIMIT } from '../../constants'
-
-async function apiFetch(path: string, token: string): Promise<{ url: string }> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (res.status === 401) {
-    await chrome.runtime.sendMessage({ type: 'SIGN_OUT' } satisfies Message)
-    window.location.reload()
-    throw new Error('Session expired — please sign in again')
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error ?? `Server error (${res.status})`)
-  }
-  return res.json() as Promise<{ url: string }>
-}
+import { FREE_TIER_LIMIT } from '../../constants'
 
 export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () => void): void {
   root.replaceChildren()
@@ -74,10 +56,10 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
       upgradeBtn.textContent = 'Opening checkout…'
       upgradeError.style.display = 'none'
       try {
-        const token = await getToken()
-        if (!token) throw new Error('Not signed in')
-        const { url } = await apiFetch('/user/checkout', token)
-        await chrome.tabs.create({ url })
+        const result = await chrome.runtime.sendMessage({ type: 'GET_CHECKOUT_URL' } satisfies Message) as
+          { url?: string; error?: string } | undefined
+        if (!result?.url) throw new Error(result?.error ?? 'Could not open checkout. Try again.')
+        await chrome.tabs.create({ url: result.url })
       } catch (err) {
         upgradeError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
         upgradeError.style.display = 'block'
@@ -103,10 +85,10 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
       manageBtn.textContent = 'Opening portal…'
       manageError.style.display = 'none'
       try {
-        const token = await getToken()
-        if (!token) throw new Error('Not signed in')
-        const { url } = await apiFetch('/user/portal', token)
-        await chrome.tabs.create({ url })
+        const result = await chrome.runtime.sendMessage({ type: 'GET_PORTAL_URL' } satisfies Message) as
+          { url?: string; error?: string } | undefined
+        if (!result?.url) throw new Error(result?.error ?? 'Could not open portal. Try again.')
+        await chrome.tabs.create({ url: result.url })
       } catch (err) {
         manageError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
         manageError.style.display = 'block'

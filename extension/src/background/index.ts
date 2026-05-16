@@ -2,7 +2,7 @@ import { SessionCache } from './cache'
 import { API_BASE_URL } from '../constants'
 import { getToken, setToken, clearToken, getRefreshToken, setRefreshToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken } from './api'
+import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, fetchBillingUrl, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
@@ -333,6 +333,24 @@ async function handle(msg: Message): Promise<unknown> {
       const errMsg = err instanceof Error ? err.message : String(err)
       warn('[osmosis:bg] DELETE_ACCOUNT failed', errMsg)
       return { error: errMsg }
+    }
+  }
+
+  if (msg.type === 'GET_CHECKOUT_URL' || msg.type === 'GET_PORTAL_URL') {
+    const path = msg.type === 'GET_CHECKOUT_URL' ? '/user/checkout' : '/user/portal'
+    const token = await getToken()
+    if (!token) return { error: 'NOT_LOGGED_IN' }
+    try {
+      const url = await fetchBillingUrl(path, token)
+      return { url }
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken =>
+          fetchBillingUrl(path, newToken).then(url => ({ url }))
+        )
+      }
+      return { error: err instanceof Error ? err.message : 'Something went wrong. Try again.' }
     }
   }
 
