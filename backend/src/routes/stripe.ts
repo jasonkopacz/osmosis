@@ -8,10 +8,11 @@ export const stripeRouter = new Hono<{ Bindings: Env }>()
 let _stripe: Stripe | null = null
 const getStripe = (key: string) => (_stripe ??= new Stripe(key))
 
-async function downgradeByCustomerId(db: Env['DB'], customerId: string, reason: string): Promise<void> {
+async function downgradeByCustomerId(db: Env['DB'], kv: KVNamespace, customerId: string, reason: string): Promise<void> {
   const user = await findUserByStripeCustomerId(db, customerId)
   if (user) {
     await updatePlan(db, user.id, 'free', customerId)
+    await kv.delete(`user_auth:${user.id}`)
     console.log(`[stripe/webhook] downgraded user ${user.id} to free (${reason})`)
   }
 }
@@ -51,6 +52,7 @@ stripeRouter.post('/webhook', async (c) => {
       session.payment_status === 'paid'
     ) {
       await updatePlan(c.env.DB, session.client_reference_id, 'pro', session.customer)
+      await c.env.TRANSLATION_CACHE.delete(`user_auth:${session.client_reference_id}`)
       console.log(`[stripe/webhook] upgraded user ${session.client_reference_id} to pro`)
     }
   }
@@ -58,21 +60,21 @@ stripeRouter.post('/webhook', async (c) => {
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as Stripe.Customer).id
-    await downgradeByCustomerId(c.env.DB, customerId, 'subscription deleted')
+    await downgradeByCustomerId(c.env.DB, c.env.TRANSLATION_CACHE, customerId, 'subscription deleted')
   }
 
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.paused') {
     const sub = event.data.object as Stripe.Subscription
     const customerId = typeof sub.customer === 'string' ? sub.customer : (sub.customer as Stripe.Customer).id
     if (['past_due', 'unpaid', 'canceled', 'incomplete_expired', 'paused'].includes(sub.status)) {
-      await downgradeByCustomerId(c.env.DB, customerId, `subscription ${sub.status}`)
+      await downgradeByCustomerId(c.env.DB, c.env.TRANSLATION_CACHE, customerId, `subscription ${sub.status}`)
     }
   }
 
   if (event.type === 'invoice.payment_failed') {
     const invoice = event.data.object as Stripe.Invoice
     const customerId = typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer as Stripe.Customer).id
-    await downgradeByCustomerId(c.env.DB, customerId, 'invoice payment failed')
+    await downgradeByCustomerId(c.env.DB, c.env.TRANSLATION_CACHE, customerId, 'invoice payment failed')
   }
 
   return c.json({ received: true })
