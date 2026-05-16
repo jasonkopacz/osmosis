@@ -1,5 +1,5 @@
-import type { UserProfile } from '../../types'
-import { clearToken, getToken } from '../../background/auth'
+import type { UserProfile, Message } from '../../types'
+import { getToken } from '../../background/auth'
 import { createUsageMeter } from '../components/usageMeter'
 import { API_BASE_URL, FREE_TIER_LIMIT } from '../../constants'
 
@@ -9,7 +9,7 @@ async function apiFetch(path: string, token: string): Promise<{ url: string }> {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (res.status === 401) {
-    await clearToken()
+    await chrome.runtime.sendMessage({ type: 'SIGN_OUT' } satisfies Message)
     window.location.reload()
     throw new Error('Session expired — please sign in again')
   }
@@ -122,7 +122,10 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
   const signOutBtn = document.createElement('button')
   signOutBtn.className = 'osmo-btn osmo-btn--danger'
   signOutBtn.textContent = 'Sign out'
-  signOutBtn.addEventListener('click', async () => { await clearToken(); window.location.reload() })
+  signOutBtn.addEventListener('click', async () => {
+    await chrome.runtime.sendMessage({ type: 'SIGN_OUT' } satisfies Message)
+    window.location.reload()
+  })
   body.appendChild(signOutBtn)
 
   body.appendChild(makeDivider())

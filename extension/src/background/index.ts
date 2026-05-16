@@ -336,6 +336,14 @@ async function handle(msg: Message): Promise<unknown> {
     }
   }
 
+  if (msg.type === 'SIGN_OUT') {
+    await clearToken()
+    cache.clear()
+    lastPrewarmedLang = null
+    log('[osmosis:bg] SIGN_OUT: session cleared')
+    return { ok: true }
+  }
+
   if (msg.type === 'SRS_RATE') {
     const token = await getToken()
     if (!token) return { error: 'NOT_LOGGED_IN' }

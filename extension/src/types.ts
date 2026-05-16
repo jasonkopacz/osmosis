@@ -40,6 +40,7 @@ export type Message =
   | { type: 'SESSION_FROM_VERIFY'; token: string; refreshToken?: string }
   | { type: 'FORGOT_PASSWORD'; email: string }
   | { type: 'DELETE_ACCOUNT' }
+  | { type: 'SIGN_OUT' }
   | { type: 'SRS_RATE'; word: string; targetLang: string; rating: SrsRating }
   | { type: 'SRS_GET_DUE'; targetLang: string; limit?: number }
   | { type: 'SRS_GET_REVIEW_SESSION'; targetLang: string; limit?: number }
