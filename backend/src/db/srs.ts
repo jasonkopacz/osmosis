@@ -176,44 +176,26 @@ export async function getSrsStats(
   const lang = targetLang.toLowerCase()
   const todayStart = nowSec - (nowSec % 86400) // floor to day boundary (UTC)
 
-  const [countRow, reviewedTodayRow, dueRow] = await Promise.all([
-    db
-      .prepare(`
-        SELECT
-          COUNT(*) AS total,
-          SUM(CASE WHEN state = 'review'     THEN 1 ELSE 0 END) AS in_review,
-          SUM(CASE WHEN state = 'relearning' THEN 1 ELSE 0 END) AS relearning
-        FROM word_cards
-        WHERE user_id = ? AND target_lang = ? AND reps > 0
-      `)
-      .bind(userId, lang)
-      .first<{ total: number; in_review: number; relearning: number }>(),
-
-    db
-      .prepare(`
-        SELECT COUNT(*) AS count
-        FROM word_cards
-        WHERE user_id = ? AND target_lang = ? AND last_rated_at >= ?
-      `)
-      .bind(userId, lang, todayStart)
-      .first<{ count: number }>(),
-
-    db
-      .prepare(`
-        SELECT COUNT(*) AS count
-        FROM word_cards
-        WHERE user_id = ? AND target_lang = ? AND due_at <= ? AND reps > 0
-      `)
-      .bind(userId, lang, nowSec)
-      .first<{ count: number }>(),
-  ])
+  const row = await db
+    .prepare(`
+      SELECT
+        SUM(CASE WHEN reps > 0                              THEN 1 ELSE 0 END) AS total,
+        SUM(CASE WHEN reps > 0 AND state = 'review'        THEN 1 ELSE 0 END) AS in_review,
+        SUM(CASE WHEN reps > 0 AND state = 'relearning'    THEN 1 ELSE 0 END) AS relearning,
+        SUM(CASE WHEN last_rated_at >= ?                   THEN 1 ELSE 0 END) AS reviewed_today,
+        SUM(CASE WHEN reps > 0 AND due_at <= ?             THEN 1 ELSE 0 END) AS due_count
+      FROM word_cards
+      WHERE user_id = ? AND target_lang = ?
+    `)
+    .bind(todayStart, nowSec, userId, lang)
+    .first<{ total: number; in_review: number; relearning: number; reviewed_today: number; due_count: number }>()
 
   return {
-    total: countRow?.total ?? 0,
-    inReview: countRow?.in_review ?? 0,
-    relearning: countRow?.relearning ?? 0,
-    reviewedToday: reviewedTodayRow?.count ?? 0,
-    dueCount: dueRow?.count ?? 0,
+    total:         row?.total          ?? 0,
+    inReview:      row?.in_review      ?? 0,
+    relearning:    row?.relearning     ?? 0,
+    reviewedToday: row?.reviewed_today ?? 0,
+    dueCount:      row?.due_count      ?? 0,
   }
 }
 
