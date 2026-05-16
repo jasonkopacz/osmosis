@@ -110,7 +110,6 @@ export function renderMain(
     if (id === 'quiz') {
       const badge = document.createElement('span')
       badge.className = 'tab-due-badge'
-      badge.style.display = 'none'
       btn.appendChild(badge)
       dueBadgeEl = badge
     }
@@ -158,7 +157,7 @@ export function renderMain(
     tabButtons.forEach((btn, tabId) => {
       btn.classList.toggle('tab-btn--active', tabId === id)
     })
-    if (id === 'quiz' && dueBadgeEl) dueBadgeEl.style.display = 'none'
+    if (id === 'quiz' && dueBadgeEl) dueBadgeEl.classList.remove('tab-due-badge--visible')
     switch (id) {
       case 'home':     renderHomeTab(content, s, user); break
       case 'progress': renderProgress(content, s, () => switchTab('quiz')); break
@@ -288,7 +287,7 @@ export function renderMain(
         dueBadgeEl.textContent = stats.dueCount > 0
           ? (stats.dueCount > 99 ? '99+' : stats.dueCount.toString())
           : '!'
-        dueBadgeEl.style.display = 'flex'
+        dueBadgeEl.classList.add('tab-due-badge--visible')
       }
     })
     .catch(() => { /* badge is optional */ })

@@ -118,6 +118,7 @@
 
 /* ── Errors ── */
 .settings-error { color: var(--error); font-size: 11px; text-align: center; margin-top: 4px; display: none; }
+.settings-error--visible { display: block; }
 
 /* ── Danger zone ── */
 .settings-danger-toggle {

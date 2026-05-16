@@ -54,7 +54,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
     upgradeBtn.addEventListener('click', async () => {
       upgradeBtn.disabled = true
       upgradeBtn.textContent = 'Opening checkout…'
-      upgradeError.style.display = 'none'
+      upgradeError.classList.remove('settings-error--visible')
       try {
         const result = await chrome.runtime.sendMessage({ type: 'GET_CHECKOUT_URL' } satisfies Message) as
           { url?: string; error?: string } | undefined
@@ -62,7 +62,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
         await chrome.tabs.create({ url: result.url })
       } catch (err) {
         upgradeError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
-        upgradeError.style.display = 'block'
+        upgradeError.classList.add('settings-error--visible')
       } finally {
         upgradeBtn.disabled = false
         upgradeBtn.textContent = '✦ Upgrade to Pro — Unlimited'
@@ -83,7 +83,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
     manageBtn.addEventListener('click', async () => {
       manageBtn.disabled = true
       manageBtn.textContent = 'Opening portal…'
-      manageError.style.display = 'none'
+      manageError.classList.remove('settings-error--visible')
       try {
         const result = await chrome.runtime.sendMessage({ type: 'GET_PORTAL_URL' } satisfies Message) as
           { url?: string; error?: string } | undefined
@@ -91,7 +91,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
         await chrome.tabs.create({ url: result.url })
       } catch (err) {
         manageError.textContent = err instanceof Error ? err.message : 'Something went wrong. Try again.'
-        manageError.style.display = 'block'
+        manageError.classList.add('settings-error--visible')
       } finally {
         manageBtn.disabled = false
         manageBtn.textContent = 'Manage Subscription'
@@ -149,25 +149,24 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
 
   confirmDeleteBtn.textContent = 'Yes, delete'
   const deleteErrorEl = document.createElement('p')
-  deleteErrorEl.className = 'osmo-error'
-  deleteErrorEl.style.display = 'none'
+  deleteErrorEl.className = 'settings-error'
   confirmBtns.append(cancelDeleteBtn, confirmDeleteBtn)
   confirmRow.append(confirmMsg, confirmBtns, deleteErrorEl)
 
   deleteBtn.addEventListener('click', () => {
-    deleteBtn.style.display = 'none'
+    deleteBtn.classList.add('osmo-btn--hidden')
     confirmRow.classList.add('settings-confirm-row--open')
   })
   cancelDeleteBtn.addEventListener('click', () => {
     confirmRow.classList.remove('settings-confirm-row--open')
-    deleteBtn.style.display = ''
-    deleteErrorEl.style.display = 'none'
+    deleteBtn.classList.remove('osmo-btn--hidden')
+    deleteErrorEl.classList.remove('settings-error--visible')
   })
   confirmDeleteBtn.addEventListener('click', async () => {
     confirmDeleteBtn.disabled = true
     cancelDeleteBtn.disabled = true
     confirmDeleteBtn.textContent = 'Deleting…'
-    deleteErrorEl.style.display = 'none'
+    deleteErrorEl.classList.remove('settings-error--visible')
     try {
       const result = await chrome.runtime.sendMessage({ type: 'DELETE_ACCOUNT' }) as
         { ok?: boolean; error?: string } | undefined
@@ -175,7 +174,7 @@ export function renderSettings(root: HTMLElement, user: UserProfile, onBack: () 
       window.location.reload()
     } catch (err) {
       deleteErrorEl.textContent = err instanceof Error ? err.message : 'Deletion failed. Try again.'
-      deleteErrorEl.style.display = 'block'
+      deleteErrorEl.classList.add('settings-error--visible')
     } finally {
       confirmDeleteBtn.disabled = false
       cancelDeleteBtn.disabled = false

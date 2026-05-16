@@ -88,7 +88,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   })
   pwdConfirmShell.append(passwordConfirmInput, pwdConfirmToggle)
   const passwordConfirmField = makeLabeledField('Confirm password', pwdConfirmShell)
-  passwordConfirmField.style.display = 'none'
+  passwordConfirmField.classList.add('login-field--hidden')
 
   const hintEl = document.createElement('p')
   hintEl.className = 'login-hint'
@@ -132,7 +132,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   forgotErrorEl.className = 'osmo-error'
   const forgotSubmitBtn = document.createElement('button')
   forgotSubmitBtn.type = 'button'
-  forgotSubmitBtn.className = 'osmo-btn osmo-btn--primary'
+  forgotSubmitBtn.className = 'osmo-btn osmo-btn--primary login-forgot-submit'
   forgotSubmitBtn.textContent = 'Send reset link'
   const forgotSentMsg = document.createElement('p')
   forgotSentMsg.className = 'login-sent-msg'
@@ -152,9 +152,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     forgotSubmitBtn.textContent = 'Sending…'
     try {
       await chrome.runtime.sendMessage({ type: 'FORGOT_PASSWORD', email } as Message)
-      forgotSubmitBtn.style.display = 'none'
-      forgotEmailField.style.display = 'none'
-      forgotSentMsg.style.display = 'block'
+      forgotSubmitBtn.classList.add('login-forgot-submit--hidden')
+      forgotEmailField.classList.add('login-field--hidden')
+      forgotSentMsg.classList.add('login-sent-msg--visible')
     } catch (e) {
       forgotErrorEl.textContent = e instanceof Error ? e.message : 'Something went wrong.'
     } finally {
@@ -183,9 +183,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     formPanel.classList.add('login-panel--hidden')
     emailSentPanel.classList.add('login-panel--hidden')
     forgotPanel.classList.remove('login-panel--hidden')
-    forgotSentMsg.style.display = 'none'
-    forgotSubmitBtn.style.display = ''
-    forgotEmailField.style.display = ''
+    forgotSentMsg.classList.remove('login-sent-msg--visible')
+    forgotSubmitBtn.classList.remove('login-forgot-submit--hidden')
+    forgotEmailField.classList.remove('login-field--hidden')
     forgotEmailInput.value = emailInput.value
     forgotErrorEl.textContent = ''
     title.textContent = 'Forgot password?'
@@ -236,7 +236,6 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
   function showFormChrome(): void {
     emailSentPanel.classList.add('login-panel--hidden')
     formPanel.classList.remove('login-panel--hidden')
-    titleBlock.style.display = 'flex'
     const isSignin = mode === 'signin'
     title.textContent = 'Welcome'
     subtitle.textContent = isSignin
@@ -279,9 +278,9 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     clearFieldErrors()
     passwordConfirmInput.value = ''
     passwordInput.autocomplete = isSignin ? 'current-password' : 'new-password'
-    hintEl.style.display = isSignin ? 'none' : ''
-    passwordConfirmField.style.display = isSignin ? 'none' : 'flex'
-    forgotLink.style.display = isSignin ? '' : 'none'
+    hintEl.classList.toggle('login-hint--hidden', isSignin)
+    passwordConfirmField.classList.toggle('login-field--hidden', isSignin)
+    forgotLink.classList.toggle('login-forgot-link--hidden', !isSignin)
     showFormChrome()
     log('[osmosis:popup:login] mode', m)
     requestAnimationFrame(() => {
@@ -346,7 +345,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       log('[osmosis:popup:login] signup request email', { email })
       submitBtn.disabled = true
       submitBtn.textContent = 'Sending…'
-      submitBtn.style.opacity = '0.78'
+      submitBtn.classList.add('osmo-btn--loading')
       try {
         const result = await chrome.runtime.sendMessage(
           { type: 'EMAIL_SIGNUP', email, password, passwordConfirm } as Message
@@ -363,7 +362,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
       } finally {
         submitBtn.disabled = false
         submitBtn.textContent = 'Send confirmation email'
-        submitBtn.style.opacity = '1'
+        submitBtn.classList.remove('osmo-btn--loading')
       }
       return
     }
@@ -372,7 +371,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
 
     submitBtn.disabled = true
     submitBtn.textContent = 'Signing in…'
-    submitBtn.style.opacity = '0.78'
+    submitBtn.classList.add('osmo-btn--loading')
 
     try {
       const result = await chrome.runtime.sendMessage(
@@ -391,7 +390,7 @@ export function renderLogin(root: HTMLElement, onSuccess: () => void): void {
     } finally {
       submitBtn.disabled = false
       submitBtn.textContent = 'Sign in'
-      submitBtn.style.opacity = '1'
+      submitBtn.classList.remove('osmo-btn--loading')
     }
   }
 
@@ -558,7 +557,7 @@ function wireOAuth(
     log('[osmosis:popup:login] oauth start', { provider })
     btn.disabled = true
     if (textSpan) textSpan.textContent = 'Opening…'
-    btn.style.opacity = '0.85'
+    btn.classList.add('osmo-btn--loading')
     try {
       const result = await chrome.runtime.sendMessage({ type: msgType } as Message) as
         | { token?: string; error?: string }
@@ -576,7 +575,7 @@ function wireOAuth(
     } finally {
       btn.disabled = false
       if (textSpan) textSpan.textContent = label
-      btn.style.opacity = '1'
+      btn.classList.remove('osmo-btn--loading')
     }
   })
 }
