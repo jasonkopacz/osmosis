@@ -71,14 +71,17 @@
   border: none;
   cursor: pointer;
   color: var(--text-mute);
-  padding: 4px;
+  padding: 6px;
   border-radius: var(--r-2);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
+  min-width: 28px;
+  min-height: 28px;
 }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
+.icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); color: var(--text); }
 
 /* ── Scrollable content area between tab-bar and footer ── */
 /* max-height = 600px popup cap − header(~47px) − tab-bar(~47px) − footer(~34px) − body padding(8px) */
@@ -86,6 +89,8 @@
 .tab-content {
   max-height: 464px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--shallow) transparent;
 }
 
 .tab-content::-webkit-scrollbar { width: 4px; }
@@ -119,12 +124,18 @@
   gap: 4px;
   margin-bottom: -1px;
   position: relative;
-  transition: color var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out);
+  border-radius: var(--r-2) var(--r-2) 0 0;
+  transition: color var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
 }
 
 .tab-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; }
-.tab-btn:hover { color: var(--text-soft); }
-.tab-btn--active { color: var(--current); border-bottom-color: var(--current); }
+.tab-btn:hover { color: var(--text-soft); background: rgba(110,180,220,.05); }
+.tab-btn--active {
+  color: var(--current);
+  border-bottom-color: var(--current);
+  background: rgba(34,211,238,.07);
+}
+.tab-btn:focus-visible { outline: none; box-shadow: var(--focus-ring-inset); }
 
 /* Due-count badge on Review tab */
 .tab-due-badge {

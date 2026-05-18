@@ -7,13 +7,14 @@
   cursor: pointer;
   flex-shrink: 0;
   background: var(--shallow);
-  border: 1px solid var(--line);
-  transition: background var(--d-2) var(--ease-out), border-color var(--d-2) var(--ease-out);
+  border: 1px solid var(--line-strong);
+  transition: background var(--d-2) var(--ease-out), border-color var(--d-2) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
 }
 .osmo-toggle--on {
   background: linear-gradient(180deg, #5cc6f5 0%, #2aa4e0 100%);
   border-color: var(--osmo);
 }
+.osmo-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .osmo-toggle__thumb {
   width: 18px;
   height: 18px;
@@ -29,11 +30,11 @@
 
 
 /* ── Usage meter ── */
-.osmo-usage__fill--warn  { box-shadow: 0 0 12px rgba(245,158,11,.5); }
-.osmo-usage__fill--error { box-shadow: 0 0 12px rgba(248,113,113,.6); }
+.osmo-usage__fill--warn  { box-shadow: 0 0 12px rgba(245,158,11,.5); background: linear-gradient(90deg, var(--osmo) 0%, var(--ember) 100%); }
+.osmo-usage__fill--error { box-shadow: 0 0 12px rgba(248,113,113,.6); background: linear-gradient(90deg, var(--ember) 0%, var(--error) 100%); }
 .osmo-usage__track {
-  height: 8px;
-  background: var(--shallow);
+  height: 6px;
+  background: var(--mid);
   border-radius: var(--r-pill);
   overflow: hidden;
   margin-top: 8px;
@@ -41,8 +42,9 @@
 }
 .osmo-usage__fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--droplet) 0%, var(--osmo) 60%, var(--ember) 100%);
+  background: linear-gradient(90deg, var(--droplet) 0%, var(--osmo) 100%);
   border-radius: inherit;
+  transition: width var(--d-3) var(--ease-out);
 }
 .osmo-usage__row {
   display: flex;
@@ -59,7 +61,7 @@
 .osmo-lang-input {
   width: 100%;
   background: var(--shallow);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
   padding: 9px 12px;
   color: var(--text);
@@ -69,36 +71,42 @@
   cursor: pointer;
   transition: border-color var(--d-1) var(--ease-out), box-shadow var(--d-2) var(--ease-out);
 }
-.osmo-lang-input:focus {
+.osmo-lang-input:focus,
+.osmo-lang-input:focus-visible {
   border-color: var(--current);
   box-shadow: 0 0 0 3px var(--current-soft);
   cursor: text;
+  outline: none;
 }
 .osmo-lang-input::placeholder { color: var(--text-mute); }
 .osmo-lang-dropdown {
   display: none;
   position: absolute;
   background: var(--deep);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
   max-height: 180px;
   overflow-y: auto;
   z-index: 999;
   width: 100%;
   margin-top: 4px;
-  box-shadow: var(--shadow-2);
-  scrollbar-width: none;
+  box-shadow: var(--shadow-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--shallow) transparent;
 }
-.osmo-lang-dropdown::-webkit-scrollbar { display: none; }
+.osmo-lang-dropdown::-webkit-scrollbar { width: 4px; }
+.osmo-lang-dropdown::-webkit-scrollbar-track { background: transparent; }
+.osmo-lang-dropdown::-webkit-scrollbar-thumb { background: var(--shallow); border-radius: var(--r-pill); }
 .osmo-lang-dropdown--open { display: block; }
 .osmo-lang-item {
-  padding: 8px 12px;
+  padding: 9px 12px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text);
   transition: background var(--d-1) var(--ease-out);
 }
-.osmo-lang-item:hover { background: var(--shallow); }
+.osmo-lang-item:hover,
+.osmo-lang-item:focus-visible { background: var(--shallow); outline: none; }
 
 /* ── Toast ── */
 .osmo-toast {
@@ -137,11 +145,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: filter var(--d-1) var(--ease-out), transform var(--d-1) var(--ease-out);
+  transition: filter var(--d-1) var(--ease-out), transform var(--d-1) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
   letter-spacing: 0.005em;
+  min-height: 38px;
 }
-.osmo-btn:active { transform: translateY(1px); }
-.osmo-btn:disabled { opacity: 0.72; cursor: not-allowed; }
+.osmo-btn:active:not(:disabled) { transform: translateY(1px); }
+.osmo-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.osmo-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .osmo-btn--primary {
   background: linear-gradient(180deg, #5cc6f5 0%, #2aa4e0 55%, #1e7fc0 100%);
@@ -183,21 +193,23 @@
 
 /* ── Text input ── */
 .osmo-input {
-  box-sizing: border-box;
   width: 100%;
   background: rgba(2,6,23,0.35);
   color: var(--text);
-  border: 1px solid rgba(110,180,220,.28);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
   padding: 9px 10px;
   font-family: inherit;
   font-size: 13px;
   outline: none;
   transition: border-color var(--d-1) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
+  min-height: 38px;
 }
-.osmo-input:focus {
+.osmo-input:focus,
+.osmo-input:focus-visible {
   border-color: var(--current);
   box-shadow: 0 0 0 3px var(--current-soft);
+  outline: none;
 }
 .osmo-input::placeholder { color: var(--text-mute); }
 .osmo-input--invalid {
@@ -209,21 +221,21 @@
 /* ── Banners ── */
 .osmo-banner {
   border-radius: var(--r-3);
-  padding: 9px 12px;
+  padding: 10px 12px;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 .osmo-banner--limit {
-  background: var(--ember-soft);
-  border: 1px solid rgba(248,113,113,0.4);
+  background: rgba(245,154,46,.12);
+  border: 1px solid rgba(248,113,113,0.35);
   color: var(--error);
 }
 .osmo-banner--onboard {
   background: var(--current-soft);
-  border: 1px solid rgba(34,211,238,0.3);
+  border: 1px solid rgba(34,211,238,0.28);
   color: var(--text-soft);
 }
 .osmo-banner__action {
@@ -234,10 +246,12 @@
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  padding: 0;
+  padding: 2px 0;
   text-align: left;
   text-decoration: underline;
+  align-self: flex-start;
 }
+.osmo-banner__action:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-1); }
 
 /* ── Badge ── */
 .osmo-badge {
@@ -273,7 +287,7 @@
 
 .cefr-btn {
   flex: 1;
-  padding: 5px 2px;
+  padding: 6px 2px;
   background: none;
   border: none;
   border-radius: var(--r-2);
@@ -283,11 +297,13 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-mute);
-  transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out);
+  transition: color var(--d-1) var(--ease-out), background var(--d-1) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
   white-space: nowrap;
+  min-height: 28px;
 }
 
-.cefr-btn:hover { color: var(--text-soft); }
+.cefr-btn:hover { color: var(--text-soft); background: rgba(110,180,220,.06); }
+.cefr-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .cefr-btn--active {
   background: linear-gradient(180deg, var(--osmo-bright) 0%, var(--osmo) 100%);

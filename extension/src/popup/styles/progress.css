@@ -10,11 +10,16 @@
 
 .stat-card {
   background: var(--mid);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
   padding: 14px 8px;
   text-align: center;
-  transition: border-color var(--d-2) var(--ease-out), background var(--d-2) var(--ease-out);
+  transition: border-color var(--d-2) var(--ease-out), background var(--d-2) var(--ease-out), box-shadow var(--d-2) var(--ease-out);
+}
+
+.stat-card:hover {
+  border-color: var(--shoal);
+  background: var(--shallow);
 }
 
 .stat-card__value {
@@ -43,7 +48,7 @@
 
 .streak-card {
   background: var(--mid);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
   padding: 12px 8px;
   text-align: center;
@@ -101,10 +106,10 @@
 }
 
 .streak-today__step-btn {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   background: var(--shallow);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-2);
   color: var(--text);
   font-size: 14px;
@@ -114,12 +119,13 @@
   justify-content: center;
   padding: 0;
   cursor: pointer;
-  transition: background var(--d-1) var(--ease-out);
+  transition: background var(--d-1) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
   flex-shrink: 0;
 }
 
-.streak-today__step-btn:hover:not(:disabled) { background: var(--mid); }
+.streak-today__step-btn:hover:not(:disabled) { background: var(--shoal); }
 .streak-today__step-btn:disabled { opacity: 0.35; cursor: default; }
+.streak-today__step-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .streak-today__goal-val {
   font-size: 12px;

@@ -28,19 +28,23 @@
 /* ── Card ── */
 .quiz-card {
   background: linear-gradient(150deg, var(--mid) 0%, var(--deep) 100%);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-4);
   padding: 28px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  min-height: 160px;
+  min-height: 164px;
   justify-content: center;
-  transition: border-color var(--d-2) var(--ease-out);
+  transition: border-color var(--d-2) var(--ease-out), box-shadow var(--d-2) var(--ease-out);
+  box-shadow: var(--shadow-2);
 }
 
-.quiz-card--revealed { border-color: var(--line-strong); }
+.quiz-card--revealed {
+  border-color: rgba(34,211,238,.3);
+  box-shadow: 0 0 0 1px rgba(34,211,238,.08), var(--shadow-2);
+}
 
 /* ── Sentence mode ── */
 .quiz-context-sentence {
@@ -109,20 +113,22 @@
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.02em;
-  padding: 9px 4px;
+  padding: 10px 4px;
   border-radius: var(--r-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--mid);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  transition: background var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), transform var(--d-1) var(--ease-out);
+  transition: background var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), transform var(--d-1) var(--ease-out), box-shadow var(--d-1) var(--ease-out);
+  min-height: 52px;
 }
 
 .rating-btn:active:not(:disabled) { transform: translateY(1px); }
 .rating-btn:disabled { opacity: .45; cursor: not-allowed; }
+.rating-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .rating-btn__label { font-weight: 700; color: var(--text-soft); }
 .rating-btn__days  { font-size: 10px; color: var(--text-mute); }

@@ -37,4 +37,7 @@
   --ease-in:   cubic-bezier(.4,0,1,1);
   --ease-soak: cubic-bezier(.65,0,.35,1);
   --d-1: 120ms; --d-2: 220ms; --d-3: 360ms; --d-4: 600ms;
+  /* Accessibility */
+  --focus-ring: 0 0 0 2px var(--abyss), 0 0 0 4px var(--current);
+  --focus-ring-inset: inset 0 0 0 2px var(--current);
 }

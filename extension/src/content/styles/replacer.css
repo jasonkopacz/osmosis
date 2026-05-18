@@ -1,6 +1,6 @@
 /* Replaced word spans */
 .osmosis-word {
-  border-bottom: 1.5px dashed rgba(34,211,238,0.55);
+  border-bottom: 1.5px dashed rgba(34,211,238,0.6);
   color: inherit;
   cursor: inherit;
   position: relative;
@@ -8,10 +8,14 @@
   display: inline;
   vertical-align: baseline;
   pointer-events: auto;
-  transition: border-bottom-color 220ms cubic-bezier(.2,.8,.2,1);
+  transition: border-bottom-color 180ms cubic-bezier(.2,.8,.2,1);
+  border-radius: 1px;
 }
-.osmosis-word[data-state="fresh"]  { border-bottom-color: rgba(245,154,46,0.55); }
-.osmosis-word[data-state="known"]  { border-bottom-color: rgba(74,222,128,0.45); }
+.osmosis-word:hover { border-bottom-color: rgba(34,211,238,0.9); }
+.osmosis-word[data-state="fresh"]  { border-bottom-color: rgba(245,154,46,0.65); }
+.osmosis-word[data-state="fresh"]:hover  { border-bottom-color: rgba(245,154,46,0.95); }
+.osmosis-word[data-state="known"]  { border-bottom-color: rgba(74,222,128,0.5); }
+.osmosis-word[data-state="known"]:hover  { border-bottom-color: rgba(74,222,128,0.85); }
 
 /* SRS rating row inside tooltip */
 .osmo-tt-rate {
@@ -19,15 +23,15 @@
   gap: 6px;
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid rgba(110,180,220,.14);
+  border-top: 1px solid rgba(110,180,220,.18);
 }
 
 .osmo-tt-rate-btn {
   flex: 1;
-  background: none;
-  border: 1px solid rgba(110,180,220,.18);
+  background: rgba(110,180,220,.04);
+  border: 1px solid rgba(110,180,220,.2);
   border-radius: 6px;
-  padding: 5px 4px;
+  padding: 6px 4px;
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
@@ -38,45 +42,47 @@
   justify-content: center;
   gap: 4px;
   line-height: 1;
-  transition: background 120ms cubic-bezier(.2,.8,.2,1), border-color 120ms cubic-bezier(.2,.8,.2,1);
+  transition: background 120ms cubic-bezier(.2,.8,.2,1), border-color 120ms cubic-bezier(.2,.8,.2,1), transform 80ms ease;
+  min-height: 28px;
 }
+.osmo-tt-rate-btn:active { transform: translateY(1px); }
 
 .osmo-tt-rate-btn--know {
-  color: rgba(74,222,128,.9);
-  border-color: rgba(74,222,128,.3);
+  color: rgba(74,222,128,.95);
+  border-color: rgba(74,222,128,.32);
 }
-.osmo-tt-rate-btn--know:hover { background: rgba(74,222,128,.12); border-color: rgba(74,222,128,.55); }
+.osmo-tt-rate-btn--know:hover { background: rgba(74,222,128,.14); border-color: rgba(74,222,128,.6); }
 
 .osmo-tt-rate-btn--learn {
-  color: rgba(245,154,46,.9);
-  border-color: rgba(245,154,46,.3);
+  color: rgba(245,154,46,.95);
+  border-color: rgba(245,154,46,.32);
 }
-.osmo-tt-rate-btn--learn:hover { background: rgba(245,154,46,.1); border-color: rgba(245,154,46,.55); }
+.osmo-tt-rate-btn--learn:hover { background: rgba(245,154,46,.12); border-color: rgba(245,154,46,.6); }
 
-.osmo-tt-rate-btn--done { opacity: .45; pointer-events: none; }
+.osmo-tt-rate-btn--done { opacity: .4; pointer-events: none; }
 
 /* Tooltip host */
 #osmosis-tooltip-host {
   position: fixed;
   z-index: 2147483647;
   transform: translate(-50%, -100%);
-  background: linear-gradient(180deg, #0c2840 0%, #061a2c 100%);
+  background: linear-gradient(175deg, #0f3354 0%, #061a2c 100%);
   color: #ecf6ff;
-  border: 1px solid rgba(110,180,220,.28);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border: 1px solid rgba(110,180,220,.3);
+  border-radius: 14px;
+  padding: 11px 13px;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: normal;
-  min-width: 180px;
-  max-width: 280px;
-  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 24px 60px -16px rgba(2,8,20,.85), 0 0 0 1px rgba(110,180,220,.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  min-width: 190px;
+  max-width: 290px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 28px 64px -16px rgba(2,8,20,.9), 0 0 0 1px rgba(110,180,220,.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   pointer-events: auto;
   box-sizing: border-box;
   font-family: ui-sans-serif, system-ui, sans-serif;
-  transition: opacity 120ms cubic-bezier(.2,.8,.2,1);
+  transition: opacity 150ms cubic-bezier(.2,.8,.2,1);
   display: none;
   opacity: 0;
 }

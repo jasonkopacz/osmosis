@@ -134,8 +134,12 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 2px;
+  border-radius: var(--r-1);
+  transition: color var(--d-1) var(--ease-out);
 }
+.settings-danger-toggle:hover { color: var(--text-soft); }
+.settings-danger-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .settings-danger-chevron {
   font-size: 14px;
   display: inline-block;

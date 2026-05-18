@@ -8,6 +8,7 @@ body {
   padding-bottom: 8px;
   font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
+  line-height: 1.5;
   letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01","cv11";
@@ -15,6 +16,7 @@ body {
   background: radial-gradient(120% 80% at 50% 0%, #0c4a6e 0%, #042f2e 45%, #03101c 100%);
   color: var(--text);
   position: relative;
+  overflow-wrap: break-word;
 }
 
 body::before {
