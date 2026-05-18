@@ -22,10 +22,7 @@
   object-position: 50% 28%;
 }
 .login-hero__overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(2,6,23,0.04) 0%, rgba(2,6,23,0.35) 70%, rgba(2,6,23,0.82) 100%);
-  pointer-events: none;
+  display: none;
 }
 
 /* ── Glass card ── */
