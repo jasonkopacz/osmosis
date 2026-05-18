@@ -2,17 +2,12 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { requireAuth } from '../middleware/requireAuth'
 import { getUsage } from '../db/usage'
-import { getTopTranslations } from '../db/translations'
 import { deleteUser } from '../db/users'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
-import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
-import Stripe from 'stripe'
+import { getStripe } from '../utils/stripe'
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>()
-
-let _stripe: Stripe | null = null
-const getStripe = (key: string) => (_stripe ??= new Stripe(key))
 
 userRouter.get('/me', requireAuth, async (c) => {
   const userId = c.get('userId')
@@ -37,12 +32,6 @@ userRouter.get('/me', requireAuth, async (c) => {
   })
 })
 
-userRouter.get('/cache-stats', requireAuth, async (c) => {
-  const lang = c.req.query('lang')
-  if (!lang || !VALID_LANGUAGE_CODES.has(lang)) return c.json({ error: 'Valid lang query param required' }, 400)
-  const top = await getTopTranslations(c.env.DB, lang)
-  return c.json({ lang, topTranslations: top.map(r => ({ word: r.word, ...r.entry, hit_count: r.hit_count })) })
-})
 
 userRouter.post('/checkout', requireAuth, async (c) => {
   const priceId = c.env.STRIPE_PRO_PRICE_ID?.trim()

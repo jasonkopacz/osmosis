@@ -5,7 +5,8 @@ const SECRET = 'test-secret-that-is-long-enough-32chars'
 
 describe('JWT', () => {
   it('round-trips a valid token', async () => {
-    const token = await signJWT({ sub: 'user-1', email: 'a@b.com' }, SECRET)
+    const exp = Math.floor(Date.now() / 1000) + 3600
+    const token = await signJWT({ sub: 'user-1', email: 'a@b.com', exp }, SECRET)
     expect(await verifyJWT(token, SECRET)).toEqual({ userId: 'user-1', email: 'a@b.com', plan: 'free' })
   })
 

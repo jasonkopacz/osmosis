@@ -61,7 +61,8 @@ describe('requireAuth middleware', () => {
   })
 
   it('sets userId and email context for a valid token', async () => {
-    const token = await signJWT({ sub: 'user-123', email: 'test@test.com' }, JWT_SECRET)
+    const exp = Math.floor(Date.now() / 1000) + 3600
+    const token = await signJWT({ sub: 'user-123', email: 'test@test.com', exp }, JWT_SECRET)
     const res = await makeApp(db).request('/protected', { headers: { Authorization: `Bearer ${token}` } }, env)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ userId: 'user-123', email: 'test@test.com' })

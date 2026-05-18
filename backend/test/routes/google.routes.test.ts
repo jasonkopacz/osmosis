@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Hono } from 'hono'
-import { createTestDb, wrapDb } from '../helpers/db'
+import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { googleOAuthRouter } from '../../src/routes/google'
 import { createUser, findUserByEmail } from '../../src/db/users'
 import type { Env } from '../../src/types'
@@ -16,6 +16,7 @@ function makeApp(db: ReturnType<typeof wrapDb>, googleEnv: Partial<Env> = {}) {
     env: {
       DB: db,
       JWT_SECRET,
+      TRANSLATION_CACHE: mockKV,
       GOOGLE_CLIENT_ID: 'cid',
       GOOGLE_CLIENT_SECRET: 'csec',
       ...googleEnv,
@@ -108,7 +109,7 @@ describe('POST /auth/google/exchange', () => {
   it('returns 503 when OAuth is not configured', async () => {
     const app = new Hono<{ Bindings: Env }>()
     app.route('/auth/google', googleOAuthRouter)
-    const env = { DB: db, JWT_SECRET } as unknown as Env
+    const env = { DB: db, JWT_SECRET, TRANSLATION_CACHE: mockKV } as unknown as Env
     const res = await app.request(
       '/auth/google/exchange',
       {

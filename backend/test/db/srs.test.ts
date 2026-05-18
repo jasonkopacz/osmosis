@@ -112,6 +112,7 @@ describe('SRS DB layer', () => {
     })
 
     it('increments encounter_count for existing card', async () => {
+      await batchRecordEncounters(db, userId, ['moon'], 'es', NOW)
       await upsertCard(db, userId, 'moon', 'es', makeResult(), NOW)
       await batchRecordEncounters(db, userId, ['moon'], 'es', NOW + 1)
       const card = await getCard(db, userId, 'moon', 'es')

@@ -40,6 +40,7 @@ app.route('/translate', translateRouter)
 app.route('/user', userRouter)
 app.route('/stripe', stripeRouter)
 app.route('/srs', srsRouter)
+app.get('/robots.txt', (c) => c.text('User-agent: *\nDisallow: /\n'))
 app.get('/health', (c) => c.json({ ok: true }))
 
 export default app

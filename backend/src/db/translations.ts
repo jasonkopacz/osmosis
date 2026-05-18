@@ -102,6 +102,7 @@ export async function batchSetTranslationCached(
             translation = excluded.translation,
             pos_tag = excluded.pos_tag,
             alternatives = excluded.alternatives,
+            hit_count = translation_cache.hit_count,
             expires_at = excluded.expires_at
         `)
         .bind(...values)

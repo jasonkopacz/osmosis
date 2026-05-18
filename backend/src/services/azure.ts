@@ -158,11 +158,10 @@ export async function translateWords(
       const payloadWithContext = makeBody(hasContextInChunk)
       const payloadWithoutContext = makeBody(false)
       const contextedWordsInChunk = payloadWithContext.filter(item => 'Context' in item).length
-      console.log('[azure] translate chunk payload', {
+      console.log('[azure] translate chunk', {
         chunkSize: chunk.length,
         hasContextInChunk,
         contextedWordsInChunk,
-        payload: payloadWithContext,
       })
 
       let res = await fetch(`${TRANSLATE_ENDPOINT}&to=${encodeURIComponent(targetLang)}`, {
@@ -175,10 +174,7 @@ export async function translateWords(
       if (!res.ok && hasContextInChunk) {
         const firstErrorBody = await res.text().catch(() => '')
         console.warn(`[azure] /translate with context failed, retrying without context: ${res.status} ${firstErrorBody.slice(0, 120)}`)
-        console.log('[azure] translate chunk fallback payload', {
-          chunkSize: chunk.length,
-          payload: payloadWithoutContext,
-        })
+        console.log('[azure] translate chunk fallback (no context)', { chunkSize: chunk.length })
         res = await fetch(`${TRANSLATE_ENDPOINT}&to=${encodeURIComponent(targetLang)}`, {
           method: 'POST',
           headers: headers(apiKey, region),

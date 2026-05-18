@@ -21,6 +21,8 @@ export function createTestDb() {
   // 0006–0008 added then removed meta/apple/microsoft OAuth; files deleted after 0009 landed
   runFile('0009_remove_meta_apple_microsoft.sql')
   runFile('0010_word_cards.sql')
+  runFile('0011_user_verified.sql')
+  runFile('0012_translation_cache_ttl.sql')
   return db
 }
 
@@ -32,19 +34,33 @@ export const mockKV: KVNamespace = {
   getWithMetadata: async () => ({ value: null, metadata: null, cacheStatus: null }),
 } as unknown as KVNamespace
 
+type BoundStmt = {
+  first: <T>() => Promise<T | null>
+  run: () => Promise<{ success: boolean; meta: { changes?: number } }>
+  all: <T>() => Promise<{ results: T[] }>
+  _rawRun: () => unknown
+}
+
 export function wrapDb(db: ReturnType<typeof createTestDb>): D1Database {
+  const prepare = (sql: string) => {
+    const stmt = db.prepare(sql)
+    return {
+      bind: (...args: unknown[]): BoundStmt => ({
+        first: async <T>() => (stmt.get(...args) ?? null) as T | null,
+        run: async () => { const r = stmt.run(...args); return { success: true, meta: { changes: r.changes } } },
+        all: async <T>() => ({ results: stmt.all(...args) as T[] }),
+        _rawRun: () => stmt.run(...args),
+      }),
+      first: async <T>() => (stmt.get() ?? null) as T | null,
+      run: async () => { stmt.run(); return { success: true, meta: {} } },
+    }
+  }
+
   return {
-    prepare: (sql: string) => {
-      const stmt = db.prepare(sql)
-      return {
-        bind: (...args: unknown[]) => ({
-          first: async <T>() => (stmt.get(...args) ?? null) as T | null,
-          run: async () => { const r = stmt.run(...args); return { success: true, meta: { changes: r.changes } } },
-          all: async <T>() => ({ results: stmt.all(...args) as T[] }),
-        }),
-        first: async <T>() => (stmt.get() ?? null) as T | null,
-        run: async () => { stmt.run(); return { success: true, meta: {} } },
-      }
+    prepare,
+    batch: async (stmts: BoundStmt[]) => {
+      const tx = db.transaction(() => stmts.map(s => { s._rawRun(); return { success: true, results: [], meta: {} } }))
+      return tx()
     },
   } as unknown as D1Database
 }

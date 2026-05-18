@@ -1,6 +1,7 @@
 import type { UserSettings, SrsStats, StreakInfo, Message } from '../../types'
 import { renderStreakSection } from '../components/streakDisplay'
 import { langName } from '../../languages'
+import { REVIEW_THRESHOLD } from '../../constants'
 
 export function renderProgress(
   container: HTMLElement,
@@ -87,7 +88,7 @@ function paint(
     body.appendChild(cta)
   } else {
     const sessionCount = stats.sessionCount ?? 0
-    const remaining = Math.max(0, 25 - sessionCount)
+    const remaining = Math.max(0, REVIEW_THRESHOLD - sessionCount)
     const allDone = document.createElement('div')
     allDone.className = 'osmo-hint progress-all-done'
     allDone.textContent = remaining > 0

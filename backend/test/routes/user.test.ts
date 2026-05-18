@@ -2,18 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
 import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { signJWT } from '../../src/utils/jwt'
-import { createUser, findUserByEmail, updatePlan } from '../../src/db/users'
+import { createUser, findUserByEmail, updatePlan, verifyUserEmail } from '../../src/db/users'
 import type { Env, Variables } from '../../src/types'
 
-const { mockCheckoutCreate, mockPortalCreate } = vi.hoisted(() => ({
+const { mockCheckoutCreate, mockPortalCreate, mockCustomersDel } = vi.hoisted(() => ({
   mockCheckoutCreate: vi.fn(),
   mockPortalCreate: vi.fn(),
+  mockCustomersDel: vi.fn(),
 }))
 
 vi.mock('stripe', () => {
   class MockStripe {
     checkout = { sessions: { create: mockCheckoutCreate } }
     billingPortal = { sessions: { create: mockPortalCreate } }
+    customers = { del: mockCustomersDel }
   }
   return { default: MockStripe }
 })
@@ -39,7 +41,8 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
 }
 
 async function makeToken(userId: string, email = 'test@test.com') {
-  return signJWT({ sub: userId, email }, JWT_SECRET)
+  const exp = Math.floor(Date.now() / 1000) + 3600
+  return signJWT({ sub: userId, email, exp }, JWT_SECRET)
 }
 
 describe('GET /user/me', () => {
@@ -146,5 +149,58 @@ describe('POST /user/portal', () => {
     const res = await app.request('/user/portal', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }, env)
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ url: 'https://billing.stripe.com/portal' })
+  })
+})
+
+describe('DELETE /user/me', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'todelete@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+  })
+
+  it('requires authentication', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/user/me', { method: 'DELETE' }, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('deletes the account and returns ok', async () => {
+    const { app, env } = makeApp(db)
+    const token = await makeToken(userId, 'todelete@test.com')
+    const res = await app.request('/user/me', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+    expect(await findUserByEmail(db, 'todelete@test.com')).toBeNull()
+  })
+
+  it('succeeds even when Stripe customer deletion throws', async () => {
+    await updatePlan(db, userId, 'pro', 'cus_will_fail')
+    mockCustomersDel.mockRejectedValue(new Error('Stripe API failure'))
+    const { app, env } = makeApp(db)
+    const token = await makeToken(userId, 'todelete@test.com')
+    const res = await app.request('/user/me', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }, env)
+    expect(res.status).toBe(200)
+    expect(await findUserByEmail(db, 'todelete@test.com')).toBeNull()
+  })
+
+  it('calls Stripe customer deletion when stripe_customer_id is set', async () => {
+    await updatePlan(db, userId, 'pro', 'cus_to_delete')
+    mockCustomersDel.mockResolvedValue({})
+    const { app, env } = makeApp(db)
+    const token = await makeToken(userId, 'todelete@test.com')
+    await app.request('/user/me', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }, env)
+    expect(mockCustomersDel).toHaveBeenCalledWith('cus_to_delete')
+  })
+
+  it('skips Stripe when stripe_customer_id is null', async () => {
+    const { app, env } = makeApp(db)
+    const token = await makeToken(userId, 'todelete@test.com')
+    await app.request('/user/me', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }, env)
+    expect(mockCustomersDel).not.toHaveBeenCalled()
   })
 })

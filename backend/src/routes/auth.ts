@@ -327,6 +327,7 @@ authRouter.post('/login', async (c) => {
   const token = await signJWT({ sub: user.id, email: user.email, plan: user.plan, exp }, c.env.JWT_SECRET)
   const refreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, user.id)
   console.log(`[auth/login] user ${user.id}`)
+  c.header('Cache-Control', 'no-store')
   return c.json({ token, refreshToken })
 })
 
@@ -359,5 +360,6 @@ authRouter.post('/refresh', async (c) => {
   const newRefreshToken = await generateRefreshToken(c.env.TRANSLATION_CACHE, userId)
 
   console.log(`[auth/refresh] rotated token for user ${userId}`)
+  c.header('Cache-Control', 'no-store')
   return c.json({ token, refreshToken: newRefreshToken })
 })

@@ -1,12 +1,10 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
-import Stripe from 'stripe'
+import type Stripe from 'stripe'
 import { updatePlan, findUserByStripeCustomerId } from '../db/users'
+import { getStripe } from '../utils/stripe'
 
 export const stripeRouter = new Hono<{ Bindings: Env }>()
-
-let _stripe: Stripe | null = null
-const getStripe = (key: string) => (_stripe ??= new Stripe(key))
 
 async function downgradeByCustomerId(db: Env['DB'], kv: KVNamespace, customerId: string, reason: string): Promise<void> {
   const user = await findUserByStripeCustomerId(db, customerId)

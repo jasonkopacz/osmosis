@@ -25,7 +25,8 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
 }
 
 async function makeToken(userId: string) {
-  return signJWT({ sub: userId, email: 'test@example.com' }, JWT_SECRET)
+  const exp = Math.floor(Date.now() / 1000) + 3600
+  return signJWT({ sub: userId, email: 'test@example.com', exp }, JWT_SECRET)
 }
 
 describe('SRS routes', () => {

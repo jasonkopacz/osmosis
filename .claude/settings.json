@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run test*)",
+      "Bash(npm run typecheck*)",
+      "Bash(npm run build*)",
+      "Bash(npm run dev*)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(cat package.json)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git status*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "FILE=\"$CLAUDE_TOOL_INPUT_file_path\"; if [[ \"$FILE\" == */backend/*.ts ]]; then cd /Users/jasonkopacz/osmosis && npm run typecheck -w backend --silent 2>&1 | tail -15; elif [[ \"$FILE\" == */extension/*.ts ]]; then cd /Users/jasonkopacz/osmosis && npm run typecheck -w extension --silent 2>&1 | tail -15; fi; exit 0",
+        "description": "TypeScript check for the workspace matching the edited file"
+      },
+      {
+        "matcher": "Write|Edit",
+        "command": "FILE=\"$CLAUDE_TOOL_INPUT_file_path\"; if [[ \"$FILE\" == *.ts ]] && grep -nE '\\.style\\.(cssText|color|background|fontSize|display|flex|padding|margin|border|borderRadius|gap|width|height|position|top|left|right|bottom|font)' \"$FILE\" 2>/dev/null | grep -v '//'; then echo \"[CSS Rule] VIOLATION: static inline style found in $FILE — use a CSS class instead\"; fi; exit 0",
+        "description": "Warn when static inline styles are written in TypeScript files"
+      }
+    ]
+  }
+}

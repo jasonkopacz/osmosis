@@ -38,7 +38,9 @@ async function getSavedSession(lang: string): Promise<SavedSession | null> {
     const r = await chrome.storage.local.get(SESSION_KEY)
     const s = r[SESSION_KEY] as SavedSession | undefined
     if (s && s.lang === lang && s.index < s.cards.length) return s
-  } catch {}
+  } catch (e) {
+    console.warn('[osmosis:quiz] failed to restore session', e)
+  }
   return null
 }
 
@@ -48,8 +50,7 @@ export function renderQuiz(container: HTMLElement, settings: UserSettings): void
   container.replaceChildren()
 
   const hint = document.createElement('div')
-  hint.className = 'osmo-hint'
-  hint.style.padding = '28px 0'
+  hint.className = 'osmo-hint osmo-hint--quiz-loading'
   hint.textContent = 'Loading…'
   container.appendChild(hint)
 
@@ -307,8 +308,7 @@ function renderEmpty(container: HTMLElement): void {
 function renderError(container: HTMLElement): void {
   container.replaceChildren()
   const hint = document.createElement('div')
-  hint.className = 'osmo-hint'
-  hint.style.padding = '28px 0'
+  hint.className = 'osmo-hint osmo-hint--quiz-loading'
   hint.textContent = 'Could not load — try again'
   container.appendChild(hint)
 }

@@ -4,7 +4,7 @@ import type { KVNamespace } from '@cloudflare/workers-types'
 import { authRouter } from '../../src/routes/auth'
 import { createTestDb, wrapDb } from '../helpers/db'
 import { hashPassword } from '../../src/utils/passwords'
-import { createUser } from '../../src/db/users'
+import { createUser, findUserByEmail as _findUserByEmail, verifyUserEmail } from '../../src/db/users'
 import { verificationKvKey } from '../../src/services/emailSignup'
 import type { Env } from '../../src/types'
 
@@ -41,8 +41,10 @@ function makeApp(db: ReturnType<typeof wrapDb>, kv?: KVNamespace, extra?: Partia
   }
 }
 
-async function seedEmailPasswordUser(db: ReturnType<typeof wrapDb>, email: string, plainPassword: string): Promise<void> {
-  await createUser(db, email, await hashPassword(plainPassword))
+async function seedEmailPasswordUser(db: ReturnType<typeof wrapDb>, email: string, plainPassword: string): Promise<string> {
+  const userId = await createUser(db, email, await hashPassword(plainPassword))
+  await verifyUserEmail(db, userId)
+  return userId
 }
 
 function post(app: ReturnType<typeof makeApp>['app'], path: string, body: object, env: Env) {
@@ -165,27 +167,73 @@ describe('GET /auth/verify-email', () => {
     db = wrapDb(createTestDb())
   })
 
-  it('creates user and returns extension landing HTML', async () => {
+  it('returns confirm-button page for a valid token', async () => {
     const kv = createMockKV()
     const { app, env } = makeApp(db, kv)
     const token = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
-    await kv.put(
-      verificationKvKey(token),
-      JSON.stringify({
-        email: 'verify@test.com',
-        password_hash: await hashPassword(VALID_SIGNUP_PASSWORD),
-      }),
-    )
+    const userId = await createUser(db, 'verify@test.com', await hashPassword(VALID_SIGNUP_PASSWORD))
+    await kv.put(verificationKvKey(token), JSON.stringify({ userId }))
     const res = await app.request(`http://local/auth/verify-email?t=${token}`, {}, env)
     expect(res.status).toBe(200)
     const html = await res.text()
-    expect(html).toContain('chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef/')
-    expect(html).toContain('osmosis_session=')
+    expect(html).toContain('Confirm')
   })
 
-  it('returns 400 for invalid token', async () => {
+  it('returns 400 for invalid token format', async () => {
     const { app, env } = makeApp(db)
     const res = await app.request('http://local/auth/verify-email?t=nope', {}, env)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for unknown token', async () => {
+    const { app, env } = makeApp(db)
+    const token = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    const res = await app.request(`http://local/auth/verify-email?t=${token}`, {}, env)
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /auth/verify-email', () => {
+  let db: ReturnType<typeof wrapDb>
+
+  beforeEach(() => {
+    db = wrapDb(createTestDb())
+  })
+
+  it('returns extension landing HTML and marks email verified', async () => {
+    const kv = createMockKV()
+    const { app, env } = makeApp(db, kv)
+    const userId = await createUser(db, 'verify@test.com', await hashPassword(VALID_SIGNUP_PASSWORD))
+    const token = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    await kv.put(verificationKvKey(token), JSON.stringify({ userId }))
+    const res = await app.request('http://local/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: token }).toString(),
+    }, env)
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    expect(html).toContain('SESSION_FROM_VERIFY')
+    expect(html).toContain('abcdefghijklmnopqrstuvwxyzabcdef')
+  })
+
+  it('returns 400 for already-consumed token', async () => {
+    const kv = createMockKV()
+    const { app, env } = makeApp(db, kv)
+    const userId = await createUser(db, 'verify2@test.com', await hashPassword(VALID_SIGNUP_PASSWORD))
+    const token = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbee0'
+    await kv.put(verificationKvKey(token), JSON.stringify({ userId }))
+    await app.request('http://local/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: token }).toString(),
+    }, env)
+    // Second attempt with same token
+    const res = await app.request('http://local/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: token }).toString(),
+    }, env)
     expect(res.status).toBe(400)
   })
 })
@@ -232,4 +280,65 @@ describe('POST /auth/login', () => {
     expect(res.status).toBe(200)
   })
 
+  it('returns 403 for unverified account', async () => {
+    const { app, env } = makeApp(db)
+    await createUser(db, 'unverified@test.com', await hashPassword(VALID_SIGNUP_PASSWORD))
+    const res = await post(app, '/auth/login', { email: 'unverified@test.com', password: VALID_SIGNUP_PASSWORD }, env)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/confirm your email/i) })
+  })
+})
+
+describe('POST /auth/refresh', () => {
+  let db: ReturnType<typeof wrapDb>
+  let kv: KVNamespace
+
+  beforeEach(async () => {
+    db = wrapDb(createTestDb())
+    kv = createMockKV()
+  })
+
+  it('returns new token and refresh token for a valid refresh token', async () => {
+    const userId = await seedEmailPasswordUser(db, 'refresh@test.com', VALID_SIGNUP_PASSWORD)
+    await kv.put(`refresh:${'a'.repeat(64)}`, userId)
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/refresh', { refreshToken: 'a'.repeat(64) }, env)
+    expect(res.status).toBe(200)
+    const body = await res.json() as { token: string; refreshToken: string }
+    expect(typeof body.token).toBe('string')
+    expect(typeof body.refreshToken).toBe('string')
+  })
+
+  it('rotates the token — old token is consumed after use', async () => {
+    const userId = await seedEmailPasswordUser(db, 'rotate@test.com', VALID_SIGNUP_PASSWORD)
+    const oldToken = 'b'.repeat(64)
+    await kv.put(`refresh:${oldToken}`, userId)
+    const { app, env } = makeApp(db, kv)
+    await post(app, '/auth/refresh', { refreshToken: oldToken }, env)
+    const second = await post(app, '/auth/refresh', { refreshToken: oldToken }, env)
+    expect(second.status).toBe(401)
+  })
+
+  it('returns 401 for an unknown refresh token', async () => {
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/refresh', { refreshToken: 'c'.repeat(64) }, env)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: 'Invalid or expired refresh token' })
+  })
+
+  it('returns 400 when refreshToken field is missing', async () => {
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/refresh', {}, env)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'refreshToken required' })
+  })
+
+  it('returns 429 when rate limit is exceeded', async () => {
+    const { app, env } = makeApp(db, kv)
+    for (let i = 0; i < 20; i++) {
+      await post(app, '/auth/refresh', { refreshToken: 'd'.repeat(64) }, env)
+    }
+    const res = await post(app, '/auth/refresh', { refreshToken: 'd'.repeat(64) }, env)
+    expect(res.status).toBe(429)
+  })
 })

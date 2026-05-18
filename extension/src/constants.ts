@@ -1,6 +1,9 @@
 import type { UserSettings } from "./types";
 
-export const API_BASE_URL = "https://osmosis-api.jtkopacz.workers.dev";
+// Override at build time with VITE_API_BASE_URL for local dev or staging.
+export const API_BASE_URL: string =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_API_BASE_URL ?? "https://osmosis-api.jtkopacz.workers.dev";
 export const FREE_TIER_LIMIT = 50_000;
 export const MIN_TRANSLATION_PERCENTAGE = 10;
 export const MAX_TRANSLATION_PERCENTAGE = 90;

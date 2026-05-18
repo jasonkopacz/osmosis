@@ -1,6 +1,16 @@
 import type { StreakInfo } from '../../background/streak'
 import { setDailyGoal } from '../../background/streak'
 
+function debounce<T extends unknown[]>(fn: (...args: T) => void, ms: number): (...args: T) => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return (...args: T) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn(...args), ms)
+  }
+}
+
+const debouncedSetDailyGoal = debounce((goal: number) => { void setDailyGoal(goal) }, 500)
+
 const MIN_GOAL = 5
 const MAX_GOAL = 50
 const GOAL_STEP = 5
@@ -10,8 +20,7 @@ export function renderStreakSection(streakInfo: StreakInfo): HTMLDivElement {
 
   // ── Label
   const label = document.createElement('div')
-  label.className = 'field-label'
-  label.style.marginTop = '4px'
+  label.className = 'field-label field-label--streak'
   label.textContent = 'Reading streak'
   wrap.appendChild(label)
 
@@ -131,7 +140,7 @@ function makeTodayProgress(info: StreakInfo): HTMLDivElement {
     fill.className = met
       ? 'streak-today__fill streak-today__fill--met'
       : 'streak-today__fill'
-    fill.style.width = `${pct}%`
+    fill.style.transform = `scaleX(${pct / 100})`
     cnt.textContent = `${Math.min(info.todayCount, currentGoal)} / ${currentGoal}`
     cnt.className = met ? 'streak-today__count streak-today__count--met' : 'streak-today__count'
 
@@ -143,14 +152,14 @@ function makeTodayProgress(info: StreakInfo): HTMLDivElement {
     if (currentGoal <= MIN_GOAL) return
     currentGoal -= GOAL_STEP
     refresh()
-    void setDailyGoal(currentGoal)
+    debouncedSetDailyGoal(currentGoal)
   })
 
   incBtn.addEventListener('click', () => {
     if (currentGoal >= MAX_GOAL) return
     currentGoal += GOAL_STEP
     refresh()
-    void setDailyGoal(currentGoal)
+    debouncedSetDailyGoal(currentGoal)
   })
 
   refresh()

@@ -1,5 +1,7 @@
 /* ── Quiz / flashcard view ── */
 
+.osmo-hint--quiz-loading { padding: 28px 0; }
+
 .quiz-meta {
   display: flex;
   justify-content: space-between;
