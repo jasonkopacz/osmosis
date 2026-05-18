@@ -914,18 +914,22 @@ async function seedLanguage(langCode, langName) {
     '',
   ]
 
+  // 2 years — static seeds should never expire silently
+  const SEED_TTL_SECS = 2 * 365 * 24 * 60 * 60
+
   for (let i = 0; i < pairs.length; i += SQL_CHUNK_SIZE) {
     const chunk = pairs.slice(i, i + SQL_CHUNK_SIZE)
     const values = chunk
       .map(({ word, translation }) => {
         const w = word.replace(/'/g, "''")
         const t = translation.replace(/'/g, "''")
-        return `  ('${w}', '${langCode}', '${t}', 0, unixepoch())`
+        return `  ('${w}', '${langCode}', '${t}', 0, unixepoch() + ${SEED_TTL_SECS})`
       })
       .join(',\n')
     lines.push(
-      'INSERT OR IGNORE INTO translation_cache (word, target_lang, translation, hit_count, created_at) VALUES',
-      `${values};`,
+      'INSERT INTO translation_cache (word, target_lang, translation, hit_count, expires_at) VALUES',
+      `${values}`,
+      `ON CONFLICT(word, target_lang) DO UPDATE SET expires_at = MAX(translation_cache.expires_at, excluded.expires_at);`,
       '',
     )
   }
