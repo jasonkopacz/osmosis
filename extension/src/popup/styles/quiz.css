@@ -64,6 +64,7 @@
   color: var(--osmo-bright);
   line-height: 1.1;
   text-align: center;
+  text-transform: capitalize;
 }
 
 /* ── TTS button ── */
@@ -114,6 +115,7 @@
   color: var(--text);
   letter-spacing: -0.01em;
   text-align: center;
+  text-transform: capitalize;
 }
 
 /* ── Actions ── */
