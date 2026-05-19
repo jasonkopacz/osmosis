@@ -175,3 +175,96 @@
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 .osmo-tt-play-btn:hover { filter: brightness(1.1); }
+
+/* Header right group (POS tag + warn icon) */
+.osmo-tt-header-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+/* Warning icon button */
+.osmo-tt-warn-btn {
+  background: none;
+  border: none;
+  color: rgba(245,154,46,.65);
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 0 1px;
+  line-height: 1;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  transition: color 150ms ease;
+}
+.osmo-tt-warn-btn:hover { color: rgba(245,154,46,1); }
+
+/* Report form */
+.osmo-tt-report-heading {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.65);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.osmo-tt-report-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.osmo-tt-option-btn {
+  width: 100%;
+  background: rgba(110,180,220,.05);
+  border: 1px solid rgba(110,180,220,.15);
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 8px 10px;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.osmo-tt-option-btn:hover:not(:disabled) {
+  background: rgba(110,180,220,.12);
+  border-color: rgba(110,180,220,.4);
+}
+.osmo-tt-option-btn:disabled { opacity: .3; cursor: default; pointer-events: none; }
+.osmo-tt-option-btn.osmo-tt-option--done {
+  background: rgba(74,222,128,.08);
+  border-color: rgba(74,222,128,.3);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.osmo-tt-option-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ecf6ff;
+  margin-bottom: 2px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.osmo-tt-option-sublabel {
+  font-size: 10px;
+  color: rgba(180,210,240,.5);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.osmo-tt-option--done .osmo-tt-option-label { color: rgba(74,222,128,.95); }
+.osmo-tt-option--done .osmo-tt-option-sublabel { color: rgba(74,222,128,.6); }
+
+.osmo-tt-report-cancel {
+  background: none;
+  border: none;
+  color: rgba(110,180,220,.3);
+  font-size: 10px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 7px 0 2px;
+  display: block;
+  width: 100%;
+  text-align: center;
+  transition: color 120ms ease;
+}
+.osmo-tt-report-cancel:hover { color: rgba(110,180,220,.65); }
+.osmo-tt-report-cancel:disabled { opacity: .3; pointer-events: none; }

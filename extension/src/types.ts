@@ -50,6 +50,8 @@ export type Message =
   | { type: 'SRS_GET_STATS'; targetLang: string }
   | { type: 'SRS_REPORT_ENCOUNTERS'; words: string[]; targetLang: string }
   | { type: 'SRS_GET_STREAK' }
+  | { type: 'REPORT_BAD_TRANSLATION'; word: string; targetLang: string; translation: string; reason: string; removeFromSrs?: boolean }
+  | { type: 'REPORT_PROPER_NOUN'; word: string; targetLang: string }
 
 // 1=Again  2=Hard  3=Good  4=Easy
 export type SrsRating = 1 | 2 | 3 | 4

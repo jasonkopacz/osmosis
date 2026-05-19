@@ -45,7 +45,6 @@ function makeStreakCard(info: StreakInfo): HTMLDivElement {
 
   const iconEl = document.createElement('div')
   iconEl.className = 'streak-card__icon'
-  iconEl.textContent = info.streak > 0 ? '🔥' : '🌊'
   iconEl.setAttribute('aria-hidden', 'true')
 
   const val = document.createElement('div')
@@ -66,7 +65,6 @@ function makeLongestCard(longest: number): HTMLDivElement {
 
   const iconEl = document.createElement('div')
   iconEl.className = 'streak-card__icon'
-  iconEl.textContent = '🏆'
   iconEl.setAttribute('aria-hidden', 'true')
 
   const val = document.createElement('div')

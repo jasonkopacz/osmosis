@@ -150,7 +150,10 @@ export function renderMain(
     '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>'
   aboutBtn.addEventListener('click', () => renderAbout(root, () => renderMain(root, s, user, onSettings)))
 
-  footer.append(emailSpan, aboutBtn, settingsBtn)
+  const footerActions = document.createElement('div')
+  footerActions.className = 'footer-actions'
+  footerActions.append(aboutBtn, settingsBtn)
+  footer.append(emailSpan, footerActions)
 
   root.append(header, tabBar, content, footer)
 

@@ -1,7 +1,7 @@
 import { collectWords } from './walker'
 import { isEligible } from './filter'
 import { sampleWords } from './scorer'
-import { applyReplacements, clearReplacements, injectTooltipStyles } from './replacer'
+import { applyReplacements, clearReplacements, injectTooltipStyles, setWordSuppressedCallback } from './replacer'
 import type { UserSettings, Message } from '../types'
 import {
   STORAGE_KEYS,
@@ -13,6 +13,7 @@ import {
 import { passesCefrFilter } from './cefr'
 import { collectPhrases, uniquePhrases } from './phraseScanner'
 import { applyPhraseReplacements } from './replacer'
+import { getSuppressedWords } from '../utils/suppressedWords'
 import { normalizeTargetLang } from '../languages'
 import { log, warn } from '../logger'
 import { saveWordContext } from '../utils/contextStore'
@@ -218,6 +219,8 @@ async function runPipeline(): Promise<void> {
 
     // ── Phase 6: Apply phrase spans first, then word spans ─────────────────
     const translationMap = new Map(Object.entries(res.translations))
+    const suppressed = await getSuppressedWords(settings.targetLang)
+    for (const w of suppressed) translationMap.delete(w)
     cachedTranslationMap = translationMap
     cachedTargetLang = settings.targetLang
     applyPhraseReplacements(translationMap, allPhraseEntries, settings.targetLang)
@@ -277,6 +280,10 @@ async function init(): Promise<void> {
     }
     return
   }
+
+  setWordSuppressedCallback((word, lang) => {
+    if (lang === cachedTargetLang) cachedTranslationMap.delete(word.toLowerCase())
+  })
 
   settings = await loadSettings()
   domObserver = new MutationObserver((mutations) => scheduleFromMutation(mutations))

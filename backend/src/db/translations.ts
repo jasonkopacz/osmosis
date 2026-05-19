@@ -111,6 +111,13 @@ export async function batchSetTranslationCached(
   )
 }
 
+export async function deleteTranslationCacheForWord(db: D1Database, word: string): Promise<void> {
+  await db
+    .prepare('DELETE FROM translation_cache WHERE word = ?')
+    .bind(word.toLowerCase())
+    .run()
+}
+
 export async function getTopTranslations(
   db: D1Database, targetLang: string, limit = 20
 ): Promise<Array<{ word: string; entry: TranslationEntry; hit_count: number }>> {

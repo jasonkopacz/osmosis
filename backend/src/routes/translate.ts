@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
 import type { Env, Variables, TranslationEntry } from '../types'
+import type { D1Database } from '@cloudflare/workers-types'
 import { requireAuth } from '../middleware/requireAuth'
 import { lookupWords, synthesizePronunciation, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
-import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations } from '../db/translations'
+import { getTranslationsCachedBatch, batchSetTranslationCached, batchIncrementHitCount, getTopTranslations, deleteTranslationCacheForWord } from '../db/translations'
+import { insertBadTranslation } from '../db/badTranslations'
+import { recordProperNoun, batchGetProperNouns } from '../db/properNouns'
+import { deleteCardForUser, deleteAllCardsForWord } from '../db/srs'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
@@ -91,11 +95,18 @@ translateRouter.post('/', requireAuth, async (c) => {
   const result: Record<string, TranslationEntry> = {}
   const backgroundTasks: Promise<unknown>[] = []
 
+  // Skip globally recorded proper nouns — never translate them
+  const properNounSet = await batchGetProperNouns(c.env.DB, uniqueWords)
+  const translatableWords = properNounSet.size > 0
+    ? uniqueWords.filter(w => !properNounSet.has(w.toLowerCase()))
+    : uniqueWords
+  if (properNounSet.size > 0) console.log(`[translate] skipped ${properNounSet.size} proper nouns`)
+
   // Layer 1: D1 database (single batch query — 1 subrequest for all words)
-  const d1Map = await getTranslationsCachedBatch(c.env.DB, uniqueWords, targetLang)
+  const d1Map = await getTranslationsCachedBatch(c.env.DB, translatableWords, targetLang)
   const uncached: string[] = []
   const d1Words: string[] = []
-  for (const word of uniqueWords) {
+  for (const word of translatableWords) {
     const hit = d1Map.get(word.toLowerCase())
     if (hit) { result[word] = hit; d1Words.push(word) }
     else uncached.push(word)
@@ -106,7 +117,7 @@ translateRouter.post('/', requireAuth, async (c) => {
         .catch(err => console.warn(`[translate] hit_count increment failed: ${String(err)}`))
     )
   }
-  console.log(`[translate] layers: d1=${d1Words.length} uncached=${uncached.length} total=${uniqueWords.length}`)
+  console.log(`[translate] layers: d1=${d1Words.length} uncached=${uncached.length} total=${translatableWords.length}`)
 
   if (uncached.length > 0) {
     // Layer 3a: Azure Dictionary Lookup (preferred — returns POS + alternatives)
@@ -190,6 +201,59 @@ translateRouter.post('/', requireAuth, async (c) => {
   return c.json({ translations: result })
 })
 
+translateRouter.post('/report', requireAuth, async (c) => {
+  let body: { word?: unknown; targetLang?: unknown; translation?: unknown; reason?: unknown; removeFromSrs?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const { word, targetLang, translation, reason, removeFromSrs } = body
+  if (typeof word !== 'string' || !word.trim()) return c.json({ error: 'word required' }, 400)
+  if (typeof targetLang !== 'string' || !VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
+  if (typeof translation !== 'string' || !translation.trim()) return c.json({ error: 'translation required' }, 400)
+  const reasonStr = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 200) : null
+  const shouldRemoveFromSrs = removeFromSrs === true
+  const isNotAWord = reasonStr === 'not_a_word'
+
+  const userId = c.get('userId')
+  const tasks: Promise<unknown>[] = [
+    insertBadTranslation(c.env.DB, userId, word.trim(), targetLang, translation.trim(), reasonStr),
+  ]
+  if (isNotAWord) {
+    // Garbage token — purge globally and blocklist so it never comes back
+    tasks.push(deleteTranslationCacheForWord(c.env.DB, word.trim()))
+    tasks.push(deleteAllCardsForWord(c.env.DB, word.trim()))
+    tasks.push(recordProperNoun(c.env.DB, word.trim(), userId))
+  } else if (shouldRemoveFromSrs) {
+    tasks.push(deleteCardForUser(c.env.DB, userId, word.trim(), targetLang))
+  }
+  await Promise.all(tasks)
+  console.log(`[translate/report] user=${userId} word="${word}" lang=${targetLang} reason="${reasonStr ?? 'none'}" removeFromSrs=${shouldRemoveFromSrs}`)
+  return c.json({ ok: true })
+})
+
+translateRouter.post('/proper-noun', requireAuth, async (c) => {
+  let body: { word?: unknown; targetLang?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
+  const { word, targetLang } = body
+  if (typeof word !== 'string' || !word.trim()) return c.json({ error: 'word required' }, 400)
+  if (typeof targetLang !== 'string' || !VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
+
+  const cleanWord = word.trim()
+  const userId = c.get('userId')
+  const verified = await verifyProperNoun(c.env.DB, cleanWord)
+
+  if (verified) {
+    await Promise.all([
+      recordProperNoun(c.env.DB, cleanWord, userId),
+      deleteTranslationCacheForWord(c.env.DB, cleanWord),
+      deleteAllCardsForWord(c.env.DB, cleanWord),
+    ])
+    console.log(`[translate/proper-noun] confirmed user=${userId} word="${cleanWord}"`)
+  } else {
+    console.log(`[translate/proper-noun] not verified user=${userId} word="${cleanWord}"`)
+  }
+
+  return c.json({ verified })
+})
+
 translateRouter.post('/pronounce', requireAuth, async (c) => {
   let body: { text?: unknown; targetLang?: unknown }
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request body' }, 400) }
@@ -223,3 +287,14 @@ translateRouter.post('/pronounce', requireAuth, async (c) => {
     return c.json({ error: 'Pronunciation service unavailable' }, 503)
   }
 })
+
+// Verification: word must start uppercase AND have no prior cached translations
+// (previously translated words are common words that just happened to be capitalised)
+async function verifyProperNoun(db: D1Database, word: string): Promise<boolean> {
+  if (word.length <= 1 || !/^[A-Z]/.test(word)) return false
+  const existing = await db
+    .prepare('SELECT 1 FROM translation_cache WHERE word = ? AND LOWER(translation) != ? LIMIT 1')
+    .bind(word.toLowerCase(), word.toLowerCase())
+    .first()
+  return existing === null
+}

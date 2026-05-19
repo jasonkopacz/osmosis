@@ -230,6 +230,39 @@ export async function srsReportEncounters(
   }
 }
 
+export async function reportBadTranslation(
+  word: string,
+  targetLang: string,
+  translation: string,
+  reason: string,
+  token: string,
+  removeFromSrs = false,
+): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/translate/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ word, targetLang, translation, reason, removeFromSrs }),
+  })
+  if (!res.ok && res.status !== 401) {
+    warn(`[osmosis:api] translate/report-bad-translation failed: ${res.status}`)
+  }
+}
+
+export async function reportProperNoun(
+  word: string,
+  targetLang: string,
+  token: string,
+): Promise<{ verified: boolean }> {
+  const res = await fetch(`${API_BASE_URL}/translate/proper-noun`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ word, targetLang }),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  if (!res.ok) throw new Error(`API_ERROR:${res.status}`)
+  return res.json() as Promise<{ verified: boolean }>
+}
+
 function readJsonError(res: Response, bodyText: string): string {
   try {
     const j = JSON.parse(bodyText) as { error?: string }

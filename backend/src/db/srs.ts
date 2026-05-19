@@ -142,6 +142,7 @@ export async function getDueCards(
         AND wc.target_lang = ?
         AND wc.due_at <= ?
         AND wc.reps > 0
+        AND NOT EXISTS (SELECT 1 FROM proper_nouns pn WHERE pn.word = wc.word)
       ORDER BY wc.due_at ASC
       LIMIT ?
     `)
@@ -167,6 +168,22 @@ export async function getDueCards(
     posTag: r.pos_tag ?? undefined,
     alternatives: r.alternatives ? tryParse<Array<{ t: string; p: string }>>(r.alternatives) : undefined,
   }))
+}
+
+export async function deleteCardForUser(
+  db: D1Database, userId: string, word: string, targetLang: string
+): Promise<void> {
+  await db
+    .prepare('DELETE FROM word_cards WHERE user_id = ? AND word = ? AND target_lang = ?')
+    .bind(userId, word.toLowerCase(), targetLang.toLowerCase())
+    .run()
+}
+
+export async function deleteAllCardsForWord(db: D1Database, word: string): Promise<void> {
+  await db
+    .prepare('DELETE FROM word_cards WHERE word = ?')
+    .bind(word.toLowerCase())
+    .run()
 }
 
 export async function getSrsStats(

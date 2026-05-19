@@ -2,7 +2,7 @@ import { SessionCache } from './cache'
 import { API_BASE_URL } from '../constants'
 import { getToken, setToken, clearToken, getRefreshToken, setRefreshToken } from './auth'
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
-import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, fetchBillingUrl, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken } from './api'
+import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, fetchBillingUrl, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken, reportBadTranslation, reportProperNoun } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
 import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
@@ -545,6 +545,30 @@ async function handle(msg: Message): Promise<unknown> {
     }
     void addEncounteredWords(msg.words, msg.targetLang)
       .catch(err => warn('[osmosis:bg] session words update failed', err))
+    return { ok: true }
+  }
+
+  if (msg.type === 'REPORT_PROPER_NOUN') {
+    const token = await getToken()
+    if (!token) return { verified: false }
+    try {
+      return await reportProperNoun(msg.word, msg.targetLang, token)
+    } catch (err) {
+      const s = String(err)
+      if (s.includes('AUTH_EXPIRED')) {
+        return tryRefreshAndRetry(newToken => reportProperNoun(msg.word, msg.targetLang, newToken))
+      }
+      warn('[osmosis:bg] REPORT_PROPER_NOUN error', s)
+      return { verified: false }
+    }
+  }
+
+  if (msg.type === 'REPORT_BAD_TRANSLATION') {
+    const token = await getToken()
+    if (token) {
+      void reportBadTranslation(msg.word, msg.targetLang, msg.translation, msg.reason, token, msg.removeFromSrs ?? false)
+        .catch(err => warn('[osmosis:bg] REPORT_BAD_TRANSLATION failed', err))
+    }
     return { ok: true }
   }
 

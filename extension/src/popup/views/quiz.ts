@@ -113,6 +113,7 @@ function runSession(
   }
 
   function renderCurrent(): void {
+    const card = cards[index]!
     saveQuizSession(cards, index, phase, settings.targetLang)
     container.replaceChildren()
 
@@ -123,10 +124,33 @@ function runSession(
     meta.className = 'quiz-meta'
     const counter = document.createElement('span')
     counter.textContent = `${index + 1} of ${cards.length}`
-    meta.append(counter, buildDots(index, cards.length))
+
+    const warnBtn = document.createElement('button')
+    warnBtn.className = 'quiz-warn-btn'
+    warnBtn.title = 'Report this word'
+    warnBtn.setAttribute('aria-label', 'Report this word')
+    warnBtn.textContent = '⚠'
+    warnBtn.addEventListener('click', () => {
+      renderReport(container, card, settings, index, cards, () => {
+        cards.splice(index, 1)
+        if (cards.length === 0) {
+          clearQuizSession()
+          void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
+          renderComplete(container, 0)
+          return
+        }
+        if (index >= cards.length) index = cards.length - 1
+        phase = 'question'
+        renderCurrent()
+      }, renderCurrent)
+    })
+
+    const metaRight = document.createElement('div')
+    metaRight.className = 'quiz-meta-right'
+    metaRight.append(buildDots(index, cards.length), warnBtn)
+    meta.append(counter, metaRight)
     body.appendChild(meta)
 
-    const card = cards[index]!
     body.appendChild(buildCard(card, phase))
 
     const actions = document.createElement('div')
@@ -147,6 +171,90 @@ function runSession(
   }
 
   renderCurrent()
+}
+
+// ── Quiz report panel ─────────────────────────────────────────────────────────
+
+function renderReport(
+  container: HTMLElement,
+  card: SrsDueCard,
+  settings: UserSettings,
+  index: number,
+  cards: SrsDueCard[],
+  onDone: () => void,
+  onCancel: () => void,
+): void {
+  container.replaceChildren()
+  const body = document.createElement('div')
+  body.className = 'body'
+
+  const meta = document.createElement('div')
+  meta.className = 'quiz-meta'
+  const counter = document.createElement('span')
+  counter.textContent = `${index + 1} of ${cards.length}`
+  const metaRight = document.createElement('div')
+  metaRight.className = 'quiz-meta-right'
+  metaRight.appendChild(buildDots(index, cards.length))
+  meta.append(counter, metaRight)
+  body.appendChild(meta)
+
+  const panel = document.createElement('div')
+  panel.className = 'quiz-report-panel'
+
+  const heading = document.createElement('div')
+  heading.className = 'quiz-report-heading'
+  heading.textContent = 'Report this word'
+  panel.appendChild(heading)
+
+  const optionsEl = document.createElement('div')
+  optionsEl.className = 'quiz-report-options'
+
+  const reportOptions: Array<{ label: string; sub: string; reason: string; isProperNoun?: boolean }> = [
+    { label: 'Proper noun', sub: 'Name, place, or brand — shouldn\'t be translated', isProperNoun: true, reason: 'proper_noun' },
+    { label: 'Wrong translation', sub: 'Translation is incorrect or poor', reason: 'incorrect_translation' },
+    { label: 'Not a word', sub: 'Gibberish or invalid token that shouldn\'t exist', reason: 'not_a_word' },
+  ]
+
+  for (const opt of reportOptions) {
+    const btn = document.createElement('button')
+    btn.className = 'quiz-report-option'
+
+    const lbl = document.createElement('div')
+    lbl.className = 'quiz-report-option__label'
+    lbl.textContent = opt.label
+
+    const sub = document.createElement('div')
+    sub.className = 'quiz-report-option__sub'
+    sub.textContent = opt.sub
+
+    btn.append(lbl, sub)
+    btn.addEventListener('click', () => {
+      optionsEl.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true })
+      lbl.textContent = 'Reporting…'
+
+      const msg: Message = opt.isProperNoun
+        ? { type: 'REPORT_PROPER_NOUN', word: card.word, targetLang: settings.targetLang }
+        : { type: 'REPORT_BAD_TRANSLATION', word: card.word, targetLang: settings.targetLang, translation: card.translation, reason: opt.reason, removeFromSrs: true }
+
+      void (chrome.runtime.sendMessage(msg) as Promise<unknown>).finally(() => {
+        lbl.textContent = '✓ Reported'
+        setTimeout(onDone, 500)
+      })
+    })
+
+    optionsEl.appendChild(btn)
+  }
+
+  panel.appendChild(optionsEl)
+
+  const cancelBtn = document.createElement('button')
+  cancelBtn.className = 'quiz-report-cancel'
+  cancelBtn.textContent = 'Cancel'
+  cancelBtn.addEventListener('click', onCancel)
+  panel.appendChild(cancelBtn)
+
+  body.appendChild(panel)
+  container.appendChild(body)
 }
 
 // ── Card ─────────────────────────────────────────────────────────────────────
@@ -275,7 +383,7 @@ function buildDots(current: number, total: number): HTMLDivElement {
   return wrap
 }
 
-function renderComplete(container: HTMLElement, count: number, _lastResult: SrsRateResult): void {
+function renderComplete(container: HTMLElement, count: number, _lastResult?: SrsRateResult): void {
   container.replaceChildren()
   const body = document.createElement('div')
   body.className = 'body'

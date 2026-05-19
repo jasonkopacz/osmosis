@@ -27,7 +27,7 @@ export function renderAbout(root: HTMLElement, onBack: () => void): void {
   // Tagline
   const tagline = document.createElement('p')
   tagline.className = 'about-tagline'
-  tagline.textContent = 'Passively build your vocabulary by reading the web — no separate study sessions required.'
+  tagline.textContent = 'Passively build your vocabulary by reading the web.'
   body.appendChild(tagline)
   body.appendChild(div())
 
@@ -38,6 +38,35 @@ export function renderAbout(root: HTMLElement, onBack: () => void): void {
     'Hover any highlighted word to see the original, its part of speech, and alternative translations. ' +
     'Rate words from the tooltip to begin tracking them.'
   ))
+  body.appendChild(div())
+
+  // ── Reporting bad translations
+  body.appendChild(sectionLabel('Reporting bad translations'))
+  body.appendChild(para(
+    'Every tooltip has a ⚠ icon in the top-right corner. Tap it to report a bad translation or proper noun.'
+  ))
+
+  const reportTypes: Array<[string, string]> = [
+    ['Proper noun', 'Names, places, and brands that should never be translated — e.g. "London" or "Netflix". ' +
+      'When confirmed, the word is removed from translation.'],
+    ['Wrong translation', 'The translation exists but is incorrect or poor. ' +
+      'The word is hidden from your browser immediately and flagged for review.'],
+  ]
+  const reportList = document.createElement('div')
+  reportList.className = 'about-card-types'
+  for (const [name, desc] of reportTypes) {
+    const item = document.createElement('div')
+    item.className = 'about-card-type'
+    const nameEl = document.createElement('span')
+    nameEl.className = 'about-card-type__name'
+    nameEl.textContent = name
+    const descEl = document.createElement('span')
+    descEl.className = 'about-card-type__desc'
+    descEl.textContent = desc
+    item.append(nameEl, descEl)
+    reportList.appendChild(item)
+  }
+  body.appendChild(reportList)
   body.appendChild(div())
 
   // ── Word levels
@@ -73,7 +102,7 @@ export function renderAbout(root: HTMLElement, onBack: () => void): void {
   // ── Review & quizzing
   body.appendChild(sectionLabel('Review & quizzing'))
   body.appendChild(para(
-    'After encountering 25 words while browsing, a review session unlocks automatically in the Review tab. ' +
+    'After encountering 25 words while browsing, a review session unlocks in the Review tab. ' +
     'Each session contains up to 25 cards drawn from your recent browsing and any overdue vocabulary.'
   ))
 
@@ -109,6 +138,8 @@ export function renderAbout(root: HTMLElement, onBack: () => void): void {
     'Use the percentage slider to control how many words are replaced per page.',
     'The CEFR filter lets you focus on words matching your proficiency level.',
     'Rate words directly in tooltips to add them to your review deck faster.',
+    'Tap ⚠ in any tooltip to report a bad translation — it disappears from your browser immediately.',
+    'Reporting a proper noun (name, place, brand) removes it from translation for everyone.',
     'Closing the popup mid-review is fine — your session resumes where you left off.',
     'New words encountered while a review is in progress carry over to the next session.',
   ]

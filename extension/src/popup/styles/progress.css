@@ -54,6 +54,11 @@
   text-align: center;
 }
 
+.streak-card:hover {
+  border-color: var(--shoal);
+  background: var(--shallow);
+}
+
 .streak-card__icon {
   font-size: 20px;
   line-height: 1;

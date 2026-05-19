@@ -4,7 +4,14 @@ import type { TranslationEntry, Message } from '../types'
 import { recordLocalEncounters } from './encounters'
 import { isEligible } from './filter'
 import replacerStyles from './styles/replacer.css?raw'
+import { addSuppressedWord } from '../utils/suppressedWords'
 import { log, warn } from '../logger'
+
+let onWordSuppressed: ((word: string, lang: string) => void) | null = null
+
+export function setWordSuppressedCallback(fn: (word: string, lang: string) => void): void {
+  onWordSuppressed = fn
+}
 
 const STYLE_ID = 'osmosis-styles'
 const TOOLTIP_HOST_ID = 'osmosis-tooltip-host'
@@ -114,16 +121,36 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
 
   const headerRow = document.createElement('div')
   headerRow.className = 'osmo-tt-header'
+
   const originalWord = document.createElement('div')
   originalWord.className = 'osmo-tt-word'
   originalWord.textContent = original
   headerRow.appendChild(originalWord)
+
+  const headerRight = document.createElement('div')
+  headerRight.className = 'osmo-tt-header-right'
   if (pos) {
     const posTag = document.createElement('span')
     posTag.className = 'osmo-tt-pos'
     posTag.textContent = pos
-    headerRow.appendChild(posTag)
+    headerRight.appendChild(posTag)
   }
+  const warnBtn = document.createElement('button')
+  warnBtn.type = 'button'
+  warnBtn.className = 'osmo-tt-warn-btn'
+  warnBtn.setAttribute('aria-label', 'Report bad translation')
+  warnBtn.textContent = '⚠'
+  warnBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    clearTooltipHideTimer()
+    const host = ensureTooltipHost()
+    const { height } = host.getBoundingClientRect()
+    host.style.minHeight = `${height}px`
+    host.replaceChildren(buildReportForm(span))
+  })
+  headerRight.appendChild(warnBtn)
+  headerRow.appendChild(headerRight)
+
   frag.appendChild(headerRow)
 
   const translatedWord = document.createElement('div')
@@ -206,6 +233,136 @@ function buildTooltipContent(span: HTMLSpanElement): DocumentFragment {
   return frag
 }
 
+function makeOptionButton(label: string, sublabel: string): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = 'osmo-tt-option-btn'
+
+  const labelEl = document.createElement('div')
+  labelEl.className = 'osmo-tt-option-label'
+  labelEl.textContent = label
+
+  const sublabelEl = document.createElement('div')
+  sublabelEl.className = 'osmo-tt-option-sublabel'
+  sublabelEl.textContent = sublabel
+
+  btn.append(labelEl, sublabelEl)
+  return btn
+}
+
+function buildReportForm(span: HTMLSpanElement): DocumentFragment {
+  const frag = document.createDocumentFragment()
+
+  const word = span.getAttribute('data-original') ?? ''
+  const targetLang = span.getAttribute('data-target-lang') ?? ''
+  const translation = span.getAttribute('data-translation') ?? ''
+
+  const heading = document.createElement('div')
+  heading.className = 'osmo-tt-report-heading'
+  heading.textContent = 'Why report this?'
+  frag.appendChild(heading)
+
+  const optionsEl = document.createElement('div')
+  optionsEl.className = 'osmo-tt-report-options'
+  frag.appendChild(optionsEl)
+
+  const cancelBtn = document.createElement('button')
+  cancelBtn.type = 'button'
+  cancelBtn.className = 'osmo-tt-report-cancel'
+  cancelBtn.textContent = 'Cancel'
+  cancelBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    const host = ensureTooltipHost()
+    host.style.minHeight = ''
+    host.replaceChildren(buildTooltipContent(span))
+  })
+  frag.appendChild(cancelBtn)
+
+  function lockOptions(): void {
+    optionsEl.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = true })
+    cancelBtn.disabled = true
+  }
+
+  function revertSpan(): void {
+    setTimeout(() => {
+      detachActiveTooltip?.()
+      const parent = span.parentNode
+      if (parent) {
+        parent.replaceChild(document.createTextNode(word), span)
+        ;(parent as Element).normalize?.()
+      }
+    }, 900)
+  }
+
+  function suppressLocally(): void {
+    void addSuppressedWord(word, targetLang)
+    onWordSuppressed?.(word, targetLang)
+  }
+
+  // Option 1: Proper noun — should never be translated
+  const properNounBtn = makeOptionButton('Proper noun', 'e.g. a name, place, or brand')
+  properNounBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    lockOptions()
+    properNounBtn.disabled = false
+    const labelEl = properNounBtn.querySelector<HTMLElement>('.osmo-tt-option-label')!
+    const sublabelEl = properNounBtn.querySelector<HTMLElement>('.osmo-tt-option-sublabel')!
+    labelEl.textContent = 'Checking…'
+    suppressLocally()
+    void (chrome.runtime.sendMessage({
+      type: 'REPORT_PROPER_NOUN',
+      word,
+      targetLang,
+    } as Message) as Promise<{ verified?: boolean } | undefined>).then(res => {
+      const verified = res?.verified === true
+      labelEl.textContent = '✓ Confirmed'
+      sublabelEl.textContent = verified
+        ? 'Removed from your dictionary'
+        : 'Hidden'
+      properNounBtn.classList.add('osmo-tt-option--done')
+      revertSpan()
+    }).catch(() => {
+      labelEl.textContent = '✓ Noted'
+      sublabelEl.textContent = 'Hidden'
+      properNounBtn.classList.add('osmo-tt-option--done')
+      revertSpan()
+    })
+  })
+
+  // Option 2: Wrong translation — poor or incorrect
+  const wrongTransBtn = makeOptionButton('Wrong translation', 'Translation is incorrect or poor')
+  wrongTransBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation()
+    lockOptions()
+    wrongTransBtn.disabled = false
+    const labelEl = wrongTransBtn.querySelector<HTMLElement>('.osmo-tt-option-label')!
+    const sublabelEl = wrongTransBtn.querySelector<HTMLElement>('.osmo-tt-option-sublabel')!
+    labelEl.textContent = 'Checking…'
+    suppressLocally()
+    void (chrome.runtime.sendMessage({
+      type: 'REPORT_BAD_TRANSLATION',
+      word,
+      targetLang,
+      translation,
+      reason: 'incorrect_translation',
+    } as Message) as Promise<unknown>).then(() => {
+      labelEl.textContent = '✓ Reported'
+      sublabelEl.textContent = 'Hidden for you going forward'
+      wrongTransBtn.classList.add('osmo-tt-option--done')
+      revertSpan()
+    }).catch(() => {
+      labelEl.textContent = '✓ Noted'
+      sublabelEl.textContent = 'Hidden for you'
+      wrongTransBtn.classList.add('osmo-tt-option--done')
+      revertSpan()
+    })
+  })
+
+  optionsEl.append(properNounBtn, wrongTransBtn)
+
+  return frag
+}
+
 function buildRatingRow(original: string, targetLang: string): HTMLDivElement {
   const row = document.createElement('div')
   row.className = 'osmo-tt-rate'
@@ -243,6 +400,7 @@ function bindTooltipSpan(span: HTMLSpanElement) {
     clearTooltipHideTimer()
     detachActiveTooltip?.()
     currentTooltipSpan = span
+    host.style.minHeight = ''
     host.replaceChildren(buildTooltipContent(span))
     positionTooltip(span, host)
     host.classList.add('osmosis-tooltip--visible')

@@ -302,7 +302,7 @@
   min-height: 28px;
 }
 
-.cefr-btn:hover { color: var(--text-soft); background: rgba(110,180,220,.06); }
+.cefr-btn:hover { background: var(--shallow); color: var(--text-soft); }
 .cefr-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .cefr-btn--active {
