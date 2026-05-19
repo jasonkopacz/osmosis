@@ -252,9 +252,19 @@ function renderReport(
         ? { type: 'REPORT_PROPER_NOUN', word: card.word, targetLang: settings.targetLang }
         : { type: 'REPORT_BAD_TRANSLATION', word: card.word, targetLang: settings.targetLang, translation: card.translation, reason: opt.reason, removeFromSrs: true }
 
-      void (chrome.runtime.sendMessage(msg) as Promise<unknown>).finally(() => {
+      void (chrome.runtime.sendMessage(msg) as Promise<{ verified?: boolean } | undefined>).then(res => {
+        if (opt.isProperNoun && res?.verified !== true) {
+          lbl.textContent = 'Could not save'
+          sub.textContent = 'Check you are signed in'
+          optionsEl.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = false })
+          return
+        }
         lbl.textContent = '✓ Reported'
         setTimeout(onDone, 500)
+      }).catch(() => {
+        lbl.textContent = 'Could not save'
+        sub.textContent = 'Try again later'
+        optionsEl.querySelectorAll<HTMLButtonElement>('button').forEach(b => { b.disabled = false })
       })
     })
 

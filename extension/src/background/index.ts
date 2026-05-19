@@ -4,8 +4,9 @@ import { getToken, setToken, clearToken, getRefreshToken, setRefreshToken } from
 import { getUserProfileCache, setUserProfileCache } from './userProfileCache'
 import { translateBatch, pronounceText, fetchUser, loginWithGoogle, loginWithEmail, requestEmailSignup, fetchPopularTranslations, requestPasswordReset, deleteAccount, fetchBillingUrl, srsRateWord, srsGetDue, srsGetStats, srsReportEncounters, refreshAuthToken, reportBadTranslation, reportProperNoun } from './api'
 import { updateStreakLog, getStreakInfo } from './streak'
-import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, REVIEW_THRESHOLD } from './reviewSession'
+import { addEncounteredWords, getSessionWords, getSessionCount, clearSession, markSessionActive, removeWordFromSession, REVIEW_THRESHOLD } from './reviewSession'
 import { getWordContexts } from '../utils/contextStore'
+import { addSuppressedWord, getSuppressedWords } from '../utils/suppressedWords'
 import { addMasteredWord, removeMasteredWord } from '../utils/masteredWords'
 import type { Message, TranslationEntry, SrsDueCard } from '../types'
 import { log, warn } from '../logger'
@@ -435,16 +436,17 @@ async function handle(msg: Message): Promise<unknown> {
     if (!token) return { error: 'NOT_LOGGED_IN' }
     try {
       const limit = msg.limit ?? REVIEW_THRESHOLD
-      const [dueResult, sessionWords] = await Promise.all([
+      const [dueResult, sessionWords, suppressed] = await Promise.all([
         srsGetDue(msg.targetLang, token, limit),
         getSessionWords(msg.targetLang),
+        getSuppressedWords(msg.targetLang),
       ])
       const dueCards: SrsDueCard[] = dueResult.cards ?? []
       const dueWordSet = new Set(dueCards.map(c => c.word.toLowerCase()))
 
       const sessionCards: SrsDueCard[] = []
       for (const word of sessionWords) {
-        if (dueWordSet.has(word)) continue
+        if (dueWordSet.has(word) || suppressed.has(word.toLowerCase())) continue
         const entry = cache.get(word, msg.targetLang)
         if (!entry) continue
         sessionCards.push({
@@ -552,11 +554,27 @@ async function handle(msg: Message): Promise<unknown> {
     const token = await getToken()
     if (!token) return { verified: false }
     try {
-      return await reportProperNoun(msg.word, msg.targetLang, token)
+      const result = await reportProperNoun(msg.word, msg.targetLang, token)
+      if (result.verified) {
+        cache.remove(msg.word, msg.targetLang)
+        void addSuppressedWord(msg.word, msg.targetLang)
+          .catch(err => warn('[osmosis:bg] suppress word failed', err))
+        void removeWordFromSession(msg.word, msg.targetLang)
+          .catch(err => warn('[osmosis:bg] remove session word failed', err))
+      }
+      return result
     } catch (err) {
       const s = String(err)
       if (s.includes('AUTH_EXPIRED')) {
-        return tryRefreshAndRetry(newToken => reportProperNoun(msg.word, msg.targetLang, newToken))
+        return tryRefreshAndRetry(async newToken => {
+          const result = await reportProperNoun(msg.word, msg.targetLang, newToken)
+          if (result.verified) {
+            cache.remove(msg.word, msg.targetLang)
+            void addSuppressedWord(msg.word, msg.targetLang).catch(() => {})
+            void removeWordFromSession(msg.word, msg.targetLang).catch(() => {})
+          }
+          return result
+        })
       }
       warn('[osmosis:bg] REPORT_PROPER_NOUN error', s)
       return { verified: false }

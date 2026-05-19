@@ -12,12 +12,16 @@ vi.mock('../../src/services/azure', () => ({
   synthesizePronunciation: vi.fn(),
 }))
 
-vi.mock('../../src/db/translations', () => ({
-  getTranslationsCachedBatch: vi.fn().mockResolvedValue(new Map()),
-  batchSetTranslationCached: vi.fn().mockResolvedValue(undefined),
-  batchIncrementHitCount: vi.fn().mockResolvedValue(undefined),
-  getTopTranslations: vi.fn().mockResolvedValue([]),
-}))
+vi.mock('../../src/db/translations', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/db/translations')>()
+  return {
+    ...actual,
+    getTranslationsCachedBatch: vi.fn().mockResolvedValue(new Map()),
+    batchSetTranslationCached: vi.fn().mockResolvedValue(undefined),
+    batchIncrementHitCount: vi.fn().mockResolvedValue(undefined),
+    getTopTranslations: vi.fn().mockResolvedValue([]),
+  }
+})
 
 import { lookupWords, translateWords } from '../../src/services/azure'
 import { getTranslationsCachedBatch } from '../../src/db/translations'
@@ -170,3 +174,56 @@ describe('POST /translate', () => {
     expect(await res.json()).toEqual({ translations: {} })
   })
 })
+
+describe('POST /translate/proper-noun', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+
+  beforeEach(async () => {
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'proper@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    token = await makeToken(userId)
+  })
+
+  it('records proper noun even when word exists in translation_cache', async () => {
+    await db
+      .prepare('INSERT INTO translation_cache (word, target_lang, translation, hit_count, expires_at) VALUES (?, ?, ?, 1, unixepoch() + 86400)')
+      .bind('paris', 'es', 'París')
+      .run()
+
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/proper-noun', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ word: 'paris', targetLang: 'es' }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ verified: true })
+
+    const row = await db
+      .prepare('SELECT word FROM proper_nouns WHERE word = ?')
+      .bind('paris')
+      .first<{ word: string }>()
+    expect(row?.word).toBe('paris')
+
+    const cache = await db
+      .prepare('SELECT 1 FROM translation_cache WHERE word = ?')
+      .bind('paris')
+      .first()
+    expect(cache).toBeNull()
+  })
+
+  it('returns 400 for single-character words', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/proper-noun', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ word: 'a', targetLang: 'es' }),
+    }, env)
+    expect(res.status).toBe(400)
+  })
+})
+

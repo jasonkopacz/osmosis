@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import type { Env, Variables, TranslationEntry } from '../types'
-import type { D1Database } from '@cloudflare/workers-types'
 import { requireAuth } from '../middleware/requireAuth'
 import { lookupWords, synthesizePronunciation, translateWords } from '../services/azure'
 import { incrementUsage } from '../db/usage'
@@ -242,21 +241,16 @@ translateRouter.post('/proper-noun', requireAuth, async (c) => {
   if (typeof targetLang !== 'string' || !VALID_LANGUAGE_CODES.has(targetLang)) return c.json({ error: 'Invalid targetLang' }, 400)
 
   const cleanWord = word.trim()
+  if (cleanWord.length <= 1) return c.json({ error: 'word too short' }, 400)
+
   const userId = c.get('userId')
-  const verified = await verifyProperNoun(c.env.DB, cleanWord)
-
-  if (verified) {
-    await Promise.all([
-      recordProperNoun(c.env.DB, cleanWord, userId),
-      deleteTranslationCacheForWord(c.env.DB, cleanWord),
-      deleteAllCardsForWord(c.env.DB, cleanWord),
-    ])
-    console.log(`[translate/proper-noun] confirmed user=${userId} word="${cleanWord}"`)
-  } else {
-    console.log(`[translate/proper-noun] not verified user=${userId} word="${cleanWord}"`)
-  }
-
-  return c.json({ verified })
+  await Promise.all([
+    recordProperNoun(c.env.DB, cleanWord, userId),
+    deleteTranslationCacheForWord(c.env.DB, cleanWord),
+    deleteAllCardsForWord(c.env.DB, cleanWord),
+  ])
+  console.log(`[translate/proper-noun] recorded user=${userId} word="${cleanWord}" lang=${targetLang}`)
+  return c.json({ verified: true })
 })
 
 translateRouter.post('/pronounce', requireAuth, async (c) => {
@@ -292,14 +286,3 @@ translateRouter.post('/pronounce', requireAuth, async (c) => {
     return c.json({ error: 'Pronunciation service unavailable' }, 503)
   }
 })
-
-// Verification: word must start uppercase AND have no prior cached translations
-// (previously translated words are common words that just happened to be capitalised)
-async function verifyProperNoun(db: D1Database, word: string): Promise<boolean> {
-  if (word.length <= 1 || !/^[A-Z]/.test(word)) return false
-  const existing = await db
-    .prepare('SELECT 1 FROM translation_cache WHERE word = ? AND LOWER(translation) != ? LIMIT 1')
-    .bind(word.toLowerCase(), word.toLowerCase())
-    .first()
-  return existing === null
-}

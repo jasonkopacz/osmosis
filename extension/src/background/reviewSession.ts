@@ -35,6 +35,16 @@ export async function getSessionCount(lang: string): Promise<number> {
   return (await getSessionWords(lang)).length
 }
 
+export async function removeWordFromSession(word: string, lang: string): Promise<void> {
+  const k = pendingKey(lang)
+  const r = await chrome.storage.local.get(k)
+  const existing = (r[k] ?? { words: [] }) as SessionStore
+  const lower = word.toLowerCase()
+  const words = existing.words.filter(w => w.toLowerCase() !== lower)
+  if (words.length === existing.words.length) return
+  await chrome.storage.local.set({ [k]: { words } })
+}
+
 // ── Active session flag ───────────────────────────────────────────────────────
 // Set when a review session starts so new encounters are held back.
 // Cleared when the session completes, at which point the pending pool resets.

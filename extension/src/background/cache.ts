@@ -77,6 +77,18 @@ export class SessionCache {
     return entry
   }
 
+  remove(word: string, lang: string): void {
+    const k = this.makeKey(word, lang)
+    if (!this.store.has(k) && !this.pendingWrites.has(k)) return
+    this.store.delete(k)
+    this.pendingWrites.delete(k)
+    this.pendingDeletes.add(k)
+    if (!this.flushScheduled) {
+      this.flushScheduled = true
+      void Promise.resolve().then(() => this.flush())
+    }
+  }
+
   set(word: string, lang: string, entry: TranslationEntry): void {
     const k = this.makeKey(word, lang)
     if (!this.store.has(k) && this.store.size >= MAX_ENTRIES) {

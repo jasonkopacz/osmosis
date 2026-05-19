@@ -23,6 +23,8 @@ export function createTestDb() {
   runFile('0010_word_cards.sql')
   runFile('0011_user_verified.sql')
   runFile('0012_translation_cache_ttl.sql')
+  runFile('0013_bad_translation.sql')
+  runFile('0014_proper_nouns.sql')
   return db
 }
 
