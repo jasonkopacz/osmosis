@@ -10,10 +10,6 @@ function formatInterval(days: number): string {
   return `${Math.round(days / 365)}yr`
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 // ── Session persistence ──────────────────────────────────────────────────────
 
 const SESSION_KEY = 'osmosis_quiz_session'
@@ -127,9 +123,8 @@ function runSession(
 
     const warnBtn = document.createElement('button')
     warnBtn.className = 'quiz-warn-btn'
-    warnBtn.title = 'Report this word'
     warnBtn.setAttribute('aria-label', 'Report this word')
-    warnBtn.textContent = '⚠'
+    warnBtn.innerHTML = '<span class="quiz-warn-btn__icon">⚠</span><span class="quiz-warn-btn__label">Report</span>'
     warnBtn.addEventListener('click', () => {
       renderReport(container, card, settings, index, cards, () => {
         cards.splice(index, 1)
@@ -263,51 +258,20 @@ function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivEleme
   const el = document.createElement('div')
   el.className = phase === 'answer' ? 'quiz-card quiz-card--revealed' : 'quiz-card'
 
-  if (card.context) {
-    const sentenceEl = document.createElement('div')
-    sentenceEl.className = 'quiz-context-sentence'
+  const word = document.createElement('div')
+  word.className = 'quiz-word'
+  word.textContent = card.translation
+  el.appendChild(word)
 
-    const re = new RegExp(`\\b${escapeRegExp(card.word)}\\w*`, 'gi')
-    const match = re.exec(card.context)
-
-    if (match) {
-      if (match.index > 0) sentenceEl.appendChild(document.createTextNode(card.context.slice(0, match.index)))
-      const highlight = document.createElement('span')
-      highlight.className = 'quiz-context-word'
-      // Mirror the case of the matched surface word so the translation looks
-      // natural in the sentence (sentence-start capital, otherwise lowercase).
-      const surface = match[0]
-      const startsUpper = surface[0] !== undefined && surface[0] === surface[0].toUpperCase() && surface[0] !== surface[0].toLowerCase()
-      highlight.textContent = startsUpper
-        ? card.translation.charAt(0).toUpperCase() + card.translation.slice(1)
-        : card.translation.charAt(0).toLowerCase() + card.translation.slice(1)
-      sentenceEl.appendChild(highlight)
-      const after = card.context.slice(match.index + match[0].length)
-      if (after) sentenceEl.appendChild(document.createTextNode(after))
-    } else {
-      sentenceEl.textContent = card.context
-    }
-
-    el.appendChild(sentenceEl)
-  } else {
-    // Fallback for cards with no saved context
-    const word = document.createElement('div')
-    word.className = 'quiz-word'
-    word.textContent = card.translation
-    el.appendChild(word)
-
-    if (card.posTag) {
-      const pos = document.createElement('span')
-      pos.className = 'quiz-pos'
-      pos.textContent = POS_LABELS[card.posTag] ?? card.posTag.toLowerCase()
-      el.appendChild(pos)
-    }
+  if (card.posTag) {
+    const pos = document.createElement('span')
+    pos.className = 'quiz-pos'
+    pos.textContent = POS_LABELS[card.posTag] ?? card.posTag.toLowerCase()
+    el.appendChild(pos)
   }
 
   if (phase === 'answer') {
     el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-sep' }))
-    // Prefer the lemma (base/dictionary form) over the surface word, which may
-    // be an inflected form or capitalized due to its position in the source sentence.
     const answerWord = card.lemma ?? card.word.toLowerCase()
     el.appendChild(Object.assign(document.createElement('div'), { className: 'quiz-answer', textContent: answerWord }))
   }

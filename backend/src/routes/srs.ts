@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
 import { scheduleNew, scheduleExisting, type SrsRating } from '../utils/fsrs'
 import { getCard, upsertCard, getDueCards, getSrsStats, batchRecordEncounters } from '../db/srs'
+import { batchGetProperNouns } from '../db/properNouns'
 
 const MAX_DUE_LIMIT = 50
 const MAX_ENCOUNTER_BATCH = 400
@@ -102,7 +103,18 @@ srsRouter.get('/due', requireAuth, async (c) => {
 
   const userId = c.get('userId')
   const nowSec = Math.floor(Date.now() / 1000)
-  const cards = await getDueCards(c.env.DB, userId, lang, nowSec, limit)
+  const rawCards = await getDueCards(c.env.DB, userId, lang, nowSec, limit)
+
+  let cards = rawCards
+  try {
+    const properNounSet = await batchGetProperNouns(c.env.DB, rawCards.map(c => c.word))
+    if (properNounSet.size > 0) {
+      cards = rawCards.filter(c => !properNounSet.has(c.word.toLowerCase()))
+      console.log(`[srs/due] filtered ${rawCards.length - cards.length} proper nouns`)
+    }
+  } catch {
+    // proper_nouns table may not exist yet — proceed without filtering
+  }
 
   console.log(`[srs/due] user=${userId} lang=${lang} due=${cards.length}`)
   return c.json({ cards })

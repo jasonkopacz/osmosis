@@ -142,7 +142,6 @@ export async function getDueCards(
         AND wc.target_lang = ?
         AND wc.due_at <= ?
         AND wc.reps > 0
-        AND NOT EXISTS (SELECT 1 FROM proper_nouns pn WHERE pn.word = wc.word)
       ORDER BY wc.due_at ASC
       LIMIT ?
     `)

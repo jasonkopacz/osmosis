@@ -96,11 +96,16 @@ translateRouter.post('/', requireAuth, async (c) => {
   const backgroundTasks: Promise<unknown>[] = []
 
   // Skip globally recorded proper nouns — never translate them
-  const properNounSet = await batchGetProperNouns(c.env.DB, uniqueWords)
-  const translatableWords = properNounSet.size > 0
-    ? uniqueWords.filter(w => !properNounSet.has(w.toLowerCase()))
-    : uniqueWords
-  if (properNounSet.size > 0) console.log(`[translate] skipped ${properNounSet.size} proper nouns`)
+  let translatableWords = uniqueWords
+  try {
+    const properNounSet = await batchGetProperNouns(c.env.DB, uniqueWords)
+    if (properNounSet.size > 0) {
+      translatableWords = uniqueWords.filter(w => !properNounSet.has(w.toLowerCase()))
+      console.log(`[translate] skipped ${properNounSet.size} proper nouns`)
+    }
+  } catch {
+    // proper_nouns table may not exist yet — proceed without filtering
+  }
 
   // Layer 1: D1 database (single batch query — 1 subrequest for all words)
   const d1Map = await getTranslationsCachedBatch(c.env.DB, translatableWords, targetLang)

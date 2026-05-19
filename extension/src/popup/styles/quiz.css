@@ -171,18 +171,30 @@
 }
 
 .quiz-warn-btn {
-  background: none;
-  border: none;
-  color: rgba(245,154,46,.5);
-  font-size: 13px;
+  background: rgba(245,154,46,.1);
+  border: 1px solid rgba(245,154,46,.4);
+  color: rgba(245,154,46,.95);
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  padding: 2px 3px;
-  border-radius: var(--r-2);
+  padding: 3px 8px 3px 6px;
+  border-radius: var(--r-pill);
   line-height: 1;
-  transition: color 120ms ease, background 120ms ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.quiz-warn-btn:hover { color: rgba(245,154,46,1); background: rgba(245,154,46,.08); }
+.quiz-warn-btn:hover {
+  background: rgba(245,154,46,.2);
+  border-color: rgba(245,154,46,.75);
+  color: rgba(245,154,46,1);
+}
 .quiz-warn-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.quiz-warn-btn__icon { font-size: 11px; line-height: 1; }
+.quiz-warn-btn__label { font-size: 10px; }
 
 /* ── Report panel ── */
 .quiz-report-panel {
