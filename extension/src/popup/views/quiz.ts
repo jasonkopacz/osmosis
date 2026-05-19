@@ -17,12 +17,21 @@ const SESSION_KEY = 'osmosis_quiz_session'
 type SavedSession = {
   cards: SrsDueCard[]
   index: number
+  completed?: number
+  total?: number
   phase: 'question' | 'answer'
   lang: string
 }
 
-function saveQuizSession(cards: SrsDueCard[], index: number, phase: 'question' | 'answer', lang: string): void {
-  void chrome.storage.local.set({ [SESSION_KEY]: { cards, index, phase, lang } }).catch(() => {})
+function saveQuizSession(
+  cards: SrsDueCard[],
+  index: number,
+  completed: number,
+  total: number,
+  phase: 'question' | 'answer',
+  lang: string,
+): void {
+  void chrome.storage.local.set({ [SESSION_KEY]: { cards, index, completed, total, phase, lang } }).catch(() => {})
 }
 
 function clearQuizSession(): void {
@@ -56,7 +65,9 @@ export function renderQuiz(container: HTMLElement, settings: UserSettings): void
 async function restore(container: HTMLElement, settings: UserSettings): Promise<void> {
   const saved = await getSavedSession(settings.targetLang)
   if (saved) {
-    runSession(container, settings, saved.cards, saved.index, saved.phase)
+    const total = saved.total ?? saved.cards.length + saved.index
+    const completed = saved.completed ?? saved.index
+    runSession(container, settings, saved.cards, saved.index, saved.phase, total, completed)
     return
   }
   void load(container, settings)
@@ -92,17 +103,26 @@ function runSession(
   cards: SrsDueCard[],
   startIndex = 0,
   startPhase: 'question' | 'answer' = 'question',
+  sessionTotal?: number,
+  startCompleted?: number,
 ): void {
+  const total = sessionTotal ?? cards.length
+  let completed = startCompleted ?? startIndex
   let index = startIndex
   let phase: 'question' | 'answer' = startPhase
 
+  function sessionLabel(): string {
+    return `${completed + 1} of ${total}`
+  }
+
   function advance(result: SrsRateResult): void {
+    completed++
     index++
     phase = 'question'
     if (index >= cards.length) {
       clearQuizSession()
       void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
-      renderComplete(container, cards.length, result)
+      renderComplete(container, total, result)
     } else {
       renderCurrent()
     }
@@ -110,7 +130,7 @@ function runSession(
 
   function renderCurrent(): void {
     const card = cards[index]!
-    saveQuizSession(cards, index, phase, settings.targetLang)
+    saveQuizSession(cards, index, completed, total, phase, settings.targetLang)
     container.replaceChildren()
 
     const body = document.createElement('div')
@@ -119,19 +139,20 @@ function runSession(
     const meta = document.createElement('div')
     meta.className = 'quiz-meta'
     const counter = document.createElement('span')
-    counter.textContent = `${index + 1} of ${cards.length}`
+    counter.textContent = sessionLabel()
 
     const warnBtn = document.createElement('button')
     warnBtn.className = 'quiz-warn-btn'
     warnBtn.setAttribute('aria-label', 'Report this word')
     warnBtn.innerHTML = '<span class="quiz-warn-btn__icon">⚠</span><span class="quiz-warn-btn__label">Report</span>'
     warnBtn.addEventListener('click', () => {
-      renderReport(container, card, settings, index, cards, () => {
+      renderReport(container, card, settings, completed, total, () => {
+        completed++
         cards.splice(index, 1)
         if (cards.length === 0) {
           clearQuizSession()
           void chrome.runtime.sendMessage({ type: 'SRS_SESSION_COMPLETE', targetLang: settings.targetLang } as Message).catch(() => {})
-          renderComplete(container, 0)
+          renderComplete(container, total)
           return
         }
         if (index >= cards.length) index = cards.length - 1
@@ -142,7 +163,7 @@ function runSession(
 
     const metaRight = document.createElement('div')
     metaRight.className = 'quiz-meta-right'
-    metaRight.append(buildDots(index, cards.length), warnBtn)
+    metaRight.append(buildDots(completed, total), warnBtn)
     meta.append(counter, metaRight)
     body.appendChild(meta)
 
@@ -174,8 +195,8 @@ function renderReport(
   container: HTMLElement,
   card: SrsDueCard,
   settings: UserSettings,
-  index: number,
-  cards: SrsDueCard[],
+  completed: number,
+  total: number,
   onDone: () => void,
   onCancel: () => void,
 ): void {
@@ -186,10 +207,10 @@ function renderReport(
   const meta = document.createElement('div')
   meta.className = 'quiz-meta'
   const counter = document.createElement('span')
-  counter.textContent = `${index + 1} of ${cards.length}`
+  counter.textContent = `${completed + 1} of ${total}`
   const metaRight = document.createElement('div')
   metaRight.className = 'quiz-meta-right'
-  metaRight.appendChild(buildDots(index, cards.length))
+  metaRight.appendChild(buildDots(completed, total))
   meta.append(counter, metaRight)
   body.appendChild(meta)
 
