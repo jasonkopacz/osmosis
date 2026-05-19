@@ -1,6 +1,7 @@
 import type { UserSettings, SrsDueCard, SrsRating, SrsRateResult, Message } from '../../types'
 import { POS_LABELS } from '../../utils/pos'
 import { REVIEW_THRESHOLD } from '../../constants'
+import { playBrowserPronunciation } from '../../utils/tts'
 
 function formatInterval(days: number): string {
   if (days < 1) return '<1d'
@@ -163,11 +164,11 @@ function runSession(
 
     const metaRight = document.createElement('div')
     metaRight.className = 'quiz-meta-right'
-    metaRight.append(buildDots(completed, total), warnBtn)
+    metaRight.append(warnBtn)
     meta.append(counter, metaRight)
     body.appendChild(meta)
 
-    body.appendChild(buildCard(card, phase))
+    body.appendChild(buildCard(card, phase, settings.targetLang))
 
     const actions = document.createElement('div')
     actions.className = 'quiz-actions'
@@ -208,10 +209,7 @@ function renderReport(
   meta.className = 'quiz-meta'
   const counter = document.createElement('span')
   counter.textContent = `${completed + 1} of ${total}`
-  const metaRight = document.createElement('div')
-  metaRight.className = 'quiz-meta-right'
-  metaRight.appendChild(buildDots(completed, total))
-  meta.append(counter, metaRight)
+  meta.append(counter)
   body.appendChild(meta)
 
   const panel = document.createElement('div')
@@ -285,14 +283,19 @@ function renderReport(
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 
-function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivElement {
+function buildCard(card: SrsDueCard, phase: 'question' | 'answer', targetLang: string): HTMLDivElement {
   const el = document.createElement('div')
   el.className = phase === 'answer' ? 'quiz-card quiz-card--revealed' : 'quiz-card'
+
+  const wordRow = document.createElement('div')
+  wordRow.className = 'quiz-word-row'
 
   const word = document.createElement('div')
   word.className = 'quiz-word'
   word.textContent = card.translation
-  el.appendChild(word)
+  wordRow.appendChild(word)
+  wordRow.appendChild(buildTtsButton(card.translation, targetLang))
+  el.appendChild(wordRow)
 
   if (card.posTag) {
     const pos = document.createElement('span')
@@ -308,6 +311,63 @@ function buildCard(card: SrsDueCard, phase: 'question' | 'answer'): HTMLDivEleme
   }
 
   return el
+}
+
+function buildTtsButton(text: string, targetLang: string): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.className = 'quiz-tts-btn'
+  btn.setAttribute('aria-label', 'Play pronunciation')
+  btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"/></svg>'
+
+  let activeAudio: HTMLAudioElement | null = null
+
+  btn.addEventListener('click', async (event) => {
+    event.stopPropagation()
+    if (btn.classList.contains('quiz-tts-btn--loading')) return
+
+    if (activeAudio) {
+      activeAudio.pause()
+      activeAudio.currentTime = 0
+      activeAudio = null
+      btn.classList.remove('quiz-tts-btn--playing')
+      return
+    }
+
+    btn.classList.add('quiz-tts-btn--loading')
+    try {
+      const res = (await chrome.runtime.sendMessage({
+        type: 'PRONOUNCE',
+        text,
+        targetLang,
+      } as Message)) as { audioBase64?: string; mimeType?: string; error?: string } | undefined
+
+      if (!res || res.error) {
+        playBrowserPronunciation(text, targetLang)
+        return
+      }
+      if (!res.audioBase64 || !res.mimeType) {
+        playBrowserPronunciation(text, targetLang)
+        return
+      }
+
+      const audio = new Audio(`data:${res.mimeType};base64,${res.audioBase64}`)
+      activeAudio = audio
+      btn.classList.add('quiz-tts-btn--playing')
+      audio.addEventListener('ended', () => {
+        activeAudio = null
+        btn.classList.remove('quiz-tts-btn--playing')
+      })
+      void audio.play().catch(() => {
+        playBrowserPronunciation(text, targetLang)
+      })
+    } catch {
+      playBrowserPronunciation(text, targetLang)
+    } finally {
+      btn.classList.remove('quiz-tts-btn--loading')
+    }
+  })
+
+  return btn
 }
 
 // ── Rating buttons ────────────────────────────────────────────────────────────
@@ -365,18 +425,6 @@ function buildRatingGrid(
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-function buildDots(current: number, total: number): HTMLDivElement {
-  const wrap = document.createElement('div')
-  wrap.className = 'quiz-dots'
-  const show = Math.min(total, 8)
-  for (let i = 0; i < show; i++) {
-    const dot = document.createElement('div')
-    dot.className = i < current ? 'quiz-dot quiz-dot--done' : i === current ? 'quiz-dot quiz-dot--current' : 'quiz-dot'
-    wrap.appendChild(dot)
-  }
-  return wrap
-}
 
 function renderComplete(container: HTMLElement, count: number, _lastResult?: SrsRateResult): void {
   container.replaceChildren()

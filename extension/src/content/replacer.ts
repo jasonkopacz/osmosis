@@ -6,6 +6,7 @@ import { isEligible } from './filter'
 import replacerStyles from './styles/replacer.css?raw'
 import { addSuppressedWord } from '../utils/suppressedWords'
 import { log, warn } from '../logger'
+import { localeFromTargetLang, playBrowserPronunciation } from '../utils/tts'
 
 let onWordSuppressed: ((word: string, lang: string) => void) | null = null
 
@@ -66,27 +67,6 @@ function stopActiveAudio() {
   activeAudio = null
 }
 
-function localeFromTargetLang(targetLang: string): string {
-  const lower = targetLang.toLowerCase()
-  if (lower.startsWith('es')) return 'es-ES'
-  if (lower.startsWith('fr')) return 'fr-FR'
-  if (lower.startsWith('de')) return 'de-DE'
-  if (lower.startsWith('it')) return 'it-IT'
-  if (lower.startsWith('pt')) return 'pt-BR'
-  if (lower.startsWith('ja')) return 'ja-JP'
-  if (lower.startsWith('ko')) return 'ko-KR'
-  if (lower.startsWith('zh')) return 'zh-CN'
-  return targetLang
-}
-
-function playBrowserPronunciation(text: string, targetLang: string): boolean {
-  if (!('speechSynthesis' in window)) return false
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = localeFromTargetLang(targetLang)
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(utterance)
-  return true
-}
 
 function ensureTooltipHost(): HTMLDivElement {
   let host = document.getElementById(TOOLTIP_HOST_ID) as HTMLDivElement | null

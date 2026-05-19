@@ -13,18 +13,6 @@
   margin-bottom: 10px;
 }
 
-.quiz-dots { display: flex; gap: 4px; align-items: center; }
-
-.quiz-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--shallow);
-  transition: background var(--d-2) var(--ease-out);
-}
-.quiz-dot--done    { background: var(--osmo); }
-.quiz-dot--current { background: var(--current); width: 8px; height: 8px; }
-
 /* ── Card ── */
 .quiz-card {
   background: linear-gradient(150deg, var(--mid) 0%, var(--deep) 100%);
@@ -62,6 +50,13 @@
 }
 
 /* ── Word-only fallback (no context saved) ── */
+.quiz-word-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
 .quiz-word {
   font-size: 28px;
   font-weight: 800;
@@ -70,6 +65,28 @@
   line-height: 1.1;
   text-align: center;
 }
+
+/* ── TTS button ── */
+.quiz-tts-btn {
+  flex-shrink: 0;
+  background: rgba(42, 164, 224, .1);
+  border: 1px solid rgba(42, 164, 224, .25);
+  border-radius: var(--r-pill);
+  color: var(--osmo);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  transition: background var(--d-1) var(--ease-out), border-color var(--d-1) var(--ease-out), color var(--d-1) var(--ease-out);
+}
+.quiz-tts-btn svg { width: 14px; height: 14px; }
+.quiz-tts-btn:hover { background: rgba(42, 164, 224, .2); border-color: rgba(42, 164, 224, .5); color: var(--osmo-bright); }
+.quiz-tts-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.quiz-tts-btn--loading { opacity: .5; cursor: wait; pointer-events: none; }
+.quiz-tts-btn--playing { background: rgba(42, 164, 224, .25); border-color: rgba(42, 164, 224, .6); color: var(--osmo-bright); }
 
 .quiz-pos {
   display: inline-flex;
