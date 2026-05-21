@@ -23,7 +23,7 @@ vi.mock('../../src/db/translations', async (importOriginal) => {
   }
 })
 
-import { lookupWords, translateWords } from '../../src/services/azure'
+import { lookupWords, translateWords, synthesizePronunciation } from '../../src/services/azure'
 import { getTranslationsCachedBatch } from '../../src/db/translations'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
@@ -46,7 +46,7 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
 
 async function makeToken(userId: string) {
   const exp = Math.floor(Date.now() / 1000) + 3600
-  return signJWT({ sub: userId, email: 'test@test.com', exp }, JWT_SECRET)
+  return signJWT({ sub: userId, email: 'test@test.com', plan: 'free', exp }, JWT_SECRET)
 }
 
 const HALLO: TranslationEntry = { t: 'hallo', p: 'NOUN' }
@@ -222,6 +222,156 @@ describe('POST /translate/proper-noun', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ word: 'a', targetLang: 'es' }),
+    }, env)
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /translate/report', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'report@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    token = await makeToken(userId)
+  })
+
+  it('requires authentication', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: 'hello', targetLang: 'de', translation: 'hallo', reason: 'incorrect_translation' }),
+    }, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('records a bad translation report', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ word: 'hello', targetLang: 'de', translation: 'hallo', reason: 'incorrect_translation' }),
+    }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+    const row = await db.prepare('SELECT 1 FROM bad_translation WHERE word = ?').bind('hello').first()
+    expect(row).not.toBeNull()
+  })
+
+  it('purges translation cache and cards when reason is not_a_word', async () => {
+    await db
+      .prepare('INSERT INTO translation_cache (word, target_lang, translation, hit_count, expires_at) VALUES (?, ?, ?, 1, unixepoch() + 86400)')
+      .bind('blorp', 'de', 'Blorp')
+      .run()
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ word: 'blorp', targetLang: 'de', translation: 'Blorp', reason: 'not_a_word' }),
+    }, env)
+    expect(res.status).toBe(200)
+    const cached = await db.prepare('SELECT 1 FROM translation_cache WHERE word = ?').bind('blorp').first()
+    expect(cached).toBeNull()
+    const noun = await db.prepare('SELECT 1 FROM proper_nouns WHERE word = ?').bind('blorp').first()
+    expect(noun).not.toBeNull()
+  })
+
+  it('returns 400 when word is missing', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ targetLang: 'de', translation: 'hallo' }),
+    }, env)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for invalid targetLang', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ word: 'hello', targetLang: 'xx', translation: 'hallo', reason: 'incorrect_translation' }),
+    }, env)
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /translate/pronounce', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'pronounce@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    token = await makeToken(userId)
+  })
+
+  it('requires authentication', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/pronounce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'hallo', targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 503 when speech service is not configured', async () => {
+    const { app, env } = makeApp(db)
+    const noSpeechEnv = {
+      ...env,
+      AZURE_SPEECH_KEY: undefined,
+      AZURE_SPEECH_REGION: undefined,
+      AZURE_TRANSLATOR_KEY: undefined,
+      AZURE_TRANSLATOR_REGION: undefined,
+    } as unknown as Env
+    const res = await app.request('/translate/pronounce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: 'hallo', targetLang: 'de' }),
+    }, noSpeechEnv)
+    expect(res.status).toBe(503)
+  })
+
+  it('returns audio data from Azure speech on success', async () => {
+    vi.mocked(synthesizePronunciation).mockResolvedValueOnce({ audioBase64: 'base64data', mimeType: 'audio/mpeg', voice: 'de-DE-KatjaNeural' })
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/pronounce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: 'hallo', targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(200)
+    const body = await res.json() as { audioBase64: string; mimeType: string }
+    expect(body.audioBase64).toBe('base64data')
+    expect(body.mimeType).toBe('audio/mpeg')
+  })
+
+  it('returns 400 when text is missing', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/pronounce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for invalid targetLang', async () => {
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/pronounce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text: 'hallo', targetLang: 'zz' }),
     }, env)
     expect(res.status).toBe(400)
   })

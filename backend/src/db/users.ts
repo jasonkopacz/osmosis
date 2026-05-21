@@ -52,12 +52,14 @@ export async function createGoogleUser(
   email: string,
   googleSub: string,
   passwordHash: string
-): Promise<void> {
+): Promise<string> {
   try {
-    await db
-      .prepare('INSERT INTO users (email, password_hash, google_sub, auth_provider, email_verified) VALUES (?, ?, ?, ?, 1)')
+    const row = await db
+      .prepare('INSERT INTO users (email, password_hash, google_sub, auth_provider, email_verified) VALUES (?, ?, ?, ?, 1) RETURNING id')
       .bind(email, passwordHash, googleSub, 'google')
-      .run()
+      .first<{ id: string }>()
+    if (!row) throw new Error('createGoogleUser: no id returned')
+    return row.id
   } catch (err) {
     const msg = String(err)
     if (msg.includes('UNIQUE constraint failed') || msg.includes('SQLITE_CONSTRAINT')) {

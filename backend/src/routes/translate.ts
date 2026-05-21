@@ -10,6 +10,7 @@ import { deleteCardForUser, deleteAllCardsForWord } from '../db/srs'
 import { freeTierCharLimit } from '../utils/limits'
 import { currentYearMonth } from '../utils/date'
 import { VALID_LANGUAGE_CODES } from '../data/validLanguages'
+import { checkRateLimit } from '../utils/ratelimit'
 
 // Must match MAX_WORDS in extension/src/content/scorer.ts
 const MAX_WORDS_PER_BATCH = 800
@@ -56,6 +57,9 @@ translateRouter.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Invalid contextsByWord' }, 400)
   }
 
+  const rateLimitAllowed = await checkRateLimit(c.env.TRANSLATION_CACHE, `translate_req:${c.get('userId')}`, 200, 60 * 60)
+  if (!rateLimitAllowed) return c.json({ error: 'Too many requests. Please try again later.' }, 429)
+
   const contextMap = new Map<string, string>()
   if (contextsByWord && typeof contextsByWord === 'object') {
     for (const [rawWord, rawContext] of Object.entries(contextsByWord as Record<string, unknown>)) {
@@ -70,26 +74,12 @@ translateRouter.post('/', requireAuth, async (c) => {
   const uniqueWords = [...new Set(words as string[])]
   const contextedUniqueWords = uniqueWords.filter(w => contextMap.has(w.toLowerCase())).length
   console.log(`[translate] user=${c.get('userId')} lang=${targetLang} requested=${words.length} unique=${uniqueWords.length} contexted=${contextedUniqueWords}`)
-  if (contextMap.size > 0) {
-    const contextWords = new Set(uniqueWords.map(w => w.toLowerCase()))
-    const normalizedContextsByWord = Object.fromEntries(
-      Array.from(contextMap.entries()).filter(([word]) => contextWords.has(word))
-    )
-    console.log('[translate] context payload', {
-      requestedContextEntries: Object.keys((contextsByWord ?? {}) as Record<string, unknown>).length,
-      acceptedContextEntries: contextMap.size,
-      contextedUniqueWords,
-      coveragePct: uniqueWords.length > 0 ? Number(((contextedUniqueWords / uniqueWords.length) * 100).toFixed(1)) : 0,
-      normalizedContextsByWord,
-    })
-  } else {
-    console.log('[translate] context payload', {
-      requestedContextEntries: Object.keys((contextsByWord ?? {}) as Record<string, unknown>).length,
-      acceptedContextEntries: 0,
-      contextedUniqueWords: 0,
-      coveragePct: 0,
-    })
-  }
+  console.log('[translate] context payload', {
+    requestedContextEntries: Object.keys((contextsByWord ?? {}) as Record<string, unknown>).length,
+    acceptedContextEntries: contextMap.size,
+    contextedUniqueWords,
+    coveragePct: uniqueWords.length > 0 ? Number(((contextedUniqueWords / uniqueWords.length) * 100).toFixed(1)) : 0,
+  })
 
   const result: Record<string, TranslationEntry> = {}
   const backgroundTasks: Promise<unknown>[] = []
@@ -170,8 +160,12 @@ translateRouter.post('/', requireAuth, async (c) => {
       }
       console.log(`[translate] charged ${usageDelta} chars, new total=${newTotal}`)
     } else if (usageDelta > 0) {
-      await incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
-      console.log(`[translate] pro user, charged ${usageDelta} chars (no limit)`)
+      // Pro: fire-and-forget — don't block the response on usage tracking
+      backgroundTasks.push(
+        incrementUsage(c.env.DB, c.get('userId'), currentYearMonth(), usageDelta)
+          .then(n => console.log(`[translate] pro user, charged ${usageDelta} chars (no limit), total=${n}`))
+          .catch(err => console.error(`[translate] pro usage tracking failed: ${String(err)}`))
+      )
     }
 
     for (const [word, entry] of allNew.entries()) {

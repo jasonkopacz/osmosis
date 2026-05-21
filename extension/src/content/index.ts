@@ -23,9 +23,23 @@ let settings: UserSettings = DEFAULT_SETTINGS
 let domObserver: MutationObserver | null = null
 let mutationTimer: ReturnType<typeof setTimeout> | null = null
 let pipelineRunning = false
+let pendingPipelineRerun = false
 let cachedTranslationMap: Map<string, import('../types').TranslationEntry | string> = new Map()
 let cachedTargetLang = ''
 const MUTATION_TEXT_THRESHOLD = 30 // ignore trivial DOM changes (ads, badges, analytics)
+
+let masteredWordsCache: { words: Set<string>; lang: string; fetchedAt: number } | null = null
+const MASTERED_WORDS_CACHE_TTL_MS = 30_000
+
+async function getCachedMasteredWords(lang: string): Promise<Set<string>> {
+  const now = Date.now()
+  if (masteredWordsCache && masteredWordsCache.lang === lang && now - masteredWordsCache.fetchedAt < MASTERED_WORDS_CACHE_TTL_MS) {
+    return masteredWordsCache.words
+  }
+  const words = await getMasteredWords(lang)
+  masteredWordsCache = { words, lang, fetchedAt: now }
+  return words
+}
 
 function sentenceAroundOffset(text: string, offset: number): string | null {
   const normalizedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)))
@@ -163,7 +177,7 @@ async function runPipeline(): Promise<void> {
     const cefrFiltered = cefrMin === 'all'
       ? allUnique
       : allUnique.filter(w => passesCefrFilter(w, cefrMin))
-    const masteredWords = await getMasteredWords(settings.targetLang)
+    const masteredWords = await getCachedMasteredWords(settings.targetLang)
     const sampledWords = sampleWords(cefrFiltered, settings.percentage, location.href, masteredWords)
     const sampledWordSet = new Set(sampledWords)
 
@@ -247,7 +261,11 @@ async function runPipeline(): Promise<void> {
     }
   } finally {
     pipelineRunning = false
-    resumeObserver() // resume watching for new dynamic content
+    resumeObserver()
+    if (pendingPipelineRerun) {
+      pendingPipelineRerun = false
+      void runPipeline()
+    }
   }
 }
 
@@ -261,7 +279,11 @@ chrome.runtime.onMessage.addListener((msg: Message) => {
       ),
       targetLang: normalizeTargetLang(msg.settings.targetLang),
     }
-    void runPipeline()
+    if (pipelineRunning) {
+      pendingPipelineRerun = true
+    } else {
+      void runPipeline()
+    }
   }
 })
 

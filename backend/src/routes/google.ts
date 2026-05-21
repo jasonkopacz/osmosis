@@ -10,7 +10,7 @@ import {
   getGoogleWebClientCredentials,
   isChromeExtensionRedirectUri,
 } from '../services/google'
-import { createGoogleUser, findUserByEmail, findUserByGoogleSub, linkGoogleToEmailUser, DuplicateEmailError } from '../db/users'
+import { createGoogleUser, findUserById, findUserByEmail, findUserByGoogleSub, linkGoogleToEmailUser, DuplicateEmailError } from '../db/users'
 
 export const googleOAuthRouter = new Hono<{ Bindings: Env }>()
 
@@ -95,8 +95,9 @@ googleOAuthRouter.post('/exchange', async c => {
 
   const randomPw = crypto.randomUUID() + crypto.randomUUID()
   const passwordHash = await hashPassword(randomPw)
+  let newUserId: string
   try {
-    await createGoogleUser(c.env.DB, email, googleSub, passwordHash)
+    newUserId = await createGoogleUser(c.env.DB, email, googleSub, passwordHash)
   } catch (err) {
     if (err instanceof DuplicateEmailError) {
       return c.json({ error: 'Email already registered' }, 409)
@@ -104,7 +105,7 @@ googleOAuthRouter.post('/exchange', async c => {
     throw err
   }
 
-  const created = await findUserByEmail(c.env.DB, email)
+  const created = await findUserById(c.env.DB, newUserId)
   if (!created) {
     console.error(`[auth/google] failed to retrieve newly created user for ${email}`)
     return c.json({ error: 'Account creation failed' }, 500)

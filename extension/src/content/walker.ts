@@ -1,3 +1,5 @@
+// A tags are intentionally not in SKIP_TAGS — link text is readable prose worth translating.
+// Navigation links are already excluded by NAV; inline anchor text in articles should translate normally.
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'INPUT', 'TEXTAREA', 'NAV', 'BUTTON', 'SELECT', 'OPTION'])
 
 export type WordEntry = { word: string; node: Text; offset: number }

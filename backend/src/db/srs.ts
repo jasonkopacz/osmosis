@@ -215,5 +215,8 @@ export async function getSrsStats(
 }
 
 function tryParse<T>(s: string): T | undefined {
-  try { return JSON.parse(s) as T } catch { return undefined }
+  try { return JSON.parse(s) as T } catch (err) {
+    console.warn('[srs] failed to parse JSON column:', String(err))
+    return undefined
+  }
 }

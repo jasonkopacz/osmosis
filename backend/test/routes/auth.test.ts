@@ -6,6 +6,7 @@ import { createTestDb, wrapDb } from '../helpers/db'
 import { hashPassword } from '../../src/utils/passwords'
 import { createUser, findUserByEmail as _findUserByEmail, verifyUserEmail } from '../../src/db/users'
 import { verificationKvKey } from '../../src/services/emailSignup'
+import { resetKvKey } from '../../src/services/emailReset'
 import type { Env } from '../../src/types'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
@@ -339,6 +340,132 @@ describe('POST /auth/refresh', () => {
       await post(app, '/auth/refresh', { refreshToken: 'd'.repeat(64) }, env)
     }
     const res = await post(app, '/auth/refresh', { refreshToken: 'd'.repeat(64) }, env)
+    expect(res.status).toBe(429)
+  })
+})
+
+describe('POST /auth/forgot-password', () => {
+  let db: ReturnType<typeof wrapDb>
+  let kv: KVNamespace
+
+  beforeEach(() => {
+    db = wrapDb(createTestDb())
+    kv = createMockKV()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('api.resend.com')) return new Response(JSON.stringify({ id: 'mock' }), { status: 200 })
+        return new Response('not found', { status: 404 })
+      }),
+    )
+  })
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('returns 200 for a known email and sends a reset email', async () => {
+    const sendMock = vi.fn(async (url: RequestInfo | URL) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url
+      if (urlStr.includes('api.resend.com')) return new Response(JSON.stringify({ id: 'mock' }), { status: 200 })
+      return new Response('not found', { status: 404 })
+    })
+    vi.stubGlobal('fetch', sendMock)
+    await seedEmailPasswordUser(db, 'reset@test.com', VALID_SIGNUP_PASSWORD)
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/forgot-password', { email: 'reset@test.com' }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+    const emailCalls = sendMock.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('resend.com'),
+    )
+    expect(emailCalls.length).toBe(1)
+  })
+
+  it('returns 200 for an unknown email (prevents enumeration)', async () => {
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/forgot-password', { email: 'nobody@test.com' }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+  })
+
+  it('returns 200 for an invalid email format (prevents enumeration)', async () => {
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/forgot-password', { email: 'notanemail' }, env)
+    expect(res.status).toBe(200)
+  })
+
+  it('does not send reset email for a Google-only account', async () => {
+    const sendMock = vi.fn(async () => new Response(JSON.stringify({ id: 'mock' }), { status: 200 }))
+    vi.stubGlobal('fetch', sendMock)
+    await db.prepare("INSERT INTO users (email, password_hash, google_sub, auth_provider, email_verified) VALUES (?, ?, ?, 'google', 1)")
+      .bind('googleonly@test.com', 'hash', 'sub_google')
+      .run()
+    const { app, env } = makeApp(db, kv)
+    await post(app, '/auth/forgot-password', { email: 'googleonly@test.com' }, env)
+    const emailCalls = sendMock.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('resend.com'),
+    )
+    expect(emailCalls.length).toBe(0)
+  })
+
+  it('returns 429 when rate limit is exceeded', async () => {
+    const { app, env } = makeApp(db, kv)
+    for (let i = 0; i < 5; i++) {
+      await post(app, '/auth/forgot-password', { email: `u${i}@test.com` }, env)
+    }
+    const res = await post(app, '/auth/forgot-password', { email: 'extra@test.com' }, env)
+    expect(res.status).toBe(429)
+  })
+})
+
+describe('POST /auth/reset-password', () => {
+  let db: ReturnType<typeof wrapDb>
+  let kv: KVNamespace
+
+  beforeEach(() => {
+    db = wrapDb(createTestDb())
+    kv = createMockKV()
+  })
+
+  it('updates password for a valid token and invalidates the token', async () => {
+    const userId = await seedEmailPasswordUser(db, 'pwreset@test.com', VALID_SIGNUP_PASSWORD)
+    const token = 'e'.repeat(64)
+    await kv.put(resetKvKey(token), JSON.stringify({ userId, email: 'pwreset@test.com' }))
+    const { app, env } = makeApp(db, kv)
+    const newPassword = 'newpassword99!'
+    const res = await post(app, '/auth/reset-password', { token, password: newPassword }, env)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true })
+    // Token should be consumed (one-time use)
+    const tokenAfter = await kv.get(resetKvKey(token))
+    expect(tokenAfter).toBeNull()
+    // New password should work for login
+    const loginRes = await post(app, '/auth/login', { email: 'pwreset@test.com', password: newPassword }, env)
+    expect(loginRes.status).toBe(200)
+  })
+
+  it('returns 400 for an unknown or already-used token', async () => {
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/reset-password', { token: 'f'.repeat(64), password: 'newpassword99!' }, env)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/invalid or has expired/i) })
+  })
+
+  it('returns 400 for a weak new password', async () => {
+    const userId = await seedEmailPasswordUser(db, 'weakpw@test.com', VALID_SIGNUP_PASSWORD)
+    const token = 'g'.repeat(64)
+    await kv.put(resetKvKey(token), JSON.stringify({ userId, email: 'weakpw@test.com' }))
+    const { app, env } = makeApp(db, kv)
+    const res = await post(app, '/auth/reset-password', { token, password: 'short' }, env)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 429 when rate limit is exceeded', async () => {
+    const { app, env } = makeApp(db, kv)
+    for (let i = 0; i < 5; i++) {
+      await post(app, '/auth/reset-password', { token: `${'h'.repeat(64)}`, password: 'dummy99!' }, env)
+    }
+    const res = await post(app, '/auth/reset-password', { token: 'h'.repeat(64), password: 'dummy99!' }, env)
     expect(res.status).toBe(429)
   })
 })

@@ -70,7 +70,7 @@ function verifyLandingPageHtml(jwt: string, refreshToken: string, extensionId: s
         status.textContent = 'Make sure Osmosis is installed, then sign in from the extension.';
         return;
       }
-      chrome.runtime.sendMessage(extId, { type: 'SESSION_FROM_VERIFY', token: '${jwt}', refreshToken: '${refreshToken}' }, function (res) {
+      chrome.runtime.sendMessage(extId, { type: 'SESSION_FROM_VERIFY', token: ${JSON.stringify(jwt)}, refreshToken: ${JSON.stringify(refreshToken)} }, function (res) {
         if (chrome.runtime.lastError || !res || res.error) {
           status.textContent = 'Could not connect to Osmosis. Please sign in manually from the extension.';
           return;

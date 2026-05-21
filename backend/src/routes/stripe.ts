@@ -69,11 +69,9 @@ stripeRouter.post('/webhook', async (c) => {
     }
   }
 
-  if (event.type === 'invoice.payment_failed') {
-    const invoice = event.data.object as Stripe.Invoice
-    const customerId = typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer as Stripe.Customer).id
-    await downgradeByCustomerId(c.env.DB, c.env.TRANSLATION_CACHE, customerId, 'invoice payment failed')
-  }
+  // invoice.payment_failed is intentionally not handled here — Stripe retries failed invoices
+  // multiple times before canceling. customer.subscription.updated with status 'past_due'/'unpaid'
+  // and customer.subscription.deleted above already cover the eventual downgrade path.
 
   return c.json({ received: true })
 })
