@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
+import type { KVNamespace } from '@cloudflare/workers-types'
 import { translateRouter } from '../../src/routes/translate'
 import { createTestDb, wrapDb, mockKV } from '../helpers/db'
 import { signJWT } from '../../src/utils/jwt'
-import { createUser, findUserByEmail, verifyUserEmail } from '../../src/db/users'
+import { createUser, findUserByEmail, verifyUserEmail, updatePlan } from '../../src/db/users'
+import { getUsage, incrementUsage } from '../../src/db/usage'
+import { currentYearMonth } from '../../src/utils/date'
 import type { Env, Variables, TranslationEntry } from '../../src/types'
 
 vi.mock('../../src/services/azure', () => ({
@@ -28,7 +31,7 @@ import { getTranslationsCachedBatch } from '../../src/db/translations'
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-32chars'
 
-function makeApp(db: ReturnType<typeof wrapDb>) {
+function makeApp(db: ReturnType<typeof wrapDb>, kv: KVNamespace = mockKV, limitOverride?: string) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>()
   app.route('/translate', translateRouter)
   return {
@@ -36,12 +39,34 @@ function makeApp(db: ReturnType<typeof wrapDb>) {
     env: {
       DB: db,
       JWT_SECRET,
-      TRANSLATION_CACHE: mockKV,
-      FREE_TIER_CHAR_LIMIT: '100000',
+      TRANSLATION_CACHE: kv,
+      FREE_TIER_CHAR_LIMIT: limitOverride ?? '100000',
       AZURE_TRANSLATOR_KEY: 'key',
       AZURE_TRANSLATOR_REGION: 'eastus',
     } as unknown as Env,
   }
+}
+
+// Captures fire-and-forget promises scheduled via c.executionCtx.waitUntil, so
+// tests that exercise pro-tier billing (which uses waitUntil instead of awaiting
+// the DB write) can wait for those writes to land before asserting.
+function makeExecutionContext() {
+  const pending: Promise<unknown>[] = []
+  const ctx = {
+    waitUntil: (p: Promise<unknown>) => { pending.push(p) },
+    passThroughOnException: () => {},
+  }
+  return { ctx, drain: () => Promise.all(pending) }
+}
+
+// Real state-tracking KV, adequate for rate-limit and idempotency assertions.
+function createMemoryKV(): KVNamespace {
+  const store = new Map<string, string>()
+  return {
+    get: async (k: string) => store.get(k) ?? null,
+    put: async (k: string, v: string) => { store.set(k, v) },
+    delete: async (k: string) => { store.delete(k) },
+  } as unknown as KVNamespace
 }
 
 async function makeToken(userId: string) {
@@ -300,6 +325,58 @@ describe('POST /translate/report', () => {
     }, env)
     expect(res.status).toBe(400)
   })
+
+  it('deletes only the caller\'s card when removeFromSrs is true (not global purge)', async () => {
+    const otherUserId = await createUser(db, 'other@test.com', 'hashed')
+    await verifyUserEmail(db, otherUserId)
+    const nowSec = Math.floor(Date.now() / 1000)
+    // Same word, same language, two different users
+    for (const uid of [userId, otherUserId]) {
+      await db
+        .prepare(
+          `INSERT INTO word_cards (user_id, word, target_lang, state, stability, difficulty, lapses, reps, due_at, last_rated_at, last_seen_at)
+           VALUES (?, ?, ?, 'review', 1, 5, 0, 1, ?, ?, ?)`,
+        )
+        .bind(uid, 'hallo', 'de', nowSec, nowSec, nowSec)
+        .run()
+    }
+
+    const { app, env } = makeApp(db)
+    const res = await app.request('/translate/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        word: 'hallo',
+        targetLang: 'de',
+        translation: 'hello',
+        reason: 'incorrect_translation',
+        removeFromSrs: true,
+      }),
+    }, env)
+    expect(res.status).toBe(200)
+
+    // Caller's card is gone
+    const mine = await db
+      .prepare('SELECT 1 FROM word_cards WHERE user_id = ? AND word = ? AND target_lang = ?')
+      .bind(userId, 'hallo', 'de')
+      .first()
+    expect(mine).toBeNull()
+
+    // Other user's card is untouched — this is what distinguishes removeFromSrs
+    // (per-user) from the "not_a_word" branch (global deleteAllCardsForWord).
+    const theirs = await db
+      .prepare('SELECT 1 FROM word_cards WHERE user_id = ? AND word = ? AND target_lang = ?')
+      .bind(otherUserId, 'hallo', 'de')
+      .first()
+    expect(theirs).not.toBeNull()
+
+    // And the bad_translation report was recorded
+    const report = await db
+      .prepare('SELECT 1 FROM bad_translation WHERE word = ? AND user_id = ?')
+      .bind('hallo', userId)
+      .first()
+    expect(report).not.toBeNull()
+  })
 })
 
 describe('POST /translate/pronounce', () => {
@@ -377,3 +454,137 @@ describe('POST /translate/pronounce', () => {
   })
 })
 
+describe('POST /translate — free-tier usage limit boundary', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+  const limit = 50 // small limit keeps the arithmetic obvious
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.mocked(getTranslationsCachedBatch).mockResolvedValue(new Map())
+    vi.mocked(lookupWords).mockResolvedValue(new Map())
+    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map())
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'limit@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    token = await makeToken(userId)
+  })
+
+  it('allows a request that lands exactly at the limit', async () => {
+    // Seed usage such that adding the request's chars puts total EXACTLY at limit.
+    // The word "hello" costs 5 chars in translate.ts's `[...allNew.keys()].join('').length`.
+    await incrementUsage(db, userId, currentYearMonth(), limit - 5)
+    vi.mocked(lookupWords).mockResolvedValue(new Map([['hello', HALLO]]))
+
+    const { app, env } = makeApp(db, mockKV, String(limit))
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(200)
+    expect(await getUsage(db, userId, currentYearMonth())).toBe(limit)
+  })
+
+  it('rejects a request that would land one char over the limit', async () => {
+    await incrementUsage(db, userId, currentYearMonth(), limit - 4)
+    vi.mocked(lookupWords).mockResolvedValue(new Map([['hello', HALLO]]))
+
+    const { app, env } = makeApp(db, mockKV, String(limit))
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(402)
+    expect(await res.json()).toMatchObject({ code: 'LIMIT_REACHED' })
+  })
+})
+
+describe('POST /translate — pro-tier billing (fire-and-forget)', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.mocked(getTranslationsCachedBatch).mockResolvedValue(new Map())
+    vi.mocked(lookupWords).mockResolvedValue(new Map())
+    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map())
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'pro@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    // requireAuth reads plan from DB (JWT payload is ignored for plan) — set to 'pro'.
+    await updatePlan(db, userId, 'pro', 'cus_pro_test')
+    token = await makeToken(userId)
+  })
+
+  it('bypasses the free-tier limit AND still records usage via waitUntil', async () => {
+    // Seed usage well above any conceivable free-tier limit — pro path must not gate on it.
+    const preexisting = 999_999
+    await incrementUsage(db, userId, currentYearMonth(), preexisting)
+    vi.mocked(lookupWords).mockResolvedValue(new Map([['hello', HALLO]]))
+
+    const { app, env } = makeApp(db)
+    const { ctx, drain } = makeExecutionContext()
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env, ctx)
+    expect(res.status).toBe(200)
+
+    // The background task hasn't necessarily completed by the time the response returns
+    // — wait for the promises the route scheduled via waitUntil, then assert the DB grew.
+    await drain()
+    expect(await getUsage(db, userId, currentYearMonth())).toBe(preexisting + 5)
+  })
+})
+
+describe('POST /translate — rate limiting', () => {
+  let db: ReturnType<typeof wrapDb>
+  let userId: string
+  let token: string
+  let kv: KVNamespace
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.mocked(getTranslationsCachedBatch).mockResolvedValue(new Map())
+    vi.mocked(lookupWords).mockResolvedValue(new Map())
+    vi.mocked(translateWords as ReturnType<typeof vi.fn>).mockResolvedValue(new Map())
+    db = wrapDb(createTestDb())
+    userId = await createUser(db, 'ratelimit@test.com', 'hashed')
+    await verifyUserEmail(db, userId)
+    token = await makeToken(userId)
+    kv = createMemoryKV()
+  })
+
+  it('returns 429 once the per-user hourly limit is exhausted', async () => {
+    // /translate limit is 200 per hour per user (see translate.ts).
+    // Fill the bucket by writing the count directly — much faster than 200 real requests.
+    const bucket = Math.floor(Date.now() / 1000 / (60 * 60))
+    await kv.put(`rl:translate_req:${userId}:${bucket}`, '200')
+
+    const { app, env } = makeApp(db, kv)
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env)
+    expect(res.status).toBe(429)
+  })
+
+  it('lets a request through when the bucket is under the limit', async () => {
+    const bucket = Math.floor(Date.now() / 1000 / (60 * 60))
+    await kv.put(`rl:translate_req:${userId}:${bucket}`, '199')
+
+    const { app, env } = makeApp(db, kv)
+    const res = await app.request('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ words: ['hello'], targetLang: 'de' }),
+    }, env)
+    expect(res.status).not.toBe(429)
+  })
+})

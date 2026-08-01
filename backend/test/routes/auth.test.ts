@@ -469,3 +469,75 @@ describe('POST /auth/reset-password', () => {
     expect(res.status).toBe(429)
   })
 })
+
+// End-to-end integration: signup/request → verify-email (POST) → JWT extracted from
+// landing HTML → JWT accepted by requireAuth on a protected route. Every step is
+// unit-tested individually elsewhere; this covers the seam between them, where the
+// JWT format, KV key layout, and requireAuth's plan/email lookup all have to line up.
+describe('integration: signup → verify → JWT usable against requireAuth', () => {
+  let db: ReturnType<typeof wrapDb>
+  let kv: KVNamespace
+
+  beforeEach(() => {
+    db = wrapDb(createTestDb())
+    kv = createMockKV()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (url.includes('api.resend.com')) return new Response(JSON.stringify({ id: 'mock' }), { status: 200 })
+        return new Response('not found', { status: 404 })
+      }),
+    )
+  })
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('completes the full flow and the issued JWT authenticates on /user/me', async () => {
+    // Mount both routers on the same app so the JWT issued by /auth also passes
+    // through the /user requireAuth middleware.
+    const { userRouter } = await import('../../src/routes/user')
+    const app = new Hono<{ Bindings: Env }>()
+    app.route('/auth', authRouter)
+    app.route('/user', userRouter)
+    const env = makeApp(db, kv).env
+
+    // Step 1 — signup/request stores a pending signup and (in production) emails a link.
+    // The email side is stubbed, so we grab the user id from DB and mint the verification
+    // token ourselves — same operation the /auth/signup/request handler performed
+    // internally, just accessible from the test.
+    const signupRes = await post(app, '/auth/signup/request', signupPayload('integration@test.com', VALID_SIGNUP_PASSWORD), env)
+    expect(signupRes.status).toBe(200)
+
+    const userId = (await _findUserByEmail(db, 'integration@test.com'))!.id
+    const token = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'
+    await kv.put(verificationKvKey(token), JSON.stringify({ userId }))
+
+    // Step 2 — POST /auth/verify-email consumes the token and returns the extension
+    // landing HTML with the JWT embedded in a chrome.runtime.sendMessage call.
+    const verifyRes = await app.request('http://local/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: token }).toString(),
+    }, env)
+    expect(verifyRes.status).toBe(200)
+    const landingHtml = await verifyRes.text()
+
+    // Step 3 — extract the JWT from the landing HTML (embedded as JSON.stringify(jwt)).
+    // The pattern is `token: "..."`, immediately before `refreshToken: "..."`.
+    const jwtMatch = landingHtml.match(/token:\s*"([^"]+)"/)
+    expect(jwtMatch, 'landing HTML should embed the JWT via chrome.runtime.sendMessage').not.toBeNull()
+    const jwt = jwtMatch![1]!
+
+    // Step 4 — the JWT must authenticate against /user/me (a requireAuth route we
+    // did NOT visit before, so the KV user_auth cache is cold and requireAuth has
+    // to walk through JWT verify → DB user lookup on its own).
+    const meRes = await app.request('http://local/user/me', {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }, env)
+    expect(meRes.status).toBe(200)
+    const me = await meRes.json() as { email: string; plan: string }
+    expect(me.email).toBe('integration@test.com')
+    expect(me.plan).toBe('free')
+  })
+})

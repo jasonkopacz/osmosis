@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { Hono } from 'hono'
+import type { KVNamespace } from '@cloudflare/workers-types'
 import { createTestDb, wrapDb, mockKV } from '../helpers/db'
-import { createUser, findUserByEmail } from '../../src/db/users'
+import { createUser, findUserByEmail, updatePlan } from '../../src/db/users'
 import type { Env } from '../../src/types'
 
 const mockConstructEventAsync = vi.fn()
@@ -16,14 +17,23 @@ vi.mock('stripe', () => ({
 
 import { stripeRouter } from '../../src/routes/stripe'
 
-function makeApp(db: ReturnType<typeof wrapDb>) {
+function createMemoryKV(): KVNamespace {
+  const store = new Map<string, string>()
+  return {
+    get: async (k: string) => store.get(k) ?? null,
+    put: async (k: string, v: string) => { store.set(k, v) },
+    delete: async (k: string) => { store.delete(k) },
+  } as unknown as KVNamespace
+}
+
+function makeApp(db: ReturnType<typeof wrapDb>, kv: KVNamespace = mockKV) {
   const app = new Hono<{ Bindings: Env }>()
   app.route('/stripe', stripeRouter)
   return {
     app,
     env: {
       DB: db,
-      TRANSLATION_CACHE: mockKV,
+      TRANSLATION_CACHE: kv,
       STRIPE_SECRET_KEY: 'sk_test_xxx',
       STRIPE_WEBHOOK_SECRET: 'whsec_test',
     } as unknown as Env,
@@ -135,5 +145,68 @@ describe('POST /stripe/webhook', () => {
     expect(res.status).toBe(200)
     const user = (await findUserByEmail(db, 'sub@test.com'))!
     expect(user.plan).toBe('free')
+  })
+
+  it('downgrades on customer.subscription.paused', async () => {
+    const kv = createMemoryKV()
+    const { app, env } = makeApp(db, kv)
+    // Pre-upgrade the user directly so we don't rely on a prior checkout event
+    await updatePlan(db, userId, 'pro', 'cus_paused')
+
+    mockConstructEventAsync.mockResolvedValueOnce({
+      id: 'evt_paused_1',
+      type: 'customer.subscription.paused',
+      data: {
+        object: { customer: 'cus_paused', status: 'paused' },
+      },
+    })
+    const res = await postWebhook(app, env, '{}', 'sig-paused')
+    expect(res.status).toBe(200)
+    const user = (await findUserByEmail(db, 'sub@test.com'))!
+    expect(user.plan).toBe('free')
+    expect(user.stripe_customer_id).toBe('cus_paused')
+  })
+
+  it('deduplicates re-delivered events with the same event.id (KV idempotency)', async () => {
+    const kv = createMemoryKV()
+    const { app, env } = makeApp(db, kv)
+
+    // First delivery: paid → upgrade
+    mockConstructEventAsync.mockResolvedValueOnce({
+      id: 'evt_dup_upgrade',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          client_reference_id: userId,
+          customer: 'cus_dup',
+          payment_status: 'paid',
+        },
+      },
+    })
+    const first = await postWebhook(app, env, '{}', 'sig-first')
+    expect(first.status).toBe(200)
+    expect((await findUserByEmail(db, 'sub@test.com'))!.plan).toBe('pro')
+
+    // Simulate a state change between deliveries — a manual downgrade in DB.
+    // If the second delivery is NOT deduplicated, it will re-apply the upgrade
+    // and stomp the manual downgrade back to 'pro'. Idempotency must prevent that.
+    await updatePlan(db, userId, 'free', 'cus_dup')
+    expect((await findUserByEmail(db, 'sub@test.com'))!.plan).toBe('free')
+
+    // Second delivery of the SAME event id: should be a no-op
+    mockConstructEventAsync.mockResolvedValueOnce({
+      id: 'evt_dup_upgrade',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          client_reference_id: userId,
+          customer: 'cus_dup',
+          payment_status: 'paid',
+        },
+      },
+    })
+    const second = await postWebhook(app, env, '{}', 'sig-second')
+    expect(second.status).toBe(200)
+    expect((await findUserByEmail(db, 'sub@test.com'))!.plan).toBe('free')
   })
 })
