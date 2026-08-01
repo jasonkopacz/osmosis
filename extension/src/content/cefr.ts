@@ -45,13 +45,13 @@ export const CEFR_LABELS: Record<CefrMinLevel, string> = {
 }
 
 export const CEFR_DESCRIPTIONS: Record<CefrMinLevel, string> = {
-  all: 'Replace all eligible words',
-  A1:  'Beginner — core 500 words',
-  A2:  'Elementary — everyday vocabulary',
-  B1:  'Intermediate — content words',
-  B2:  'Upper-intermediate — academic',
-  C1:  'Advanced — sophisticated vocabulary',
-  C2:  'Mastery — rare & specialised terms',
+  all: 'Replace All Eligible Words',
+  A1:  'Beginner — Core 500 Words',
+  A2:  'Elementary — Everyday Vocabulary',
+  B1:  'Intermediate — Content Words',
+  B2:  'Upper-intermediate — Academic',
+  C1:  'Advanced — Sophisticated Vocabulary',
+  C2:  'Mastery — Rare & Specialised Terms',
 }
 
 export const CEFR_LEVELS: CefrMinLevel[] = ['all', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
