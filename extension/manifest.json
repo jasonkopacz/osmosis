@@ -3,7 +3,7 @@
   "name": "Osmosis",
   "version": "3.0.0",
   "description": "Passively learn a language by replacing words on any page with translations.",
-  "permissions": ["activeTab", "storage", "scripting", "identity"],
+  "permissions": ["activeTab", "storage", "identity"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background/index.ts",
