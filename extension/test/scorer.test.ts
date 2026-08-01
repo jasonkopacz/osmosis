@@ -5,8 +5,8 @@ describe('scoreWord', () => {
   it('gives ultra-common words lower score than learnable words', () => {
     expect(scoreWord('the')).toBeLessThan(scoreWord('forest'))
   })
-  it('gives unknown words score 2 (learnable)', () => {
-    expect(scoreWord('xyzqwerty')).toBe(2)
+  it('gives unknown words score 0 so gibberish and proper nouns never rank high', () => {
+    expect(scoreWord('xyzqwerty')).toBe(0)
   })
 })
 

@@ -6,7 +6,7 @@ const MAX_WORDS = 800
 
 export function scoreWord(word: string): number {
   const rank = WORD_RANK[word.toLowerCase()]
-  if (!rank) return 2          // unknown/rare words — good learning candidates
+  if (!rank) return 0          // not a real English word — never prioritize for translation
   if (rank < 100) return 1     // very common (the, of, and) — lowest priority
   if (rank <= 3000) return 3   // mid-frequency — highest priority
   return 2                     // less common known words — medium priority

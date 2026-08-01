@@ -1,6 +1,6 @@
 import { WORD_RANK } from '../data/wordFrequency'
 
-export function isEligible(word: string, textBefore: string, fullText?: string): boolean {
+export function isEligible(word: string, textBefore: string): boolean {
   if (word.length < 3) return false
   if (/\d/.test(word)) return false
   if (/[.@]/.test(word)) return false
@@ -19,13 +19,11 @@ export function isEligible(word: string, textBefore: string, fullText?: string):
   const sentenceStart = prevChar === '' || /[.!?]/.test(prevChar)
   if (/^[A-Z]/.test(word) && !sentenceStart) return false
 
-  // A text node containing only one word (heading, label, link text, name element)
-  // is almost always a proper noun or UI label — only pass it if it's a known
-  // common English word (i.e. it appears in the frequency index).
-  if (prevChar === '' && fullText !== undefined) {
-    const wordCount = fullText.trim().split(/\s+/).filter(Boolean).length
-    if (wordCount === 1 && !WORD_RANK[word.toLowerCase()]) return false
-  }
+  // Require the word to be a real English word. Rejects proper nouns not shared
+  // with common vocabulary (Musk, Kopacz), brand names, typos, foreign tokens
+  // in Latin script, and gibberish letter sequences that would otherwise be
+  // scored as "unknown learning candidates" and shipped to translation.
+  if (!WORD_RANK[word.toLowerCase()]) return false
 
   return true
 }

@@ -155,7 +155,7 @@ async function runPipeline(): Promise<void> {
     // Words — collected before DOM changes so offsets are stable.
     const allWordEntries = collectWords(document.body)
     const eligibleWordEntries = allWordEntries.filter(
-      ({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? '', node.textContent ?? '')
+      ({ word, offset, node }) => isEligible(word, node.textContent?.slice(0, offset) ?? '')
     )
 
     // ── Phase 2: Exclude words whose offsets fall inside a phrase match ────
