@@ -25,6 +25,9 @@ CHROME_EXTENSION_ID = "manmnbejhpmjfmjbbjkmjahhedcaabml"
 EMAIL_FROM = "Osmosis <verify@velvetwebdev.com>"
 APP_URL = "https://osmosis.app"
 
+# Base URL of this backend — used to build absolute image URLs in outbound emails.
+API_BASE_URL = "https://osmosis-api.jtkopacz.workers.dev"
+
 # Optional: override popup path (default "src/popup/index.html")
 # EXTENSION_POPUP_PATH = "src/popup/index.html"
 

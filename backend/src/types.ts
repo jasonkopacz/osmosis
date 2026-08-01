@@ -18,6 +18,7 @@ export type Env = {
   CHROME_EXTENSION_ID?: string
   EXTENSION_POPUP_PATH?: string
   APP_URL?: string
+  API_BASE_URL?: string
 }
 
 export type Variables = { userId: string; email: string; plan: 'free' | 'pro' }

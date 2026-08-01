@@ -118,6 +118,7 @@ export async function sendPasswordResetEmail(env: Env, toEmail: string, resetUrl
   const apiKey = env.RESEND_API_KEY?.trim()
   if (!apiKey) throw new Error('Email delivery is not configured')
   const from = env.EMAIL_FROM?.trim() || 'Osmosis <onboarding@resend.dev>'
+  const apiBaseUrl = env.API_BASE_URL?.trim() || 'https://osmosis-api.jtkopacz.workers.dev'
   const safeUrl = resetUrl.replace(/"/g, '&quot;')
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -129,7 +130,7 @@ export async function sendPasswordResetEmail(env: Env, toEmail: string, resetUrl
 
         <!-- Banner -->
         <tr><td style="border-radius:16px 16px 0 0;overflow:hidden;line-height:0;">
-          <img src="https://osmosis-api.jtkopacz.workers.dev/banner.png"
+          <img src="${apiBaseUrl}/banner.png"
                alt="Osmosis — Learn a new language naturally"
                width="600" style="width:100%;max-width:600px;display:block;">
         </td></tr>
@@ -141,7 +142,7 @@ export async function sendPasswordResetEmail(env: Env, toEmail: string, resetUrl
           <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
               <td style="vertical-align:middle;padding-right:12px;">
-                <img src="https://osmosis-api.jtkopacz.workers.dev/logo.png"
+                <img src="${apiBaseUrl}/logo.png"
                      alt="Osmosis logo" width="48" height="48"
                      style="display:block;border-radius:10px;">
               </td>
